@@ -1,0 +1,63 @@
+name: fittrack
+description: 简瘦 - 个人减肥锻炼记录 App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  go_router: ^14.2.0
+  drift: ^2.20.2
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  fl_chart: ^0.68.0
+  share_plus: ^10.0.0
+  flutter_local_notifications: ^18.0.0
+  image_picker: ^1.1.2
+  intl: ^0.20.2
+  flutter_tts: ^4.0.2
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.12
+  drift_dev: ^2.20.3
+  riverpod_generator: ^2.4.3
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/js.jpg
+    - assets/kp.png
+
+flutter_launcher_icons:
+  image_path: "assets/js.jpg"
+  android: true
+  ios: false
+
+flutter_native_splash:
+  image: assets/kp.png
+  color: "000000"
+  android: true
+  ios: false
+  android_gravity: fill
+  android_12:
+    image: assets/kp.png
+    color: "000000"
+    android_gravity: fill

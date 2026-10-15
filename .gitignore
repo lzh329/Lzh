@@ -1,0 +1,30 @@
+# Flutter
+.dart_tool/
+.packages
+build/
+*.iml
+.idea/
+.vscode/
+*.lock
+*.g.dart
+*.freezed.dart
+
+# Android
+android/.gradle/
+android/app/build/
+android/local.properties
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# macOS
+macos/Pods/
+
+# Misc
+*.sqlite
+*.sqlite-journal
+*.log
+.superpowers/
+.reasonix/
+.flutter-plugins-dependencies
