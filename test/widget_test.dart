@@ -1,30 +1,42 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/main.dart';
+import 'package:fittrack/core/theme/app_theme.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('AppTheme', () {
+    test('浅色主题启用 Material 3 且亮度正确', () {
+      final theme = AppTheme.light;
+      expect(theme.useMaterial3, isTrue);
+      expect(theme.brightness, Brightness.light);
+      expect(theme.colorScheme.brightness, Brightness.light);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('深色主题启用 Material 3 且亮度正确', () {
+      final theme = AppTheme.dark;
+      expect(theme.useMaterial3, isTrue);
+      expect(theme.brightness, Brightness.dark);
+      expect(theme.colorScheme.brightness, Brightness.dark);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('分类的颜色 / 标签 / 图标三者键集合一致', () {
+      final colorKeys = AppTheme.categoryColors.keys.toSet();
+      expect(AppTheme.categoryLabels.keys.toSet(), colorKeys);
+      expect(AppTheme.categoryIcons.keys.toSet(), colorKeys);
+      expect(colorKeys, containsAll(['bodyweight', 'gym', 'cardio', 'stretch']));
+    });
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('应用主题可正常渲染组件', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(child: Text('简瘦')),
+        ),
+      ),
+    );
+
+    expect(find.text('简瘦'), findsOneWidget);
   });
 }

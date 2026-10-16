@@ -9,12 +9,17 @@ allprojects {
 }
 
 subprojects {
-    afterEvaluate {
-        configurations.all {
-            resolutionStrategy {
-                force("androidx.activity:activity:1.9.3")
-                force("androidx.core:core-ktx:1.15.0")
-                force("androidx.core:core:1.15.0")
+    // 仅对 :app 强制 androidx 版本。
+    // 若对所有子模块生效，compileSdk 仍为 34 的插件模块（如 flutter_local_notifications）
+    // 会因 core 1.15.0 的 AAR 元数据要求（需 compileSdk >= 35）而构建失败。
+    if (path == ":app") {
+        afterEvaluate {
+            configurations.all {
+                resolutionStrategy {
+                    force("androidx.activity:activity:1.9.3")
+                    force("androidx.core:core-ktx:1.15.0")
+                    force("androidx.core:core:1.15.0")
+                }
             }
         }
     }
