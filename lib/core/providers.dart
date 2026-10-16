@@ -79,8 +79,7 @@ void initThemeMode(WidgetRef ref, {required String? themeMode}) {
 }
 
 // ── 首页数据 ──
-// 其他页面通过 ref.read(dashboardRefreshCount.notifier).state++ 触发首页刷新
-final dashboardRefreshCount = StateProvider<int>((ref) => 0);
+// 数据变更方调用 ref.invalidate(dashboardDataProvider) 让其自动重算，无需手动刷新计数器
 
 class DashboardData {
   final Set<DateTime> calendarWorkoutDates;
@@ -96,6 +95,7 @@ class DashboardData {
   final int todayCups;
   final List<GoalEntity> goals;
   final Map<int, String> exerciseNames;
+  final int weekWorkoutDays;
 
   const DashboardData({
     this.calendarWorkoutDates = const {},
@@ -111,12 +111,11 @@ class DashboardData {
     this.todayCups = 0,
     this.goals = const [],
     this.exerciseNames = const {},
+    this.weekWorkoutDays = 0,
   });
 }
 
 final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
-  ref.watch(dashboardRefreshCount);
-
   final workoutRepo = ref.watch(workoutRepoProvider);
   final bodyRepo = ref.watch(bodyMetricRepoProvider);
   final goalRepo = ref.watch(goalRepoProvider);
@@ -145,6 +144,11 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   final todayCalories = await dietRepo.getDailyCalories(now);
   final weighInDates = allMetrics.map((m) => DateTime(m.date.year, m.date.month, m.date.day)).toSet();
   final todayCups = await waterRepo.getTodayCups();
+  final weekWorkoutDays = recent
+      .where((w) => !w.date.isBefore(monday))
+      .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+      .toSet()
+      .length;
 
   return DashboardData(
     calendarWorkoutDates: calWorkouts.map((w) => DateTime(w.date.year, w.date.month, w.date.day)).toSet(),
@@ -160,6 +164,7 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
     todayCups: todayCups,
     goals: goals.where((g) => !g.isCompleted).toList(),
     exerciseNames: exerciseNames,
+    weekWorkoutDays: weekWorkoutDays,
   );
 });
 

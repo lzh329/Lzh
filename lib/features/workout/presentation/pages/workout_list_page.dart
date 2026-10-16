@@ -3,10 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/widgets/shimmer.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
-import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
+/// 全部训练（训练页数据源）
+final _allWorkoutsProvider = FutureProvider<List<WorkoutEntity>>((ref) {
+  return ref.watch(workoutRepoProvider).getAll();
+});
+
+/// 称重日期标记
+final _weighDatesProvider = FutureProvider<Set<DateTime>>((ref) async {
+  final metrics = await ref.watch(bodyMetricRepoProvider).getAll();
+  return metrics
+      .map((m) => DateTime(m.date.year, m.date.month, m.date.day))
+      .toSet();
+});
+
+/// 动作名映射
+final _exerciseNamesProvider = FutureProvider<Map<int, String>>((ref) async {
+  final list = await ref.watch(exerciseRepoProvider).getAll();
+  return {for (final e in list) e.id: e.name};
+});
+
+const _green = Color(0xFF66BB6A);
+const _orange = Color(0xFFFF9800);
+const _blue = Color(0xFF42A5F5);
+
+/// 训练记录页 —— 周视图 + 当天记录（v2）
 class WorkoutListPage extends ConsumerStatefulWidget {
   const WorkoutListPage({super.key});
 
@@ -15,327 +37,449 @@ class WorkoutListPage extends ConsumerStatefulWidget {
 }
 
 class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
-  DateTime? _fromDate;
-  DateTime? _toDate;
-  bool _selectMode = false;
-  final Set<int> _selectedIds = {};
-  List<WorkoutEntity> _cachedWorkouts = [];
-  Map<int, String> _exerciseNames = {};
+  late DateTime _selected;
+  late DateTime _weekStart; // 周一
 
   @override
   void initState() {
     super.initState();
-    _loadExerciseNames();
+    final now = DateTime.now();
+    _selected = DateTime(now.year, now.month, now.day);
+    _weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1));
   }
 
-  void _loadExerciseNames() async {
-    final exercises = await ref.read(exerciseRepoProvider).getAll();
+  void _shiftWeek(int delta) {
     setState(() {
-      _exerciseNames = {for (final e in exercises) e.id: e.name};
+      _weekStart = _weekStart.add(Duration(days: 7 * delta));
+      _selected = _weekStart;
     });
   }
 
-  void _toggleSelectMode() {
-    setState(() {
-      _selectMode = !_selectMode;
-      if (!_selectMode) _selectedIds.clear();
-    });
-  }
-
-  String _subtitle(WorkoutEntity w) {
-    final date = DateFormat('yyyy年MM月dd日 HH:mm').format(w.date);
-    if (w.durationSec != null) {
-      final m = w.durationSec! ~/ 60;
-      final s = w.durationSec! % 60;
-      return '$date · $m分$s秒';
-    }
-    return date;
-  }
-
-  void _toggleSelectAll() {
-    setState(() {
-      if (_selectedIds.length == _cachedWorkouts.length) {
-        _selectedIds.clear();
-      } else {
-        _selectedIds.addAll(_cachedWorkouts.map((w) => w.id));
-      }
-    });
-  }
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
-    final repo = ref.watch(workoutRepoProvider);
-    ref.watch(dashboardRefreshCount);
-    final theme = Theme.of(context);
+    final workoutsAsync = ref.watch(_allWorkoutsProvider);
+    final weighDates =
+        ref.watch(_weighDatesProvider).valueOrNull ?? const <DateTime>{};
+    final exerciseNames =
+        ref.watch(_exerciseNamesProvider).valueOrNull ?? const <int, String>{};
+    final today = DateTime.now();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectMode ? '已选 ${_selectedIds.length} 项' : '训练记录'),
-        leading: _selectMode
-          ? IconButton(icon: const Icon(Icons.close), onPressed: _toggleSelectMode)
-          : null,
+        title: const Text('训练记录'),
+        centerTitle: false,
         actions: [
-          if (_selectMode) ...[
-            TextButton(
-              onPressed: _toggleSelectAll,
-              child: Text(_selectedIds.length == _cachedWorkouts.length ? '反选' : '全选'),
-            ),
-            IconButton(
-              icon: Icon(Icons.delete_outline,
-                color: _selectedIds.isEmpty ? theme.colorScheme.outline : Colors.red),
-              onPressed: _selectedIds.isEmpty ? null : () => _confirmBatchDelete(context, repo),
-            ),
-          ] else ...[
-            IconButton(
-              icon: const Icon(Icons.calendar_month),
-              onPressed: () => context.push('/plan'),
-              tooltip: '训练计划',
-            ),
-            IconButton(
-              icon: const Icon(Icons.bar_chart),
-              onPressed: () => context.push('/workout/stats'),
-              tooltip: '训练统计',
-            ),
-            IconButton(
-              icon: const Icon(Icons.checklist),
-              onPressed: _toggleSelectMode,
-              tooltip: '批量管理',
-            ),
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () => _showDateFilter(context),
-            ),
-          ],
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            tooltip: '训练计划',
+            onPressed: () => context.push('/plan'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: '训练统计',
+            onPressed: () => context.push('/workout/stats'),
+          ),
         ],
       ),
-      body: FutureBuilder<List<WorkoutEntity>>(
-        future: repo.getAll(from: _fromDate, to: _toDate),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const ShimmerList();
-          }
-          var workouts = snapshot.data ?? [];
-          _cachedWorkouts = workouts;
-
-          if (workouts.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.sports_gymnastics, size: 64, color: theme.colorScheme.outline),
-                  const SizedBox(height: 16),
-                  Text('暂无训练记录', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
-                  const SizedBox(height: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () => context.push('/workout/quick-start'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('开始训练'),
-                  ),
-                ],
+      body: workoutsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('加载失败'),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => ref.invalidate(_allWorkoutsProvider),
+                child: const Text('重试'),
               ),
-            );
-          }
+            ],
+          ),
+        ),
+        data: (workouts) {
+          final dayWorkouts = workouts
+              .where((w) => _sameDay(w.date, _selected))
+              .toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+          final workoutDates = workouts
+              .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+              .toSet();
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: workouts.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-            itemBuilder: (context, index) {
-              final w = workouts[index];
-              final exerciseIds = w.sets.map((s) => s.exerciseId).toSet();
-              final names = exerciseIds
-                  .map((id) => _exerciseNames[id] ?? '')
-                  .where((n) => n.isNotEmpty)
-                  .toList();
-              final exerciseLabel = names.isNotEmpty
-                  ? '${names.join('、')}  · ${w.totalSets} 组'
-                  : '${exerciseIds.length} 个动作 · ${w.totalSets} 组';
-              final isSelected = _selectedIds.contains(w.id);
-
-              final tile = ListTile(
-                leading: _selectMode
-                  ? Checkbox(
-                      value: isSelected,
-                      onChanged: (_) {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedIds.remove(w.id);
-                          } else {
-                            _selectedIds.add(w.id);
-                          }
-                        });
-                      },
-                    )
-                  : CircleAvatar(
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      child: Icon(Icons.fitness_center, color: theme.colorScheme.onPrimaryContainer, size: 20),
+          return Column(
+            children: [
+              _WeekStrip(
+                weekStart: _weekStart,
+                selected: _selected,
+                markedDates: workoutDates,
+                weighDates: weighDates,
+                onSelect: (d) => setState(() => _selected = d),
+                onPrev: () => _shiftWeek(-1),
+                onNext: () => _shiftWeek(1),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                child: Row(
+                  children: [
+                    Text(
+                      _sameDay(_selected, today)
+                          ? '今天'
+                          : DateFormat('M月d日 EEEE', 'zh_CN')
+                              .format(_selected),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _green,
+                      ),
                     ),
-                title: Text(exerciseLabel),
-                subtitle: Text(_subtitle(w)),
-                trailing: _selectMode ? null : const Icon(Icons.chevron_right),
-                onTap: _selectMode
-                  ? () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedIds.remove(w.id);
-                        } else {
-                          _selectedIds.add(w.id);
-                        }
-                      });
-                    }
-                  : () => context.push('/workout/${w.id}'),
-              );
-
-              // 非选择模式下，允许滑动单独删除
-              if (_selectMode) return tile;
-              return Dismissible(
-                key: Key('workout-${w.id}'),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  color: Colors.red,
-                  child: const Icon(Icons.delete, color: Colors.white),
+                    const Spacer(),
+                    const _LegendDot(color: _orange, label: '训练'),
+                    const SizedBox(width: 12),
+                    const _LegendDot(color: _blue, label: '称重'),
+                  ],
                 ),
-                confirmDismiss: (_) async {
-                  return await _confirmSingleDelete(context, repo, w.id);
-                },
-                onDismissed: (_) {
-                  ref.read(dashboardRefreshCount.notifier).state++;
-                  setState(() {});
-                },
-                child: tile,
-              );
-            },
+              ),
+              Divider(height: 1, color: Colors.white.withAlpha(16)),
+              Expanded(
+                child: dayWorkouts.isEmpty
+                    ? _EmptyState(
+                        onStart: () => context.push('/workout/quick-start'),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: dayWorkouts.length,
+                        itemBuilder: (_, i) => _WorkoutCard(
+                          workout: dayWorkouts[i],
+                          exerciseNames: exerciseNames,
+                        ),
+                      ),
+              ),
+            ],
           );
         },
       ),
-      floatingActionButton: _selectMode
-        ? null
-        : FloatingActionButton(
-            onPressed: () => context.push('/workout/quick-start'),
-            child: const Icon(Icons.add),
-          ),
-    );
-  }
-
-  Future<bool> _confirmSingleDelete(BuildContext context, WorkoutRepository repo, int id) async {
-    bool confirmed = false;
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除训练记录'),
-        content: const Text('确定要删除这条训练记录吗？此操作不可恢复。'),
-        actions: [
-          TextButton(onPressed: () { Navigator.pop(ctx); }, child: const Text('取消')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              await repo.delete(id);
-              confirmed = true;
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-    return confirmed;
-  }
-
-  void _confirmBatchDelete(BuildContext context, WorkoutRepository repo) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('批量删除训练记录'),
-        content: Text('确定要删除选中的 ${_selectedIds.length} 条训练记录吗？此操作不可恢复。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              for (final id in _selectedIds.toList()) {
-                await repo.delete(id);
-              }
-              _selectedIds.clear();
-              _selectMode = false;
-              ref.read(dashboardRefreshCount.notifier).state++;
-              if (ctx.mounted) Navigator.pop(ctx);
-              setState(() {});
-            },
-            child: const Text('全部删除'),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: _green,
+        foregroundColor: Colors.black,
+        onPressed: () => context.push('/workout/quick-start'),
+        child: const Icon(Icons.add),
       ),
     );
   }
+}
 
-  void _showDateFilter(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
+// ───────────────────── 周日期条 ─────────────────────
+
+class _WeekStrip extends StatelessWidget {
+  final DateTime weekStart;
+  final DateTime selected;
+  final Set<DateTime> markedDates;
+  final Set<DateTime> weighDates;
+  final ValueChanged<DateTime> onSelect;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+
+  const _WeekStrip({
+    required this.weekStart,
+    required this.selected,
+    required this.markedDates,
+    required this.weighDates,
+    required this.onSelect,
+    required this.onPrev,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fmt = DateFormat('M月d日');
+    final end = weekStart.add(const Duration(days: 6));
+    const labels = ['一', '二', '三', '四', '五', '六', '日'];
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: onPrev,
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      '${fmt.format(weekStart)} - ${fmt.format(end)}',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '选择日期查看当天训练',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: onNext,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            children: [
+              for (int i = 0; i < 7; i++)
+                Builder(
+                  builder: (_) {
+                    final d = weekStart.add(Duration(days: i));
+                    final day = DateTime(d.year, d.month, d.day);
+                    return Expanded(
+                      child: _DayCell(
+                        date: d,
+                        label: labels[i],
+                        selected: _sameDay(d, selected),
+                        hasMark: markedDates.contains(day),
+                        hasWeight: weighDates.contains(day),
+                        onTap: () => onSelect(d),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _DayCell extends StatelessWidget {
+  final DateTime date;
+  final String label;
+  final bool selected;
+  final bool hasMark;
+  final bool hasWeight;
+  final VoidCallback onTap;
+
+  const _DayCell({
+    required this.date,
+    required this.label,
+    required this.selected,
+    required this.hasMark,
+    required this.hasWeight,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? _green.withAlpha(26) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? _green : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('按日期筛选', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      final date = await showDatePicker(
-                        context: ctx,
-                        initialDate: _fromDate ?? DateTime.now().subtract(const Duration(days: 30)),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) _fromDate = date;
-                    },
-                    child: Text(_fromDate != null ? DateFormat('yyyy/MM/dd').format(_fromDate!) : '开始日期'),
-                  ),
-                ),
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('至')),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      final date = await showDatePicker(
-                        context: ctx,
-                        initialDate: _toDate ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) _toDate = date;
-                    },
-                    child: Text(_toDate != null ? DateFormat('yyyy/MM/dd').format(_toDate!) : '结束日期'),
-                  ),
-                ),
-              ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: selected ? _green : Colors.white54,
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    setState(() { _fromDate = null; _toDate = null; });
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('清除筛选'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    setState(() {});
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('应用'),
-                ),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              '${date.day}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: selected ? _green : Colors.white,
+              ),
+            ),
+            const SizedBox(height: 5),
+            SizedBox(
+              height: 5,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (hasMark)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _orange,
+                      ),
+                    ),
+                  if (hasMark && hasWeight) const SizedBox(width: 3),
+                  if (hasWeight)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _blue,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ───────────────────── 其他组件 ─────────────────────
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onStart;
+
+  const _EmptyState({required this.onStart});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.self_improvement, size: 64, color: Colors.white.withAlpha(40)),
+          const SizedBox(height: 16),
+          Text(
+            '暂无训练记录',
+            style: theme.textTheme.bodyLarge
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.black87,
+            ),
+            onPressed: onStart,
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('开始训练'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutCard extends StatelessWidget {
+  final WorkoutEntity workout;
+  final Map<int, String> exerciseNames;
+
+  const _WorkoutCard({required this.workout, required this.exerciseNames});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final names = workout.sets
+        .map((s) => exerciseNames[s.exerciseId] ?? '')
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .join(' · ');
+
+    String? durationInfo;
+    if (workout.durationSec != null) {
+      final m = workout.durationSec! ~/ 60;
+      final s = workout.durationSec! % 60;
+      durationInfo = m > 0 ? '$m分$s秒' : '$s秒';
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: () => context.push('/workout/${workout.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _green.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.fitness_center, size: 18, color: _green),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      names.isEmpty ? '训练' : names,
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${workout.sets.length} 组'
+                      '${durationInfo != null ? ' · $durationInfo' : ''}'
+                      ' · ${DateFormat('HH:mm').format(workout.date)}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 20, color: theme.colorScheme.outline),
+            ],
+          ),
         ),
       ),
     );

@@ -1,6 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
-import 'package:fittrack/features/dashboard/presentation/dashboard_page.dart';
+import 'package:fittrack/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_list_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_active_page.dart';
@@ -19,6 +19,8 @@ import 'package:fittrack/features/diet/presentation/pages/diet_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/weekly_report_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/monthly_compare_page.dart';
 import 'package:fittrack/features/water/presentation/water_page.dart';
+import 'package:fittrack/features/trends/presentation/pages/trends_page.dart';
+import 'package:fittrack/features/workout/presentation/pages/custom_workout_page.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -60,19 +62,15 @@ final appRouter = GoRouter(
           pageBuilder: (context, state) => _tabPage(const DashboardPage(), state),
         ),
         GoRoute(
-          path: '/body',
-          pageBuilder: (context, state) => _tabPage(const BodyMetricPage(), state),
-        ),
-        GoRoute(
-          path: '/diet',
-          pageBuilder: (context, state) => _tabPage(const DietPage(), state),
-        ),
-        GoRoute(
           path: '/workout',
           pageBuilder: (context, state) => _tabPage(const WorkoutListPage(), state),
         ),
         GoRoute(
-          path: '/settings',
+          path: '/trends',
+          pageBuilder: (context, state) => _tabPage(const TrendsPage(), state),
+        ),
+        GoRoute(
+          path: '/profile',
           pageBuilder: (context, state) => _tabPage(const SettingsPage(), state),
         ),
       ],
@@ -80,6 +78,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/workout/quick-start',
       pageBuilder: (context, state) => _subPageTransition(const QuickStartPage(), state),
+    ),
+    GoRoute(
+      path: '/workout/custom',
+      pageBuilder: (context, state) => _subPageTransition(const CustomWorkoutPage(), state),
     ),
     GoRoute(
       path: '/workout/active',
@@ -141,6 +143,18 @@ final appRouter = GoRouter(
       path: '/water',
       pageBuilder: (context, state) => _subPageTransition(const WaterPage(), state),
     ),
+    GoRoute(
+      path: '/body',
+      pageBuilder: (context, state) => _subPageTransition(const BodyMetricPage(), state),
+    ),
+    GoRoute(
+      path: '/diet',
+      pageBuilder: (context, state) => _subPageTransition(const DietPage(), state),
+    ),
+    GoRoute(
+      path: '/settings',
+      pageBuilder: (context, state) => _subPageTransition(const SettingsPage(), state),
+    ),
   ],
 );
 
@@ -167,10 +181,9 @@ class ScaffoldWithNav extends StatelessWidget {
   const ScaffoldWithNav({super.key, required this.child});
 
   int _currentIndex(String location) {
-    if (location.startsWith('/body')) return 1;
-    if (location.startsWith('/diet')) return 2;
-    if (location.startsWith('/workout')) return 3;
-    if (location.startsWith('/settings')) return 4;
+    if (location.startsWith('/workout')) return 1;
+    if (location.startsWith('/trends')) return 2;
+    if (location.startsWith('/profile')) return 3;
     return 0;
   }
 
@@ -184,17 +197,16 @@ class ScaffoldWithNav extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) {
-          final routes = ['/', '/body', '/diet', '/workout', '/settings'];
+          final routes = ['/', '/workout', '/trends', '/profile'];
           if (routes[i] != location) {
             context.go(routes[i]);
           }
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: '首页'),
-          NavigationDestination(icon: Icon(Icons.monitor_weight_outlined), selectedIcon: Icon(Icons.monitor_weight), label: '体重'),
-          NavigationDestination(icon: Icon(Icons.restaurant_outlined), selectedIcon: Icon(Icons.restaurant), label: '饮食'),
+          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: '主控'),
           NavigationDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center), label: '训练'),
-          NavigationDestination(icon: Icon(Icons.person_outlined), selectedIcon: Icon(Icons.person), label: '我的'),
+          NavigationDestination(icon: Icon(Icons.show_chart), selectedIcon: Icon(Icons.trending_up), label: '趋势'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
         ],
       ),
     );

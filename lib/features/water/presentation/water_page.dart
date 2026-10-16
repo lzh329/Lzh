@@ -8,7 +8,6 @@ final _waterHistoryProvider = FutureProvider<List<WaterLogEntry>>((ref) =>
     ref.watch(waterRepoProvider).getHistory());
 
 final _todayCupsProvider = FutureProvider<int>((ref) {
-  ref.watch(dashboardRefreshCount);
   return ref.watch(waterRepoProvider).getTodayCups();
 });
 
@@ -153,7 +152,7 @@ class WaterPage extends ConsumerWidget {
     }
     ref.invalidate(_todayCupsProvider);
     ref.invalidate(_waterHistoryProvider);
-    ref.read(dashboardRefreshCount.notifier).state++;
+    ref.invalidate(dashboardDataProvider);
   }
 }
 

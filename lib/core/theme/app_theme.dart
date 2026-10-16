@@ -101,6 +101,22 @@ class AppTheme {
       ),
     ),
     iconTheme: const IconThemeData(color: Colors.white),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: Colors.black,
+      indicatorColor: const Color(0xFF66BB6A),
+      elevation: 0,
+      iconTheme: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected)
+              ? const IconThemeData(color: Colors.black)
+              : const IconThemeData(color: Colors.white54)),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected)
+              ? const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600)
+              : const TextStyle(fontSize: 12, color: Colors.white54)),
+    ),
     dialogTheme: DialogThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

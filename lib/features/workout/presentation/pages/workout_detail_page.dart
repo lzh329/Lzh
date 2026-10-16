@@ -19,7 +19,6 @@ class WorkoutDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(dashboardRefreshCount); // 编辑返回后触发刷新
     final workoutRepo = ref.watch(workoutRepoProvider);
     final exerciseRepo = ref.watch(exerciseRepoProvider);
     final theme = Theme.of(context);
@@ -257,7 +256,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   ));
                 }
                 await repo.updateWorkout(id: workoutId, sets: newSets);
-                ref.read(dashboardRefreshCount.notifier).state++;
+                ref.invalidate(dashboardDataProvider);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('保存'),
@@ -319,7 +318,7 @@ class WorkoutDetailPage extends ConsumerWidget {
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               await repo.delete(workoutId);
-              ref.read(dashboardRefreshCount.notifier).state++;
+              ref.invalidate(dashboardDataProvider);
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) Navigator.pop(context);
             },
