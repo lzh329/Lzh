@@ -191,18 +191,22 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                 children: [
                   Text('活动等级', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
-                  ...UserSettingsEntity.activityLevelLabels.entries.map((e) => ListTile(
-                    title: Text(e.value, style: theme.textTheme.bodyMedium),
-                    leading: Radio<String>(
-                      value: e.key,
-                      groupValue: _activityLevel,
-                      onChanged: (v) => setState(() => _activityLevel = v),
+                  RadioGroup<String>(
+                    groupValue: _activityLevel,
+                    onChanged: (v) => setState(() => _activityLevel = v),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: UserSettingsEntity.activityLevelLabels.entries.map((e) => ListTile(
+                        title: Text(e.value, style: theme.textTheme.bodyMedium),
+                        leading: Radio<String>(value: e.key),
+                        dense: true,
+                        visualDensity: VisualDensity.compact,
+                        contentPadding: EdgeInsets.zero,
+                        onTap: () => setState(() => _activityLevel = e.key),
+                      )).toList(),
                     ),
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => setState(() => _activityLevel = e.key),
-                  )),
+                  ),
                 ],
               ),
             ),

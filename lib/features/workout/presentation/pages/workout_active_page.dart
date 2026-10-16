@@ -293,7 +293,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
         if (category == 'gym') ...[
           TextField(
             controller: _weightCtrl,
-            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: '重量',
               hintText: state.lastWeight ?? '例如: 60',

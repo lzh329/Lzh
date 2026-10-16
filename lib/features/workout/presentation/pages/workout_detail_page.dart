@@ -228,7 +228,6 @@ class WorkoutDetailPage extends ConsumerWidget {
     final workout = await repo.getById(workoutId);
     if (workout == null || !context.mounted) return;
 
-    final exerciseRepo = ref.read(exerciseRepoProvider);
     // 为每个 set 创建编辑控制器
     final controllers = <int, _SetEditCtrl>{};
     for (final s in workout.sets) {
@@ -294,7 +293,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                       width: 80,
                       child: TextField(
                         controller: ctrl.weight,
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(labelText: '重量 kg', isDense: true),
                       ),
                     ),
@@ -369,6 +368,7 @@ Future<void> _shareWorkout(BuildContext context, WidgetRef ref,
     }
   }
 
+  if (!context.mounted) return;
   await shareWorkoutCard(context, workout, exerciseNames, bmiInfo);
 }
 
@@ -421,6 +421,6 @@ void _drawText(Canvas canvas, String text, double x, double y, double fontSize, 
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
     ))
     ..addText(text);
-  final paragraph = builder.build()..layout(ui.ParagraphConstraints(width: 360));
+  final paragraph = builder.build()..layout(const ui.ParagraphConstraints(width: 360));
   canvas.drawParagraph(paragraph, Offset(x, y));
 }

@@ -1089,7 +1089,7 @@ class _MonthlyCompareMiniCard extends StatelessWidget {
               const Text('📅', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 10),
               Expanded(child: Text('月度对比', style: theme.textTheme.titleSmall)),
-              Text('累计 ↓${totalLoss.toStringAsFixed(1)}斤 · ${days}天',
+              Text('累计 ↓${totalLoss.toStringAsFixed(1)}斤 · $days天',
                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.green, fontWeight: FontWeight.w600)),
               const SizedBox(width: 4),
               Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.outline),
@@ -1109,7 +1109,7 @@ class _WaterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final targetCups = 8;
+    const targetCups = 8;
     final cups = todayCups.clamp(0, targetCups + 2);
 
     return Card(

@@ -80,7 +80,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
         title: Text(_isEditing ? '编辑计划' : '创建计划'),
         actions: [
           TextButton(
-            onPressed: () => _save(context),
+            onPressed: () => _save(),
             child: const Text('保存'),
           ),
         ],
@@ -229,7 +229,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: weightCtrl,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: '目标重量 kg（可选）', isDense: true),
                 ),
                 const SizedBox(height: 8),
@@ -281,7 +281,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
     );
   }
 
-  Future<void> _save(BuildContext context) async {
+  Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -6,7 +6,7 @@ import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.da
 void main() {
   group('ExerciseEntity', () {
     test('should create exercise with required fields', () {
-      final exercise = ExerciseEntity(id: 1, name: '俯卧撑', category: 'bodyweight', muscleGroup: '胸部');
+      const exercise = ExerciseEntity(id: 1, name: '俯卧撑', category: 'bodyweight', muscleGroup: '胸部');
       expect(exercise.id, 1);
       expect(exercise.name, '俯卧撑');
       expect(exercise.category, 'bodyweight');

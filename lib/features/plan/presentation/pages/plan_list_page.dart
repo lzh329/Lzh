@@ -116,8 +116,11 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
                       value: isSelected,
                       onChanged: (_) {
                         setState(() {
-                          if (isSelected) _selectedIds.remove(plan.id);
-                          else _selectedIds.add(plan.id);
+                          if (isSelected) {
+                            _selectedIds.remove(plan.id);
+                          } else {
+                            _selectedIds.add(plan.id);
+                          }
                         });
                       },
                     )
@@ -142,13 +145,16 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
                         if (action == 'edit') {
                           await context.push('/plan/create', extra: plan);
                           if (mounted) setState(() {});
-                        }
-                        if (action == 'start') context.push('/plan/${plan.id}/execute');
-                        if (action == 'toggle') {
+                        } else if (action == 'start') {
+                          if (!mounted) return;
+                          context.push('/plan/${plan.id}/execute');
+                        } else if (action == 'toggle') {
                           await repo.toggleActive(plan.id, !plan.isActive);
-                          setState(() {});
+                          if (mounted) setState(() {});
+                        } else if (action == 'delete') {
+                          if (!mounted) return;
+                          _confirmDelete(context, repo, plan);
                         }
-                        if (action == 'delete') _confirmDelete(context, repo, plan);
                       },
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'start', child: Text('开始训练')),
@@ -166,8 +172,11 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
                 onTap: _selectMode
                   ? () {
                       setState(() {
-                        if (isSelected) _selectedIds.remove(plan.id);
-                        else _selectedIds.add(plan.id);
+                        if (isSelected) {
+                          _selectedIds.remove(plan.id);
+                        } else {
+                          _selectedIds.add(plan.id);
+                        }
                       });
                     }
                   : () => context.push('/plan/${plan.id}'),
@@ -208,7 +217,7 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('批量删除计划'),
+        title: const Text('批量删除计划'),
         content: Text('确定要删除选中的 ${_selectedIds.length} 个计划吗？此操作不可恢复。'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),

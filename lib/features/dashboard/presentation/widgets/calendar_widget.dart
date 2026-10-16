@@ -151,7 +151,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
                         child: Center(
                           child: Text(
                             w,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: Colors.grey,

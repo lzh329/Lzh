@@ -78,8 +78,8 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
               ),
               const SizedBox(height: 12),
               if (data.metrics.isEmpty)
-                Card(
-                  child: const SizedBox(height: 200,
+                const Card(
+                  child: SizedBox(height: 200,
                     child: Center(child: Text('暂无数据', style: TextStyle(color: Colors.grey)))),
                 )
               else
@@ -164,7 +164,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                   leading: CircleAvatar(
                     radius: 16,
                     backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text('${(m.weightKg * 2).toStringAsFixed(1)}'.substring(0, 4),
+                    child: Text((m.weightKg * 2).toStringAsFixed(1).substring(0, 4),
                       style: TextStyle(fontSize: 10, color: theme.colorScheme.onPrimaryContainer)),
                   ),
                   title: Text('${(m.weightKg * 2).toStringAsFixed(1)} 斤',
@@ -339,7 +339,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Text(
-        '📈 按当前趋势（每周$direction ${weeklyChange}斤），预计 $days 天后达到目标体重',
+        '📈 按当前趋势（每周$direction $weeklyChange斤），预计 $days 天后达到目标体重',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.primary,
           fontWeight: FontWeight.w500,
@@ -1128,9 +1128,9 @@ class _PhotoGrid extends StatelessWidget {
                 bottom: 0, left: 0, right: 0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 3),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: Colors.black54,
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
                   ),
                   child: Text(
                     dateFmt.format(photo.date),
@@ -1192,6 +1192,7 @@ class _PhotoGrid extends StatelessWidget {
           TextButton(
             onPressed: () async {
               await photoRepo.delete(photo.id);
+              if (!ctx.mounted) return;
               Navigator.pop(ctx);
               onChanged();
             },

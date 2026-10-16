@@ -52,7 +52,7 @@ class GoalRepositoryImpl implements GoalRepository {
 
   @override
   Future<void> complete(int id) async {
-    await (_db.update(_db.goals)..where((t) => t.id.equals(id))).write(GoalsCompanion(isCompleted: const Value(true)));
+    await (_db.update(_db.goals)..where((t) => t.id.equals(id))).write(const GoalsCompanion(isCompleted: Value(true)));
   }
 
   @override

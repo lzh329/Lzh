@@ -47,7 +47,7 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
     if (w.durationSec != null) {
       final m = w.durationSec! ~/ 60;
       final s = w.durationSec! % 60;
-      return '$date · ${m}分${s}秒';
+      return '$date · $m分$s秒';
     }
     return date;
   }
@@ -158,8 +158,11 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
                       value: isSelected,
                       onChanged: (_) {
                         setState(() {
-                          if (isSelected) _selectedIds.remove(w.id);
-                          else _selectedIds.add(w.id);
+                          if (isSelected) {
+                            _selectedIds.remove(w.id);
+                          } else {
+                            _selectedIds.add(w.id);
+                          }
                         });
                       },
                     )
@@ -173,8 +176,11 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
                 onTap: _selectMode
                   ? () {
                       setState(() {
-                        if (isSelected) _selectedIds.remove(w.id);
-                        else _selectedIds.add(w.id);
+                        if (isSelected) {
+                          _selectedIds.remove(w.id);
+                        } else {
+                          _selectedIds.add(w.id);
+                        }
                       });
                     }
                   : () => context.push('/workout/${w.id}'),

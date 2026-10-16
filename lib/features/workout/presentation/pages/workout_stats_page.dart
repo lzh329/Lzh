@@ -244,7 +244,7 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
             Text('本周训练', style: theme.textTheme.titleSmall),
             const SizedBox(height: 12),
             SizedBox(height: 160, child: BarChart(BarChartData(
-              gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 5),
+              gridData: const FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 5),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (v, _) => Text('${v.toInt()}', style: TextStyle(fontSize: 10, color: theme.colorScheme.outline)))),
                 bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, _) => Text(['一','二','三','四','五','六','日'][v.toInt()], style: TextStyle(fontSize: 10, color: theme.colorScheme.outline)))),
@@ -271,7 +271,7 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
             Text('体重趋势 (斤)', style: theme.textTheme.titleSmall),
             const SizedBox(height: 12),
             SizedBox(height: 160, child: LineChart(LineChartData(
-              gridData: FlGridData(show: true, drawVerticalLine: false),
+              gridData: const FlGridData(show: true, drawVerticalLine: false),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36, getTitlesWidget: (v, _) => Text('${v.toInt()}', style: TextStyle(fontSize: 10, color: theme.colorScheme.outline)))),
                 bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: (metrics.length / 4).ceilToDouble().clamp(1, 99), getTitlesWidget: (v, _) {

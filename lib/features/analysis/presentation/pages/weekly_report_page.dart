@@ -55,28 +55,28 @@ class WeeklyReportPage extends ConsumerWidget {
             children: [
               // ── 体重变化 ──
               if (data.weekMetrics.length >= 2) ...[
-                _SectionTitle(icon: Icons.monitor_weight, title: '体重'),
+                const _SectionTitle(icon: Icons.monitor_weight, title: '体重'),
                 const SizedBox(height: 8),
                 _buildWeightCard(theme, data, us),
                 const SizedBox(height: 20),
               ],
 
               // ── 训练 ──
-              _SectionTitle(icon: Icons.fitness_center, title: '训练'),
+              const _SectionTitle(icon: Icons.fitness_center, title: '训练'),
               const SizedBox(height: 8),
               _buildTrainingCard(theme, data),
               const SizedBox(height: 20),
 
               // ── 训练-体重关联 ──
               if (data.weekWorkouts.isNotEmpty && data.weekMetrics.isNotEmpty) ...[
-                _SectionTitle(icon: Icons.insights, title: '训练-体重关联'),
+                const _SectionTitle(icon: Icons.insights, title: '训练-体重关联'),
                 const SizedBox(height: 8),
                 _buildCorrelationChart(theme, data),
                 const SizedBox(height: 20),
               ],
 
               // ── 饮食 ──
-              _SectionTitle(icon: Icons.restaurant, title: '饮食'),
+              const _SectionTitle(icon: Icons.restaurant, title: '饮食'),
               const SizedBox(height: 8),
               _buildDietCard(theme, data, us),
             ],

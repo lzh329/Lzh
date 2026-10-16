@@ -84,9 +84,9 @@ class _DietPageState extends ConsumerState<DietPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildStat('已摄入', '${data.totalCal.toInt()}', 'kcal', theme, Icons.restaurant),
-                      _buildStat('蛋白质', '${data.totalProtein.toStringAsFixed(1)}', 'g', theme, Icons.egg),
-                      _buildStat('碳水', '${data.totalCarbs.toStringAsFixed(1)}', 'g', theme, Icons.grain),
-                      _buildStat('脂肪', '${data.totalFat.toStringAsFixed(1)}', 'g', theme, Icons.water_drop),
+                      _buildStat('蛋白质', data.totalProtein.toStringAsFixed(1), 'g', theme, Icons.egg),
+                      _buildStat('碳水', data.totalCarbs.toStringAsFixed(1), 'g', theme, Icons.grain),
+                      _buildStat('脂肪', data.totalFat.toStringAsFixed(1), 'g', theme, Icons.water_drop),
                     ],
                   ),
                 ),
@@ -356,8 +356,7 @@ class _DietPageState extends ConsumerState<DietPage> {
                                           color: Theme.of(ctx).colorScheme.onSecondaryContainer)),
                                     ),
                                     title: Text(food.name, style: Theme.of(ctx).textTheme.bodyMedium),
-                                    subtitle: Text('${food.caloriesPer100g.toInt()} kcal/100g' +
-                                      (food.proteinPer100g != null ? ' · 蛋白${food.proteinPer100g!.toStringAsFixed(1)}g' : ''),
+                                    subtitle: Text('${food.caloriesPer100g.toInt()} kcal/100g${food.proteinPer100g != null ? ' · 蛋白${food.proteinPer100g!.toStringAsFixed(1)}g' : ''}',
                                       style: Theme.of(ctx).textTheme.bodySmall),
                                     onTap: () {
                                       // 选食物 → 输入克数
@@ -420,8 +419,9 @@ class _DietPageState extends ConsumerState<DietPage> {
                 grams: grams,
                 mealType: mealType,
               );
+              if (!ctx.mounted) return;
               Navigator.pop(ctx);
-              setState(() {});
+              if (mounted) setState(() {});
             },
             child: const Text('添加'),
           ),
