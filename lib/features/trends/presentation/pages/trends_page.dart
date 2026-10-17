@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/widgets/info_link_card.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
+import 'package:fittrack/features/trends/presentation/widgets/companion_card.dart';
 import 'package:fittrack/features/trends/presentation/widgets/goal_progress_card.dart';
-import 'package:fittrack/features/trends/presentation/widgets/planet_card.dart';
 import 'package:fittrack/features/trends/presentation/widgets/story_cards.dart';
 import 'package:fittrack/features/trends/presentation/widgets/weight_chart_card.dart';
 import 'package:fittrack/features/trends/presentation/widgets/weight_timeline_card.dart';
@@ -40,7 +40,7 @@ class TrendsPage extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
             children: [
-              PlanetCard(totalLossJin: d.totalLossJin),
+              CompanionCard(totalLossJin: d.totalLossJin),
               GoalProgressCard(data: d),
               WeightTimelineCard(data: d),
               WeightChartCard(metrics: d.metrics),
