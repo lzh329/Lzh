@@ -46,6 +46,9 @@ final _prListProvider = FutureProvider<List<_PrExercise>>((ref) async {
 
 // ── 页面 ──
 
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+
 class WorkoutStatsPage extends ConsumerStatefulWidget {
   const WorkoutStatsPage({super.key});
 
@@ -101,16 +104,28 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.bar_chart, size: 64, color: theme.colorScheme.outline),
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: _green.withAlpha(26),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Icon(Icons.bar_chart, size: 38, color: _green),
+                ),
                 const SizedBox(height: 16),
-                Text('还没有训练数据', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
+                Text('还没有训练数据', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text('完成第一次训练后这里会有统计',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline)),
               ],
             ),
           );
         }
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             _buildStreakCard(theme, workouts),
             const SizedBox(height: 16),
@@ -137,10 +152,24 @@ class _WorkoutStatsPageState extends ConsumerState<WorkoutStatsPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.emoji_events, size: 64, color: theme.colorScheme.outline),
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: _amber.withAlpha(26),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Icon(Icons.emoji_events,
+                      size: 38, color: _amber),
+                ),
                 const SizedBox(height: 16),
-                Text('还没有训练记录', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
-                Text('完成训练后这里会显示你的最佳成绩', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                Text('还没有训练记录', style: theme.textTheme.titleMedium),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text('完成训练后这里会显示你的最佳成绩',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline)),
+                ),
               ],
             ),
           );
@@ -354,12 +383,18 @@ class _StatItem extends StatelessWidget {
   const _StatItem({required this.icon, required this.value, required this.label, required this.color});
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+        Icon(icon, color: color.withAlpha(200), size: 20),
+        const SizedBox(height: 5),
+        Text(value,
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.w700, color: color)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline, fontSize: 10)),
       ],
     );
   }

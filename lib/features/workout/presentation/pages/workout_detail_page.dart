@@ -13,6 +13,10 @@ import 'package:fittrack/features/settings/domain/entities/user_settings_entity.
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+const _purple = Color(0xFFAB47BC);
+
 class WorkoutDetailPage extends ConsumerWidget {
   final int workoutId;
   const WorkoutDetailPage({super.key, required this.workoutId});
@@ -54,7 +58,7 @@ class WorkoutDetailPage extends ConsumerWidget {
           final workout = data.workout!;
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
               Card(
                 child: Padding(
@@ -62,15 +66,57 @@ class WorkoutDetailPage extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(DateFormat('yyyy年MM月dd日 EEEE').format(workout.date),
-                        style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text('${workout.totalSets} 组 · ${workout.completedSets} 组完成',
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
+                      Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: _purple.withAlpha(32),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.fitness_center,
+                                size: 18, color: _purple),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              DateFormat('yyyy年MM月dd日 EEEE')
+                                  .format(workout.date),
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Text(
+                            '${workout.totalSets} 组',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: _purple),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _Badge(
+                              text: '完成 ${workout.completedSets} 组',
+                              color: _green),
+                          if (workout.durationSec != null)
+                            _Badge(
+                                text: _fmt(workout.durationSec!), color: _amber),
+                        ],
+                      ),
                       if (workout.note != null && workout.note!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text('备注：${workout.note}',
-                          style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic)),
+                        const SizedBox(height: 10),
+                        Text(
+                          '备注：${workout.note}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white54,
+                              fontStyle: FontStyle.italic),
+                        ),
                       ],
                     ],
                   ),
@@ -99,17 +145,55 @@ class WorkoutDetailPage extends ConsumerWidget {
                             Row(
                               children: [
                                 Container(
-                                  width: 8, height: 8,
+                                  width: 30,
+                                  height: 30,
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppTheme.categoryColors[category] ?? Colors.grey,
+                                    color: (AppTheme.categoryColors[category] ??
+                                            Colors.grey)
+                                        .withAlpha(30),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    AppTheme.categoryIcons[category] ??
+                                        Icons.fitness_center,
+                                    size: 15,
+                                    color: AppTheme.categoryColors[category] ??
+                                        Colors.grey,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(exerciseName, style: theme.textTheme.titleSmall),
-                                if (exercise?.muscleGroup != null)
-                                  Text(' · ${exercise!.muscleGroup}',
-                                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
+                                    children: [
+                                      Text(exerciseName,
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
+                                                  fontWeight:
+                                                      FontWeight.w600)),
+                                      if (exercise?.muscleGroup != null)
+                                        Flexible(
+                                          child: Text(
+                                            ' · ${exercise!.muscleGroup}',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                    color: theme.colorScheme
+                                                        .outline),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '${entry.value.length} 组',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.outline,
+                                      fontSize: 10),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -325,6 +409,29 @@ class WorkoutDetailPage extends ConsumerWidget {
             child: const Text('删除'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _Badge({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(28),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
