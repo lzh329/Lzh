@@ -22,6 +22,7 @@ import 'package:fittrack/features/analysis/presentation/pages/monthly_compare_pa
 import 'package:fittrack/features/water/presentation/water_page.dart';
 import 'package:fittrack/features/trends/presentation/pages/trends_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/custom_workout_page.dart';
+import 'package:fittrack/features/workout/presentation/pages/template_edit_page.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -83,6 +84,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/workout/custom',
       pageBuilder: (context, state) => _subPageTransition(const CustomWorkoutPage(), state),
+    ),
+    GoRoute(
+      path: '/workout/template-edit',
+      pageBuilder: (context, state) {
+        final id = int.tryParse(state.uri.queryParameters['id'] ?? '');
+        return _subPageTransition(TemplateEditPage(templateId: id), state);
+      },
     ),
     GoRoute(
       path: '/workout/active',

@@ -5,6 +5,8 @@ import 'package:fittrack/features/exercise/domain/repositories/exercise_reposito
 import 'package:fittrack/features/exercise/data/exercise_repository_impl.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 import 'package:fittrack/features/workout/data/workout_repository_impl.dart';
+import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
+import 'package:fittrack/features/workout/data/workout_template_repository_impl.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/body_log/data/body_metric_repository_impl.dart';
@@ -33,6 +35,11 @@ final exerciseRepoProvider = Provider<ExerciseRepository>((ref) {
 
 final workoutRepoProvider = Provider<WorkoutRepository>((ref) {
   return WorkoutRepositoryImpl(ref.watch(databaseProvider));
+});
+
+/// 训练模板仓库（v12 数据库化：推荐模板 + 我的模板）
+final workoutTemplateRepoProvider = Provider<WorkoutTemplateRepository>((ref) {
+  return WorkoutTemplateRepositoryImpl(ref.watch(databaseProvider));
 });
 
 final bodyMetricRepoProvider = Provider<BodyMetricRepository>((ref) {

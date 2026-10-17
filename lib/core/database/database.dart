@@ -147,6 +147,32 @@ class WaterLog extends Table {
   IntColumn get cups => integer()(); // 杯数（约200ml/杯）
 }
 
+// ─────────── v12: 训练模板 ───────────
+
+class WorkoutTemplates extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 100)();
+  TextColumn get difficulty => text()(); // 入门 / 中阶 / 高阶
+  TextColumn get focus => text()(); // 全身 / 放松 / 碎片
+  IntColumn get minutes => integer().withDefault(const Constant(15))();
+  TextColumn get description => text().nullable()();
+  TextColumn get accentKey => text().withDefault(const Constant('green'))();
+  BoolColumn get isRecommended =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class WorkoutTemplateExercises extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get templateId => integer()
+      .references(WorkoutTemplates, #id, onDelete: KeyAction.cascade)();
+  IntColumn get exerciseId => integer().references(Exercises, #id)();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  IntColumn get targetSets => integer().withDefault(const Constant(3))();
+  IntColumn get targetReps => integer().nullable()();
+  IntColumn get targetDurationSec => integer().nullable()();
+}
+
 // ───────────────────── 数据库 ─────────────────────
 
 @DriftDatabase(
@@ -163,13 +189,15 @@ class WaterLog extends Table {
     FoodLibrary,
     FoodLog,
     WaterLog,
+    WorkoutTemplates,
+    WorkoutTemplateExercises,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 11; // v11: neck_cm + goal_category + diet targets
+  int get schemaVersion => 12; // v12: 训练模板（workout_templates + workout_template_exercises）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -177,6 +205,7 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
       await _seedExercises(this);
       await _seedFoodLibrary(this);
+      await _seedWorkoutTemplates(this);
     },
     onUpgrade: (m, from, to) async {
       // Baseline migration (consolidates v2→v9 into single block)
@@ -225,7 +254,12 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(userSettings, userSettings.carbsTargetG);
         await m.addColumn(userSettings, userSettings.fatTargetG);
       }
-      // v12+ migrations go here
+      // v12: 训练模板
+      if (from < 12) {
+        await m.createTable(workoutTemplates);
+        await m.createTable(workoutTemplateExercises);
+        await _seedWorkoutTemplates(this);
+      }
     },
   );
 }
@@ -337,5 +371,148 @@ Future<void> _seedFoodLibrary(AppDatabase db) async {
       carbsPer100g: Value(f.$5),
       category: f.$6,
     ));
+  }
+}
+
+// ───────────────────── 训练模板种子 ─────────────────────
+
+class _TemplateItemSeed {
+  final String exerciseName;
+  final int sets;
+  final int? reps;
+  final int? durationSec;
+
+  const _TemplateItemSeed(
+    this.exerciseName,
+    this.sets, {
+    this.reps,
+    this.durationSec,
+  });
+}
+
+class _TemplateSeed {
+  final String name;
+  final String difficulty;
+  final String focus;
+  final int minutes;
+  final String accent;
+  final String description;
+  final List<_TemplateItemSeed> items;
+
+  const _TemplateSeed({
+    required this.name,
+    required this.difficulty,
+    required this.focus,
+    required this.minutes,
+    required this.accent,
+    required this.description,
+    required this.items,
+  });
+}
+
+const _templateSeeds = [
+  _TemplateSeed(
+    name: '新手减脂',
+    difficulty: '入门',
+    focus: '全身',
+    minutes: 15,
+    accent: 'green',
+    description: '低强度全身训练，适合刚开始减脂的用户',
+    items: [
+      _TemplateItemSeed('深蹲', 3, reps: 15),
+      _TemplateItemSeed('俯卧撑', 3, reps: 10),
+      _TemplateItemSeed('平板支撑', 3, durationSec: 30),
+      _TemplateItemSeed('卷腹', 3, reps: 12),
+    ],
+  ),
+  _TemplateSeed(
+    name: '燃脂训练',
+    difficulty: '中阶',
+    focus: '全身',
+    minutes: 20,
+    accent: 'orange',
+    description: '中等强度全身燃脂，高效消耗热量',
+    items: [
+      _TemplateItemSeed('深蹲', 4, reps: 15),
+      _TemplateItemSeed('弓步蹲', 3, reps: 12),
+      _TemplateItemSeed('俯卧撑', 3, reps: 12),
+      _TemplateItemSeed('仰卧起坐', 4, reps: 15),
+    ],
+  ),
+  _TemplateSeed(
+    name: '高效HIIT',
+    difficulty: '高阶',
+    focus: '全身',
+    minutes: 15,
+    accent: 'red',
+    description: '高强度间歇训练，快速燃烧',
+    items: [
+      _TemplateItemSeed('深蹲', 4, reps: 20),
+      _TemplateItemSeed('俯卧撑', 3, reps: 15),
+      _TemplateItemSeed('跳绳', 3, durationSec: 60),
+      _TemplateItemSeed('卷腹', 3, reps: 20),
+    ],
+  ),
+  _TemplateSeed(
+    name: '办公室运动',
+    difficulty: '入门',
+    focus: '碎片',
+    minutes: 10,
+    accent: 'cyan',
+    description: '无需器械，10 分钟碎片化训练',
+    items: [
+      _TemplateItemSeed('深蹲', 2, reps: 15),
+      _TemplateItemSeed('俯卧撑', 2, reps: 10),
+      _TemplateItemSeed('平板支撑', 2, durationSec: 30),
+      _TemplateItemSeed('肩背拉伸', 2, durationSec: 60),
+    ],
+  ),
+  _TemplateSeed(
+    name: '睡前拉伸',
+    difficulty: '入门',
+    focus: '放松',
+    minutes: 10,
+    accent: 'purple',
+    description: '放松全身肌肉，改善睡眠质量',
+    items: [
+      _TemplateItemSeed('全身拉伸', 2, durationSec: 60),
+      _TemplateItemSeed('腿部拉伸', 3, durationSec: 60),
+      _TemplateItemSeed('肩背拉伸', 2, durationSec: 60),
+    ],
+  ),
+];
+
+/// 写入推荐训练模板（动作按名称匹配动作库）
+Future<void> _seedWorkoutTemplates(AppDatabase db) async {
+  final exercises = await db.select(db.exercises).get();
+  final idByName = {for (final e in exercises) e.name: e.id};
+
+  for (final t in _templateSeeds) {
+    final templateId = await db.into(db.workoutTemplates).insert(
+          WorkoutTemplatesCompanion.insert(
+            name: t.name,
+            difficulty: t.difficulty,
+            focus: t.focus,
+            minutes: Value(t.minutes),
+            description: Value(t.description),
+            accentKey: Value(t.accent),
+            isRecommended: const Value(true),
+          ),
+        );
+    var order = 0;
+    for (final item in t.items) {
+      final exerciseId = idByName[item.exerciseName];
+      if (exerciseId == null) continue;
+      await db.into(db.workoutTemplateExercises).insert(
+            WorkoutTemplateExercisesCompanion.insert(
+              templateId: templateId,
+              exerciseId: exerciseId,
+              sortOrder: Value(order++),
+              targetSets: Value(item.sets),
+              targetReps: Value(item.reps),
+              targetDurationSec: Value(item.durationSec),
+            ),
+          );
+    }
   }
 }
