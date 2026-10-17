@@ -52,7 +52,8 @@ class AppTheme {
   static ThemeData get dark => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: Colors.black,
+    // v2 统一底色：近黑（非纯黑），让卡片有层次
+    scaffoldBackgroundColor: const Color(0xFF0B0B0B),
     colorScheme: const ColorScheme.dark(
       surface: Colors.black,
       onSurface: Colors.white,
@@ -73,16 +74,22 @@ class AppTheme {
       onInverseSurface: Colors.black,
     ),
     appBarTheme: const AppBarTheme(
-      centerTitle: true,
+      centerTitle: false,
       elevation: 0,
-      backgroundColor: Colors.black,
+      backgroundColor: Color(0xFF0B0B0B),
       foregroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
     ),
     cardTheme: CardThemeData(
-      elevation: 1,
+      elevation: 0,
       color: const Color(0xFF1A1A1A),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -135,6 +142,19 @@ class AppTheme {
       linearTrackColor: Color(0x1AFFFFFF),
       linearMinHeight: 3,
       circularTrackColor: Color(0x1AFFFFFF),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF23262A),
+      contentTextStyle: const TextStyle(color: Colors.white),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: Colors.white.withAlpha(14),
+      thickness: 1,
+      space: 1,
     ),
   );
 
