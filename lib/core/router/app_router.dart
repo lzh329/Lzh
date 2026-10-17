@@ -23,6 +23,7 @@ import 'package:fittrack/features/water/presentation/water_page.dart';
 import 'package:fittrack/features/trends/presentation/pages/trends_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/custom_workout_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/template_edit_page.dart';
+import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -94,7 +95,15 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/workout/active',
-      pageBuilder: (context, state) => _subPageTransition(const WorkoutActivePage(), state),
+      pageBuilder: (context, state) {
+        final extra = state.extra;
+        return _subPageTransition(
+          WorkoutActivePage(
+            initialSlots: extra is List<ExerciseSlot> ? extra : null,
+          ),
+          state,
+        );
+      },
     ),
     GoRoute(
       path: '/workout/stats',

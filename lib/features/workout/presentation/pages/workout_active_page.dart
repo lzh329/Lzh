@@ -12,7 +12,10 @@ import 'package:fittrack/features/workout/presentation/notifiers/workout_session
 /// - 自由训练：`/workout/active`，extra = `List<ExerciseSlot>`
 /// - 计划训练：`/plan/:id/execute`，extra = `int? dayOfWeek`
 class WorkoutActivePage extends ConsumerStatefulWidget {
-  const WorkoutActivePage({super.key});
+  /// 自由训练的初始动作槽位（构造函数传入，编译期类型安全；计划训练为 null）
+  final List<ExerciseSlot>? initialSlots;
+
+  const WorkoutActivePage({super.key, this.initialSlots});
 
   @override
   ConsumerState<WorkoutActivePage> createState() => _WorkoutActivePageState();
@@ -45,10 +48,11 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
       final planId = int.tryParse(parts.length > 2 ? parts[2].split('?').first : '') ?? 0;
       final dayOfWeek = _extra is int ? _extra : DateTime.now().weekday % 7;
       notifier.initPlan(planId, dayOfWeek);
-    } else {
-      if (_extra is List<ExerciseSlot>) {
-        notifier.initFree(_extra);
-      }
+    } else if (widget.initialSlots != null) {
+      notifier.initFree(widget.initialSlots!);
+    } else if (_extra is List<ExerciseSlot>) {
+      // 兼容通过 extra 直接传参的旧调用路径
+      notifier.initFree(_extra);
     }
   }
 

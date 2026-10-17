@@ -49,6 +49,13 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
         return;
       }
       context.pushReplacement('/workout/active', extra: slots);
+    } catch (e) {
+      // 兜底：把异常展示给用户而不是红屏
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('开始训练失败：$e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _starting = false);
     }
