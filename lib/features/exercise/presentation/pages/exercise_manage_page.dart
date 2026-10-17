@@ -132,28 +132,52 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.fitness_center, size: 48, color: theme.colorScheme.outline),
-                        const SizedBox(height: 8),
-                        Text('暂无动作', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF66BB6A).withAlpha(22),
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Icon(Icons.fitness_center,
+                              size: 30, color: Color(0xFF66BB6A)),
+                        ),
+                        const SizedBox(height: 14),
+                        Text('暂无匹配动作',
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: theme.colorScheme.outline)),
                       ],
                     ),
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
                   itemCount: exercises.length,
                   itemBuilder: (context, index) {
                     final ex = exercises[index];
                     final catColor = AppTheme.categoryColors[ex.category] ?? Colors.grey;
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: catColor.withAlpha(40),
-                        child: Icon(AppTheme.categoryIcons[ex.category] ?? Icons.fitness_center, color: catColor, size: 20),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8),
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: catColor.withAlpha(32),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          AppTheme.categoryIcons[ex.category] ??
+                              Icons.fitness_center,
+                          color: catColor,
+                          size: 18,
+                        ),
                       ),
-                      title: Text(ex.name),
+                      title: Text(ex.name, style: theme.textTheme.bodyLarge),
                       subtitle: Text(
                         '${AppTheme.categoryLabels[ex.category] ?? ex.category}${ex.muscleGroup != null ? ' · ${ex.muscleGroup}' : ''}',
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline),
                       ),
                       onTap: ex.category == 'stretch' && _stretchGuides.containsKey(ex.name)
                         ? () => _showStretchGuide(context, ex.name)
