@@ -13,6 +13,11 @@ import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart'
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+const _blue = Color(0xFF42A5F5);
+const _red = Color(0xFFEF5350);
+
 class BodyMetricPage extends ConsumerStatefulWidget {
   const BodyMetricPage({super.key});
 
@@ -50,11 +55,11 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
           final data = snapshot.data ?? const _BodyData();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              // ── 最新体重卡片 ──
+              // ── 体重概览（大字 + 三宫格）──
               if (data.metrics.isNotEmpty) ...[
-                _buildWeightCard(theme, data.metrics.last, ref),
+                _buildWeightCard(theme, data.metrics, ref),
                 const SizedBox(height: 20),
               ],
 
@@ -159,24 +164,40 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
               if (data.metrics.isNotEmpty) ...[
                 Text('历史记录', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
-                ...data.metrics.reversed.take(10).map((m) => ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text((m.weightKg * 2).toStringAsFixed(1).substring(0, 4),
-                      style: TextStyle(fontSize: 10, color: theme.colorScheme.onPrimaryContainer)),
-                  ),
-                  title: Text('${(m.weightKg * 2).toStringAsFixed(1)} 斤',
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  subtitle: Text(DateFormat('yyyy/MM/dd').format(m.date),
-                    style: theme.textTheme.bodySmall),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () async {
-                      await bodyRepo.delete(m.id);
-                      setState(() {});
-                    },
+                ...data.metrics.reversed.take(10).map((m) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _green.withAlpha(24),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        (m.weightKg * 2).toStringAsFixed(1),
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _green),
+                      ),
+                    ),
+                    title: Text('${(m.weightKg * 2).toStringAsFixed(1)} 斤',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: Text(DateFormat('yyyy/MM/dd').format(m.date),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      onPressed: () async {
+                        await bodyRepo.delete(m.id);
+                        setState(() {});
+                      },
+                    ),
                   ),
                 )),
               ],
@@ -198,98 +219,117 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     return _BodyData(metrics: metrics, photos: photos);
   }
 
-  Widget _buildWeightCard(ThemeData theme, BodyMetricEntity latestMetric, WidgetRef ref) {
-    final userSettingsAsync = ref.watch(userSettingsProvider);
-    final userSettings = userSettingsAsync.valueOrNull;
+  Widget _buildWeightCard(
+    ThemeData theme,
+    List<BodyMetricEntity> metrics,
+    WidgetRef ref,
+  ) {
+    final userSettings = ref.watch(userSettingsProvider).valueOrNull;
+    final latest = metrics.last;
+    final currentJin = latest.weightKg * 2;
+    final targetKg = userSettings?.targetWeightKg;
+    final targetJin = targetKg != null ? targetKg * 2 : null;
 
-    // BMI 颜色
-    Color? cardColor;
-    Color? iconAndBadgeColor;
-    if (userSettings?.heightCm != null) {
-      final bmi = userSettings!.bmi(latestMetric.weightKg);
-      if (bmi != null) {
-        final level = UserSettingsEntity.bmiLevel(bmi);
-        switch (level) {
-          case 'normal':
-            cardColor = Colors.green.withAlpha(25);
-            iconAndBadgeColor = Colors.green;
-          case 'overweight':
-            cardColor = Colors.orange.withAlpha(40);
-            iconAndBadgeColor = Colors.orange;
-          case 'obese':
-            cardColor = Colors.red.withAlpha(40);
-            iconAndBadgeColor = Colors.red;
-          default:
-            cardColor = Colors.blue.withAlpha(20);
-            iconAndBadgeColor = Colors.blue;
-        }
-      }
-    }
+    final firstJin = metrics.first.weightKg * 2;
+    final totalLoss = metrics.length >= 2 ? firstJin - currentJin : null;
 
-    final targetJin = userSettings?.targetWeightKg != null
-      ? (userSettings!.targetWeightKg! * 2).toStringAsFixed(1)
-      : null;
+    final weekCutoff = DateTime.now().subtract(const Duration(days: 7));
+    final older = metrics.where((m) => m.date.isBefore(weekCutoff)).toList();
+    final weekStartJin = older.isNotEmpty ? older.last.weightKg * 2 : null;
+    final weekChange = weekStartJin != null ? currentJin - weekStartJin : null;
 
-    final bmiVal = userSettings?.bmi(latestMetric.weightKg);
-    final levelLabel = bmiVal != null
-      ? UserSettingsEntity.bmiLevelLabels[UserSettingsEntity.bmiLevel(bmiVal)]
-      : null;
+    final bmi = userSettings?.bmi(latest.weightKg);
+    final bmiLabel = bmi != null
+        ? UserSettingsEntity.bmiLevelLabels[UserSettingsEntity.bmiLevel(bmi)]
+        : null;
+    final bmiColor = bmi == null
+        ? Colors.white54
+        : switch (UserSettingsEntity.bmiLevel(bmi)) {
+            'normal' => _green,
+            'overweight' => _amber,
+            'obese' => _red,
+            _ => _blue,
+          };
 
-    return Card(
-      color: cardColor ?? theme.colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    String signed(double v) => v < -0.05
+        ? '-${v.abs().toStringAsFixed(1)}'
+        : (v > 0.05 ? '+${v.toStringAsFixed(1)}' : '0.0');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.monitor_weight, size: 36,
-                  color: iconAndBadgeColor ?? theme.colorScheme.onPrimaryContainer),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('最新体重',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: (cardColor != null ? iconAndBadgeColor : theme.colorScheme.onPrimaryContainer)?.withAlpha(180))),
-                    Text('${(latestMetric.weightKg * 2).toStringAsFixed(1)} 斤',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: iconAndBadgeColor ?? theme.colorScheme.onPrimaryContainer)),
-                  ],
-                ),
-              ],
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: currentJin),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (context, v, _) => Text(
+                v.toStringAsFixed(1),
+                style: const TextStyle(
+                    fontSize: 40, fontWeight: FontWeight.w700, height: 1.0),
+              ),
             ),
-            if (iconAndBadgeColor != null || targetJin != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (iconAndBadgeColor != null && bmiVal != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: iconAndBadgeColor.withAlpha(30),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'BMI ${bmiVal.toStringAsFixed(1)} · $levelLabel',
-                        style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600, color: iconAndBadgeColor),
-                      ),
-                    ),
-                  if (iconAndBadgeColor != null && targetJin != null) const SizedBox(width: 10),
-                  if (targetJin != null)
-                    Text('目标 $targetJin 斤',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
-                ],
+            const SizedBox(width: 5),
+            Text('斤',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.outline)),
+            if (bmi != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: bmiColor.withAlpha(30),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'BMI ${bmi.toStringAsFixed(1)} · $bmiLabel',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: bmiColor),
+                ),
               ),
             ],
+            const Spacer(),
+            if (targetJin != null)
+              Text(
+                '目标 ${targetJin.toStringAsFixed(1)} 斤',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline),
+              ),
           ],
         ),
-      ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            _MiniStatCard(
+              label: '最新',
+              value: currentJin.toStringAsFixed(1),
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
+            _MiniStatCard(
+              label: '本周',
+              value: weekChange != null ? signed(weekChange) : '—',
+              color: weekChange == null
+                  ? Colors.white54
+                  : (weekChange < -0.05
+                      ? _green
+                      : (weekChange > 0.05 ? _red : Colors.white70)),
+            ),
+            const SizedBox(width: 8),
+            _MiniStatCard(
+              label: '累计',
+              value: totalLoss != null ? totalLoss.toStringAsFixed(1) : '—',
+              color: (totalLoss ?? 0) > 0.05 ? _green : Colors.white54,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -461,6 +501,61 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
 }
 
 /// 页面数据
+class _MiniStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _MiniStatCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
+                        color: color),
+                  ),
+                  Text(
+                    ' 斤',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline, fontSize: 9),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BodyData {
   final List<BodyMetricEntity> metrics;
   final List<Photo> photos;

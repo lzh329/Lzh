@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/diet/domain/entities/diet_entity.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
+
+const _orange = Color(0xFFFF7043);
+const _amber = Color(0xFFFFA726);
+const _green = Color(0xFF66BB6A);
+const _purple = Color(0xFFAB47BC);
+const _blue = Color(0xFF42A5F5);
 
 class DietPage extends ConsumerStatefulWidget {
   const DietPage({super.key});
@@ -75,47 +80,37 @@ class _DietPageState extends ConsumerState<DietPage> {
               ),
               const SizedBox(height: 16),
 
-              // 热量汇总卡片
-              Card(
-                color: theme.colorScheme.primaryContainer.withAlpha(120),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStat('已摄入', '${data.totalCal.toInt()}', 'kcal', theme, Icons.restaurant),
-                      _buildStat('蛋白质', data.totalProtein.toStringAsFixed(1), 'g', theme, Icons.egg),
-                      _buildStat('碳水', data.totalCarbs.toStringAsFixed(1), 'g', theme, Icons.grain),
-                      _buildStat('脂肪', data.totalFat.toStringAsFixed(1), 'g', theme, Icons.water_drop),
-                    ],
-                  ),
-                ),
+              // 热量总卡
+              _CalorieSummaryCard(
+                totalCal: data.totalCal,
+                protein: data.totalProtein,
+                carbs: data.totalCarbs,
+                fat: data.totalFat,
+                targetCal:
+                    ref.watch(userSettingsProvider).valueOrNull?.dailyCalorieTarget,
               ),
               const SizedBox(height: 12),
 
               // ── 本周热量缺口趋势 ──
               _WeeklyDeficitChart(dietRepo: ref.watch(dietRepoProvider), userSettingsAsync: ref.watch(userSettingsProvider)),
 
-              // ── 宏量营养饼图 ──
-              if (data.totalCal > 0)
-                _MacroPieChart(
-                  protein: data.totalProtein,
-                  carbs: data.totalCarbs,
-                  fat: data.totalFat,
-                ),
-
               const SizedBox(height: 16),
 
-              // 加餐按钮
+              // 添加食物（橙色主按钮）
               SizedBox(
-                width: double.infinity,
+                height: 46,
                 child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _orange,
+                    foregroundColor: Colors.black87,
+                  ),
                   onPressed: () => _showAddFoodDialog(context, ref),
-                  icon: const Icon(Icons.add),
-                  label: const Text('添加食物'),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('添加食物',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
               // 餐次筛选
               SingleChildScrollView(
@@ -129,81 +124,12 @@ class _DietPageState extends ConsumerState<DietPage> {
               ),
               const SizedBox(height: 12),
 
-              // 食物列表
-              if (data.filteredLogs.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Text('还没有记录\n点击上方按钮添加食物',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
-                    ),
-                  ),
-                )
-              else
-                ..._groupByMeal(data.filteredLogs).entries.map((entry) {
-                  final logs = entry.value;
-                  final mealCal = logs.fold(0.0, (sum, l) => sum + l.totalCalories);
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(FoodLogEntity.mealTypeLabels[entry.key] ?? entry.key,
-                                style: theme.textTheme.titleSmall),
-                              const Spacer(),
-                              Text('${mealCal.toInt()} kcal',
-                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
-                            ],
-                          ),
-                          const Divider(),
-                          ...logs.map((l) => ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: theme.colorScheme.secondaryContainer,
-                              child: Text('${l.totalCalories.toInt()}',
-                                style: TextStyle(fontSize: 10, color: theme.colorScheme.onSecondaryContainer)),
-                            ),
-                            title: Text(l.foodName ?? '食物#${l.foodId}',
-                              style: theme.textTheme.bodyMedium),
-                            subtitle: Text('${l.grams.toInt()}g',
-                              style: theme.textTheme.bodySmall),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              onPressed: () async {
-                                await dietRepo.deleteLog(l.id);
-                                setState(() {});
-                              },
-                            ),
-                          )),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+              // 三餐卡片（未记录的餐次显示虚框引导）
+              ..._buildMealCards(context, data, dietRepo),
             ],
           );
         },
       ),
-    );
-  }
-
-  Widget _buildStat(String label, String value, String unit, ThemeData theme, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        Text(unit, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-      ],
     );
   }
 
@@ -227,6 +153,159 @@ class _DietPageState extends ConsumerState<DietPage> {
     }
     return map;
   }
+
+  /// 三餐卡片：有记录的显示明细，未记录的显示虚框引导
+  List<Widget> _buildMealCards(
+    BuildContext context,
+    _DietDayData data,
+    DietRepository dietRepo,
+  ) {
+    final theme = Theme.of(context);
+    final groups = _groupByMeal(data.filteredLogs);
+    final meals = _mealFilter == 'all'
+        ? FoodLogEntity.mealTypeLabels.keys.toList()
+        : [_mealFilter];
+
+    return meals.map((meal) {
+      final logs = groups[meal];
+      final label = FoodLogEntity.mealTypeLabels[meal] ?? meal;
+      final color = _mealColor(meal);
+      final icon = _mealIcon(meal);
+
+      // 未记录 → 虚线引导卡
+      if (logs == null || logs.isEmpty) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          child: InkWell(
+            onTap: () => _showAddFoodDialog(context, ref),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: Colors.white.withAlpha(26), width: 0.8),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(20),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, size: 16, color: color.withAlpha(150)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '$label · 待记录',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '＋ 添加',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      final mealCal =
+          logs.fold(0.0, (sum, l) => sum + l.totalCalories);
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 6),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(32),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, size: 16, color: color),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(label,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Text(
+                    '${mealCal.toInt()} kcal',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ...logs.map((l) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${l.totalCalories.toInt()}',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: color),
+                      ),
+                    ),
+                    title: Text(l.foodName ?? '食物#${l.foodId}',
+                        style: theme.textTheme.bodyMedium),
+                    subtitle: Text('${l.grams.toInt()} g',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      onPressed: () async {
+                        await dietRepo.deleteLog(l.id);
+                        setState(() {});
+                      },
+                    ),
+                  )),
+            ],
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Color _mealColor(String meal) => switch (meal) {
+        'breakfast' => _amber,
+        'lunch' => _green,
+        'dinner' => _purple,
+        _ => _blue,
+      };
+
+  IconData _mealIcon(String meal) => switch (meal) {
+        'breakfast' => Icons.wb_twilight,
+        'lunch' => Icons.lunch_dining,
+        'dinner' => Icons.dinner_dining,
+        _ => Icons.cookie_outlined,
+      };
 
   Future<_DietDayData> _loadDay(DietRepository repo, DateTime date) async {
     final logs = await repo.getLogsByDate(date);
@@ -431,63 +510,97 @@ class _DietPageState extends ConsumerState<DietPage> {
   }
 }
 
-/// 宏量营养饼图
-class _MacroPieChart extends StatelessWidget {
+/// 热量总卡（v2）：大字摄入 + 进度 + 三大营养素
+class _CalorieSummaryCard extends StatelessWidget {
+  final double totalCal;
   final double protein;
   final double carbs;
   final double fat;
+  final int? targetCal;
 
-  const _MacroPieChart({
+  const _CalorieSummaryCard({
+    required this.totalCal,
     required this.protein,
     required this.carbs,
     required this.fat,
+    this.targetCal,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalG = protein + carbs + fat;
-    if (totalG <= 0) return const SizedBox.shrink();
-
-    final proteinPct = (protein / totalG * 100).toStringAsFixed(0);
-    final carbsPct = (carbs / totalG * 100).toStringAsFixed(0);
-    final fatPct = (fat / totalG * 100).toStringAsFixed(0);
+    final target = targetCal;
+    final hasTarget = target != null && target > 0;
+    final progress = hasTarget ? (totalCal / target).clamp(0.0, 1.0) : null;
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('宏量营养', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 12),
             Row(
               children: [
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: PieChart(PieChartData(
-                    sections: [
-                      PieChartSectionData(value: protein, color: Colors.red.shade300, title: '', radius: 22),
-                      PieChartSectionData(value: carbs, color: Colors.orange.shade300, title: '', radius: 22),
-                      PieChartSectionData(value: fat, color: Colors.amber.shade300, title: '', radius: 22),
-                    ],
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 28,
-                  )),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _MacroLegend(color: Colors.red.shade300, label: '蛋白质', grams: '${protein.toStringAsFixed(0)}g', pct: '$proteinPct%'),
-                      const SizedBox(height: 6),
-                      _MacroLegend(color: Colors.orange.shade300, label: '碳水', grams: '${carbs.toStringAsFixed(0)}g', pct: '$carbsPct%'),
-                      const SizedBox(height: 6),
-                      _MacroLegend(color: Colors.amber.shade300, label: '脂肪', grams: '${fat.toStringAsFixed(0)}g', pct: '$fatPct%'),
-                    ],
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: _orange.withAlpha(32),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child:
+                      const Icon(Icons.restaurant, size: 16, color: _orange),
                 ),
+                const SizedBox(width: 10),
+                Text('今日摄入', style: theme.textTheme.titleSmall),
+                const Spacer(),
+                if (hasTarget)
+                  Text(
+                    '${(progress! * 100).round()}%',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _orange),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '${totalCal.toInt()}',
+                  style: const TextStyle(
+                      fontSize: 30, fontWeight: FontWeight.w700, height: 1.0),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  hasTarget ? '/ $target kcal' : 'kcal',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ],
+            ),
+            if (hasTarget) ...[
+              const SizedBox(height: 11),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: Colors.white.withAlpha(16),
+                  color: totalCal > target ? Colors.red : _orange,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _Nutrient(label: '蛋白', value: protein, color: _green),
+                _Nutrient(label: '碳水', value: carbs, color: _amber),
+                _Nutrient(label: '脂肪', value: fat, color: _orange),
               ],
             ),
           ],
@@ -497,30 +610,48 @@ class _MacroPieChart extends StatelessWidget {
   }
 }
 
-class _MacroLegend extends StatelessWidget {
-  final Color color;
+class _Nutrient extends StatelessWidget {
   final String label;
-  final String grams;
-  final String pct;
+  final double value;
+  final Color color;
 
-  const _MacroLegend({
-    required this.color,
+  const _Nutrient({
     required this.label,
-    required this.grams,
-    required this.pct,
+    required this.value,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 6),
-        Expanded(child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
-        Text(grams, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(width: 4),
-        Text(pct, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
-      ],
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value.toStringAsFixed(0),
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600, color: color),
+              ),
+              Text(
+                'g',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
