@@ -23,6 +23,7 @@ class WorkoutActivePage extends ConsumerStatefulWidget {
 
 class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   bool _initialized = false;
+  bool _sessionReady = false;
   late final String _location;
   late final dynamic _extra;
 
@@ -37,7 +38,14 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
     _initialized = true;
     _location = GoRouterState.of(context).uri.toString();
     _extra = GoRouterState.of(context).extra;
-    _initSession();
+
+    // Riverpod 禁止在 widget 生命周期内修改 provider：
+    // 延后到当前帧构建完成后再初始化训练会话
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _initSession();
+      setState(() => _sessionReady = true);
+    });
   }
 
   void _initSession() {
@@ -69,6 +77,14 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
     final sessionState = ref.watch(workoutSessionProvider);
     final notifier = ref.read(workoutSessionProvider.notifier);
     final theme = Theme.of(context);
+
+    // 会话初始化中（provider 修改已延后到帧后执行，这里避免空态闪烁）
+    if (!_sessionReady) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('训练')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     // 计划模式加载中
     if (sessionState.sessionType == 'plan' && sessionState.slots.isEmpty) {
