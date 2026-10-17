@@ -50,4 +50,25 @@ class WeightAnalysis {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day).add(Duration(days: days));
   }
+
+  /// 目标进度（0~1）：从起始体重走向目标的完成度
+  ///
+  /// 无起始基准时按"距目标 20 斤 = 满环"的相对进度兜底。
+  static double targetProgress({
+    required double? startJin,
+    required double? currentJin,
+    required double? targetJin,
+  }) {
+    if (currentJin == null || targetJin == null) return 0;
+    if (currentJin <= targetJin) return 1;
+
+    final start = startJin;
+    if (start == null || start <= targetJin) {
+      final span = (currentJin - targetJin) > 20.0
+          ? (currentJin - targetJin)
+          : 20.0;
+      return ((span - (currentJin - targetJin)) / span).clamp(0.0, 1.0);
+    }
+    return ((start - currentJin) / (start - targetJin)).clamp(0.0, 1.0);
+  }
 }

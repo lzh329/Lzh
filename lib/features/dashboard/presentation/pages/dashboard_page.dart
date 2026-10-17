@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/weight_analysis.dart';
-import 'package:fittrack/core/widgets/info_link_card.dart';
-import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/calendar_widget.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/milestone_celebration.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/hero_weight_section.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/recent_workouts_section.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/target_ring_card.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/weight_hero_card.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/stat_tiles_grid.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/today_timeline.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 
-/// 主控页 —— 减脂仪表盘（v2）
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+const _orange = Color(0xFFFF7043);
+const _blue = Color(0xFF42A5F5);
+const _purple = Color(0xFFAB47BC);
+
+/// 主控页 —— v2 仪表盘
 ///
-/// 结构：月历 → 最新体重卡 → 快速入口（热量/饮水/月对比/周报）→ 最近训练
+/// 结构：问候 + 连续打卡 → 大字体重区（进度条）→ 2×2 磁贴
+/// → 今日动态时间线 → 最近训练 → 分析入口 → 训练日历
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
@@ -27,20 +33,6 @@ class DashboardPage extends ConsumerWidget {
     final settings = ref.watch(userSettingsProvider).valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('简瘦'),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.fitness_center),
-            tooltip: '开始训练',
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              context.push('/workout/quick-start');
-            },
-          ),
-        ],
-      ),
       body: dataAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -58,7 +50,7 @@ class DashboardPage extends ConsumerWidget {
         ),
         data: (data) => _DashboardBody(data: data, settings: settings),
       ),
-      floatingActionButton: const _WeighInFab(),
+      floatingActionButton: const WeighInFab(),
     );
   }
 }
@@ -73,152 +65,173 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final latest = data.latestMetric;
+    final today = DateTime.now();
 
-    // ── 派生指标 ──
+    // ── 派生数据 ──
     final currentJin = latest != null ? latest.weightKg * 2 : null;
     final targetJin = settings?.targetWeightKg != null
         ? settings!.targetWeightKg! * 2
         : null;
-    final totalLossJin =
-        (data.firstMetric != null && latest != null && data.firstMetric!.id != latest.id)
-            ? data.firstMetric!.weightKg * 2 - currentJin!
-            : null;
-    final daysToTarget =
-        WeightAnalysis.predictDaysToTarget(data.allMetrics, settings?.targetWeightKg);
-    final bmi =
-        (latest != null && settings != null) ? settings!.bmi(latest.weightKg) : null;
+    final startJin =
+        data.firstMetric != null ? data.firstMetric!.weightKg * 2 : null;
+    final daysToTarget = WeightAnalysis.predictDaysToTarget(
+        data.allMetrics, settings?.targetWeightKg);
+    final weekChange = (data.weekStartMetric != null &&
+            latest != null &&
+            data.weekStartMetric!.id != latest.id)
+        ? currentJin! - data.weekStartMetric!.weightKg * 2
+        : null;
+    final progress = WeightAnalysis.targetProgress(
+      startJin: startJin,
+      currentJin: currentJin,
+      targetJin: targetJin,
+    );
 
-    // ── 热量 ──
-    final calorieTarget = settings?.dailyCalorieTarget ?? settings?.tdee()?.round();
-    final todayCalories = data.todayCalories?.round();
-    final String calorieSubtitle;
-    if (todayCalories != null) {
-      calorieSubtitle = calorieTarget != null
-          ? '已摄入 $todayCalories / $calorieTarget kcal'
-          : '已摄入 $todayCalories kcal';
+    // 连续打卡（体重或训练任一有记录算一天）
+    final streak = _calcStreak([
+      ...data.allMetrics.map((m) => m.date),
+      ...data.allWorkouts.map((w) => w.date),
+    ]);
+
+    final todayWorkouts =
+        data.allWorkouts.where((w) => _sameDay(w.date, today)).toList();
+
+    // ── 今日动态 ──
+    final entries = <TimelineEntry>[];
+    if (data.todayMetric != null) {
+      entries.add(TimelineEntry(
+        title:
+            '记录体重 ${(data.todayMetric!.weightKg * 2).toStringAsFixed(1)} 斤',
+        subtitle: _fmtTime(data.todayMetric!.date),
+        color: _amber,
+      ));
+    }
+    for (final w in todayWorkouts) {
+      final names = w.sets
+          .map((s) => data.exerciseNames[s.exerciseId] ?? '')
+          .where((n) => n.isNotEmpty)
+          .toSet()
+          .take(2)
+          .join(' · ');
+      entries.add(TimelineEntry(
+        title: names.isEmpty ? '完成训练' : '完成训练 · $names',
+        subtitle: _fmtTime(w.date),
+        color: _green,
+      ));
+    }
+    if (data.todayCalories != null) {
+      entries.add(TimelineEntry(
+        title: '记录饮食 ${data.todayCalories!.round()} kcal',
+        color: _orange,
+      ));
     } else {
-      calorieSubtitle = '今天还没有记录饮食，去记录 →';
+      entries.add(const TimelineEntry(title: '待记录：今日饮食', done: false));
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 110),
-      children: [
-        // ── 月历卡 ──
-        Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-            child: CalendarWidget(
-              workoutDates: data.calendarWorkoutDates,
-              weighInDates: data.weighInDates,
-              onDayTap: (date) =>
-                  _showDayDetail(context, date, data.allWorkouts, data.exerciseNames),
-            ),
+    // ── 2×2 磁贴 ──
+    final tiles = [
+      StatTileData(
+        icon: Icons.local_fire_department,
+        color: _orange,
+        label: '今日热量',
+        value:
+            data.todayCalories != null ? '${data.todayCalories!.round()}' : '—',
+        unit: 'kcal',
+        onTap: () => context.push('/diet'),
+      ),
+      StatTileData(
+        icon: Icons.water_drop,
+        color: _blue,
+        label: '今日饮水',
+        value: '${data.todayCups}',
+        unit: '/ 8 杯',
+        onTap: () => context.push('/water'),
+      ),
+      StatTileData(
+        icon: Icons.fitness_center,
+        color: _green,
+        label: '今日训练',
+        value: '${todayWorkouts.length}',
+        unit: '次',
+        onTap: () => context.push('/workout/quick-start'),
+      ),
+      StatTileData(
+        icon: Icons.calendar_month,
+        color: _purple,
+        label: '本周训练',
+        value: '${data.weekWorkoutDays}',
+        unit: '/ 7 天',
+        onTap: () => context.push('/analysis/weekly'),
+      ),
+    ];
+
+    return SafeArea(
+      bottom: false,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+        children: [
+          GreetingHeader(streakDays: streak),
+          const SizedBox(height: 22),
+          HeroWeightSection(
+            currentJin: currentJin,
+            targetJin: targetJin,
+            progress: progress,
+            weekChangeJin: weekChange,
+            daysToTarget: daysToTarget,
+            onTap: () => context.push('/body'),
           ),
-        ),
-
-        // ── 最新体重卡 ──
-        WeightHeroCard(
-          currentJin: currentJin,
-          targetJin: targetJin,
-          totalLossJin: totalLossJin,
-          daysToTarget: daysToTarget,
-          bmi: bmi,
-          recordedAt: latest?.date,
-          onTap: () => context.push('/body'),
-        ),
-
-        // ── 目标进度环 ──
-        TargetRingCard(
-          startJin: data.firstMetric != null
-              ? data.firstMetric!.weightKg * 2
-              : null,
-          currentJin: currentJin,
-          targetJin: targetJin,
-          daysToTarget: daysToTarget,
-          onTap: () => context.push('/goals'),
-        ),
-
-        // ── 快速入口 ──
-        InfoLinkCard(
-          icon: Icons.local_fire_department,
-          iconColor: const Color(0xFFFF7043),
-          title: '今日热量',
-          subtitle: calorieSubtitle,
-          onTap: () => context.push('/diet'),
-        ),
-        InfoLinkCard(
-          icon: Icons.water_drop,
-          iconColor: const Color(0xFF42A5F5),
-          title: '今日饮水',
-          subtitle: '${data.todayCups} / 8 杯',
-          trailing: SizedBox(
-            width: 64,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: (data.todayCups / 8).clamp(0.0, 1.0),
-                minHeight: 6,
-                color: const Color(0xFF42A5F5),
-                backgroundColor: const Color(0xFF42A5F5).withAlpha(40),
+          const SizedBox(height: 24),
+          StatTilesGrid(tiles: tiles),
+          const SizedBox(height: 22),
+          TodayTimeline(entries: entries),
+          const SizedBox(height: 22),
+          RecentWorkoutsSection(
+            workouts: data.recentWorkouts,
+            exerciseNames: data.exerciseNames,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniLink(
+                  icon: Icons.summarize_outlined,
+                  label: '本周周报',
+                  onTap: () => context.push('/analysis/weekly'),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniLink(
+                  icon: Icons.calendar_view_month,
+                  label: '月度对比',
+                  onTap: () => context.push('/analysis/monthly'),
+                ),
+              ),
+            ],
           ),
-          onTap: () => context.push('/water'),
-        ),
-        InfoLinkCard(
-          icon: Icons.calendar_view_month,
-          iconColor: const Color(0xFFAB47BC),
-          title: '月度对比',
-          subtitle: totalLossJin != null && totalLossJin > 0.05
-              ? '累计 ${totalLossJin.toStringAsFixed(1)} 斤变化'
-              : '查看本月体重 · 训练 · 饮食变化',
-          onTap: () => context.push('/analysis/monthly'),
-        ),
-        InfoLinkCard(
-          icon: Icons.summarize_outlined,
-          iconColor: const Color(0xFF66BB6A),
-          title: '本周周报',
-          subtitle: '本周训练 ${data.weekWorkoutDays} 天',
-          onTap: () => context.push('/analysis/weekly'),
-        ),
-
-        const SizedBox(height: 6),
-
-        // ── 最近训练 ──
-        RecentWorkoutsSection(
-          workouts: data.recentWorkouts,
-          exerciseNames: data.exerciseNames,
-        ),
-
-        // ── 目标入口（有目标时显示）──
-        if (data.goals.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text('训练日历', style: theme.textTheme.titleSmall),
+          ),
           Card(
-            child: InkWell(
-              onTap: () => context.push('/goals'),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                child: Row(
-                  children: [
-                    const Icon(Icons.flag, size: 20, color: Color(0xFFFFA726)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '目标进度：${data.goals.first.currentValue.toStringAsFixed(0)} / ${data.goals.first.targetValue.toStringAsFixed(0)}（${data.goals.length} 个进行中）',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                    Icon(Icons.chevron_right,
-                        size: 20, color: theme.colorScheme.outline),
-                  ],
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+              child: CalendarWidget(
+                workoutDates: data.calendarWorkoutDates,
+                weighInDates: data.weighInDates,
+                onDayTap: (date) => _showDayDetail(
+                  context,
+                  date,
+                  data.allWorkouts,
+                  data.exerciseNames,
                 ),
               ),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
@@ -229,10 +242,8 @@ class _DashboardBody extends StatelessWidget {
     List<WorkoutEntity> allWorkouts,
     Map<int, String> exerciseNames,
   ) {
-    final dayWorkouts = allWorkouts.where((w) =>
-        w.date.year == date.year &&
-        w.date.month == date.month &&
-        w.date.day == date.day).toList();
+    final dayWorkouts =
+        allWorkouts.where((w) => _sameDay(w.date, date)).toList();
 
     showModalBottomSheet(
       context: context,
@@ -285,7 +296,7 @@ class _DashboardBody extends StatelessWidget {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.fitness_center,
-                        size: 18, color: Color(0xFF66BB6A)),
+                        size: 18, color: _green),
                     title: Text(names.isEmpty ? '训练' : names,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text('${w.sets.length} 组'),
@@ -305,176 +316,58 @@ class _DashboardBody extends StatelessWidget {
   }
 }
 
-/// 记录体重 FAB —— 点击弹出快捷录入
-class _WeighInFab extends ConsumerWidget {
-  const _WeighInFab();
+class _MiniLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MiniLink({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final todayMetric = ref.watch(dashboardDataProvider).valueOrNull?.todayMetric;
-    final hasRecorded = todayMetric != null;
-
-    return FloatingActionButton.extended(
-      onPressed: () {
-        HapticFeedback.mediumImpact();
-        _showQuickWeightInput(context, ref, todayMetric);
-      },
-      backgroundColor: hasRecorded ? const Color(0xFF66BB6A) : null,
-      icon: Icon(hasRecorded ? Icons.check_circle : Icons.monitor_weight),
-      label: Text(
-        hasRecorded
-            ? '今日 ${(todayMetric.weightKg * 2).toStringAsFixed(1)} 斤 ✓'
-            : '记录体重',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  void _showQuickWeightInput(
-    BuildContext context,
-    WidgetRef ref,
-    BodyMetricEntity? existing,
-  ) {
-    final weightCtrl = TextEditingController(
-      text: existing != null ? (existing.weightKg * 2).toStringAsFixed(1) : '',
-    );
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24, 20, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom,
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 16),
+        label: Text(label, style: const TextStyle(fontSize: 12)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white70,
+          side: BorderSide(color: Colors.white.withAlpha(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outline.withAlpha(80),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                existing != null ? '修改今日体重' : '记录今日体重',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                DateFormat('M月d日 EEEE', 'zh_CN').format(DateTime.now()),
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: weightCtrl,
-                autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: theme.textTheme.headlineMedium,
-                decoration: InputDecoration(
-                  labelText: '体重',
-                  suffixText: '斤',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest
-                      .withAlpha(80),
-                ),
-                onSubmitted: (_) => _doSave(context, ctx, ref, weightCtrl),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton.icon(
-                  onPressed: () => _doSave(context, ctx, ref, weightCtrl),
-                  icon: const Icon(Icons.save, size: 20),
-                  label: const Text('保存', style: TextStyle(fontSize: 16)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _doSave(
-    BuildContext pageContext,
-    BuildContext sheetCtx,
-    WidgetRef ref,
-    TextEditingController ctrl,
-  ) async {
-    final weight = double.tryParse(ctrl.text);
-    if (weight == null || weight <= 0) {
-      if (!sheetCtx.mounted) return;
-      ScaffoldMessenger.of(sheetCtx).showSnackBar(
-        const SnackBar(content: Text('请输入有效的体重')),
-      );
-      return;
-    }
-
-    // 记录前状态（用于里程碑判断）
-    final dashboard = ref.read(dashboardDataProvider).valueOrNull;
-    final firstKg = dashboard?.firstMetric?.weightKg;
-    final previousKg =
-        dashboard?.todayMetric?.weightKg ?? dashboard?.latestMetric?.weightKg;
-
-    final repo = ref.read(bodyMetricRepoProvider);
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
-    final existingEntries = await repo.getAll(from: todayStart, to: today);
-
-    if (existingEntries.isNotEmpty) {
-      await repo.update(
-        id: existingEntries.first.id,
-        date: today,
-        weightKg: weight / 2,
-      );
-    } else {
-      await repo.create(date: today, weightKg: weight / 2);
-    }
-
-    // ── 里程碑判断：累计减重跨过 5 的倍数 ──
-    int? milestone;
-    if (firstKg != null && previousKg != null) {
-      final oldLoss = firstKg * 2 - previousKg * 2;
-      final newLoss = firstKg * 2 - weight;
-      for (int m = 5; m <= 200; m += 5) {
-        if (oldLoss < m && newLoss >= m) {
-          milestone = m;
-        }
-      }
-    }
-
-    // 数据变更 → 依赖自动失效刷新（替代手动刷新计数器）
-    ref.invalidate(dashboardDataProvider);
-    ref.invalidate(userSettingsProvider);
-
-    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
-    if (pageContext.mounted) {
-      ScaffoldMessenger.of(pageContext).showSnackBar(
-        SnackBar(
-          content: Text('今日 ${weight.toStringAsFixed(1)} 斤 ✓'),
-          duration: const Duration(seconds: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
-      );
-    }
-
-    if (milestone != null && pageContext.mounted) {
-      await showMilestoneCelebration(pageContext, milestone);
-    }
+      ),
+    );
   }
+}
+
+// ───────────── 辅助函数 ─────────────
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _fmtTime(DateTime d) => DateFormat('HH:mm').format(d);
+
+/// 连续打卡天数：从今天（或昨天）向前连续有记录的天数
+int _calcStreak(List<DateTime> dates) {
+  if (dates.isEmpty) return 0;
+  final set = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+  final now = DateTime.now();
+  var day = DateTime(now.year, now.month, now.day);
+  if (!set.contains(day)) {
+    day = day.subtract(const Duration(days: 1));
+  }
+  var streak = 0;
+  while (set.contains(day)) {
+    streak++;
+    day = day.subtract(const Duration(days: 1));
+  }
+  return streak;
 }

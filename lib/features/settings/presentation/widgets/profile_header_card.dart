@@ -139,10 +139,8 @@ class ProfileHeaderCard extends StatelessWidget {
     );
   }
 
-  Widget _vDivider() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Container(width: 1, height: 28, color: Colors.white.withAlpha(20)),
-      );
+  // 用留白代替竖线：更现代，也避免细线被 Flutter 调试叠加层（Debug Paint）高亮成红线
+  Widget _vDivider() => const SizedBox(width: 20);
 }
 
 class _Metric extends StatelessWidget {
