@@ -8,6 +8,9 @@ import 'package:fittrack/features/plan/domain/repositories/plan_repository.dart'
 
 final _planListProvider = FutureProvider<List<PlanEntity>>((ref) => ref.watch(planRepoProvider).getAll());
 
+const _green = Color(0xFF66BB6A);
+const _grey = Color(0xFF90A4AE);
+
 class PlanListPage extends ConsumerStatefulWidget {
   const PlanListPage({super.key});
 
@@ -84,37 +87,152 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calendar_month, size: 64, color: theme.colorScheme.outline),
-                  const SizedBox(height: 16),
-                  Text('还没有训练计划', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
-                  const SizedBox(height: 8),
-                  FilledButton.tonalIcon(
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: _green.withAlpha(26),
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: const Icon(Icons.calendar_month,
+                        size: 38, color: _green),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('还没有训练计划', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    '创建计划，让每次训练都有章可循',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                  const SizedBox(height: 22),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _green,
+                      foregroundColor: Colors.black87,
+                    ),
                     onPressed: () async {
                       await context.push('/plan/create');
                       if (mounted) setState(() {});
                     },
-                    icon: const Icon(Icons.add),
-                    label: const Text('创建计划'),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('创建计划',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             itemCount: plans.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
             itemBuilder: (context, index) {
               final plan = plans[index];
               final dayCount = plan.days.map((d) => d.dayOfWeek).toSet().length;
               final isSelected = _selectedIds.contains(plan.id);
+              final activeColor = plan.isActive ? _green : _grey;
 
-              return ListTile(
-                leading: _selectMode
-                  ? Checkbox(
-                      value: isSelected,
-                      onChanged: (_) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                  leading: _selectMode
+                      ? Checkbox(
+                          value: isSelected,
+                          onChanged: (_) {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedIds.remove(plan.id);
+                              } else {
+                                _selectedIds.add(plan.id);
+                              }
+                            });
+                          },
+                        )
+                      : Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: activeColor.withAlpha(30),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            plan.isActive
+                                ? Icons.calendar_month
+                                : Icons.calendar_today,
+                            size: 20,
+                            color: activeColor,
+                          ),
+                        ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          plan.name,
+                          style: theme.textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (plan.isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _green.withAlpha(26),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '进行中',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: _green),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    '$dayCount 天训练 · ${plan.days.length} 个动作',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline),
+                  ),
+                  trailing: _selectMode
+                    ? null
+                    : PopupMenuButton<String>(
+                        onSelected: (action) async {
+                          if (action == 'edit') {
+                            await context.push('/plan/create', extra: plan);
+                            if (mounted) setState(() {});
+                          } else if (action == 'start') {
+                            if (!mounted) return;
+                            context.push('/plan/${plan.id}/execute');
+                          } else if (action == 'toggle') {
+                            await repo.toggleActive(plan.id, !plan.isActive);
+                            if (mounted) setState(() {});
+                          } else if (action == 'delete') {
+                            if (!mounted) return;
+                            _confirmDelete(context, repo, plan);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(value: 'start', child: Text('开始训练')),
+                          const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                          const PopupMenuItem(
+                            value: 'toggle',
+                            child: Text('启用/停用'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('删除', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                  onTap: _selectMode
+                    ? () {
                         setState(() {
                           if (isSelected) {
                             _selectedIds.remove(plan.id);
@@ -122,64 +240,9 @@ class _PlanListPageState extends ConsumerState<PlanListPage> {
                             _selectedIds.add(plan.id);
                           }
                         });
-                      },
-                    )
-                  : CircleAvatar(
-                      backgroundColor: plan.isActive
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        plan.isActive ? Icons.calendar_month : Icons.calendar_today,
-                        color: plan.isActive
-                          ? theme.colorScheme.onPrimaryContainer
-                          : theme.colorScheme.outline,
-                        size: 20,
-                      ),
-                    ),
-                title: Text(plan.name),
-                subtitle: Text('$dayCount 天训练 · ${plan.days.length} 个动作'),
-                trailing: _selectMode
-                  ? null
-                  : PopupMenuButton<String>(
-                      onSelected: (action) async {
-                        if (action == 'edit') {
-                          await context.push('/plan/create', extra: plan);
-                          if (mounted) setState(() {});
-                        } else if (action == 'start') {
-                          if (!mounted) return;
-                          context.push('/plan/${plan.id}/execute');
-                        } else if (action == 'toggle') {
-                          await repo.toggleActive(plan.id, !plan.isActive);
-                          if (mounted) setState(() {});
-                        } else if (action == 'delete') {
-                          if (!mounted) return;
-                          _confirmDelete(context, repo, plan);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'start', child: Text('开始训练')),
-                        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                        const PopupMenuItem(
-                          value: 'toggle',
-                          child: Text('启用/停用'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('删除', style: TextStyle(color: Colors.red)),
-                        ),
-                      ],
-                    ),
-                onTap: _selectMode
-                  ? () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedIds.remove(plan.id);
-                        } else {
-                          _selectedIds.add(plan.id);
-                        }
-                      });
-                    }
-                  : () => context.push('/plan/${plan.id}'),
+                      }
+                    : () => context.push('/plan/${plan.id}'),
+                ),
               );
             },
           );

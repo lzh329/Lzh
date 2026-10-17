@@ -8,6 +8,9 @@ import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 import 'package:fittrack/features/plan/domain/repositories/plan_repository.dart';
 
+const _green = Color(0xFF66BB6A);
+const _blue = Color(0xFF42A5F5);
+
 class PlanCreatePage extends ConsumerStatefulWidget {
   const PlanCreatePage({super.key});
 
@@ -85,88 +88,239 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
           ),
         ],
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: '计划名称',
-                hintText: '例如: 三分化训练',
-                isDense: true,
+          // ── 基本信息 ──
+          _groupCard(
+            theme,
+            icon: Icons.edit_note,
+            color: _green,
+            title: '基本信息',
+            children: [
+              TextField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: '计划名称',
+                  hintText: '例如: 三分化训练',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: TextField(
-              controller: _noteCtrl,
-              decoration: const InputDecoration(
-                labelText: '备注（可选）',
-                isDense: true,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noteCtrl,
+                decoration: const InputDecoration(
+                  labelText: '备注（可选）',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 12),
-          // 星期选择
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: PlanDayEntity.dayLabels.asMap().entries.map((e) {
-                final isSelected = e.key == _selectedDay;
-                final hasExercises = (_schedule[e.key] ?? []).isNotEmpty;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text('${e.value}${hasExercises ? ' ✓' : ''}'),
-                    selected: isSelected,
-                    onSelected: (_) => setState(() => _selectedDay = e.key),
-                    visualDensity: VisualDensity.compact,
+          const SizedBox(height: 14),
+
+          // ── 排期 ──
+          _groupCard(
+            theme,
+            icon: Icons.calendar_month,
+            color: _blue,
+            title: '排期',
+            children: [
+              Row(
+                children: [
+                  for (final entry in PlanDayEntity.dayLabels.entries)
+                    Expanded(
+                      child: Builder(
+                        builder: (_) {
+                          final isSelected = entry.key == _selectedDay;
+                          final count = (_schedule[entry.key] ?? []).length;
+                          return GestureDetector(
+                            onTap: () =>
+                                setState(() => _selectedDay = entry.key),
+                            child: Container(
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 2),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? _green.withAlpha(26)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? _green
+                                      : Colors.white.withAlpha(16),
+                                  width: isSelected ? 1.4 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    entry.value,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isSelected
+                                          ? _green
+                                          : Colors.white54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$count',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: count > 0
+                                          ? Colors.white
+                                          : Colors.white30,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (todayActions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Center(
+                    child: Text(
+                      '${PlanDayEntity.dayLabels[_selectedDay]}还没有动作，点击下方添加',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline),
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          const Divider(),
-          // 当天已选动作
-          if (todayActions.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: theme.colorScheme.surfaceContainerHighest.withAlpha(60),
-              padding: const EdgeInsets.all(10),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: todayActions.asMap().entries.map((entry) {
+                )
+              else
+                ...todayActions.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final de = entry.value;
-                  final label = _exerciseNameCache[de.exerciseId] ?? '动作 #${de.exerciseId}';
-                  return InputChip(
-                    label: Text('$label × ${de.targetSets}组', style: const TextStyle(fontSize: 12)),
-                    onPressed: () => _editDayExercise(context, de, idx),
-                    onDeleted: () {
-                      setState(() => _schedule[_selectedDay]?.removeAt(idx));
-                    },
-                    deleteIcon: const Icon(Icons.close, size: 14),
+                  final label = _exerciseNameCache[de.exerciseId] ??
+                      '动作 #${de.exerciseId}';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _green,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(label,
+                              style: theme.textTheme.bodyMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        Text('× ${de.targetSets} 组',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline,
+                                fontSize: 11)),
+                        const SizedBox(width: 2),
+                        IconButton(
+                          icon: const Icon(Icons.tune, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: '调整组数',
+                          onPressed: () =>
+                              _editDayExercise(context, de, idx),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: '移除',
+                          onPressed: () {
+                            setState(() => _schedule[_selectedDay]?.removeAt(idx));
+                          },
+                        ),
+                      ],
+                    ),
                   );
-                }).toList(),
+                }),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 42,
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showExercisePicker(context),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text('给${PlanDayEntity.dayLabels[_selectedDay]}添加动作'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _green,
+                    side: BorderSide(color: _green.withAlpha(80)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.black87,
+              ),
+              onPressed: () => _save(),
+              child: Text(
+                _isEditing ? '保存修改' : '创建计划',
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
-
-          // 添加动作按钮
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: OutlinedButton.icon(
-              onPressed: () => _showExercisePicker(context),
-              icon: const Icon(Icons.add),
-              label: Text('给${PlanDayEntity.dayLabels[_selectedDay]}添加动作'),
-            ),
           ),
-
-          const Spacer(),
         ],
+      ),
+    );
+  }
+
+  Widget _groupCard(
+    ThemeData theme, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(32),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 14, color: color),
+                ),
+                const SizedBox(width: 10),
+                Text(title,
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...children,
+          ],
+        ),
       ),
     );
   }

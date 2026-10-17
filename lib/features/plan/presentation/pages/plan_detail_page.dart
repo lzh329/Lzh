@@ -7,6 +7,8 @@ import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 
+const _green = Color(0xFF66BB6A);
+
 class PlanDetailPage extends ConsumerWidget {
   final int planId;
   const PlanDetailPage({super.key, required this.planId});
@@ -62,15 +64,48 @@ class PlanDetailPage extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(plan.name, style: theme.textTheme.titleLarge),
+                      Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: _green.withAlpha(32),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.calendar_month,
+                                size: 18, color: _green),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              plan.name,
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Text(
+                            '${plan.days.map((d) => d.dayOfWeek).toSet().length} 天',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _green),
+                          ),
+                        ],
+                      ),
                       if (plan.note != null && plan.note!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(plan.note!, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
+                        const SizedBox(height: 10),
+                        Text(
+                          plan.note!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white54, height: 1.5),
+                        ),
                       ],
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
-                        '${plan.days.map((d) => d.dayOfWeek).toSet().length} 天训练 · ${plan.days.length} 个动作',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        '共 ${plan.days.length} 个动作',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline, fontSize: 10),
                       ),
                     ],
                   ),
@@ -88,58 +123,78 @@ class PlanDetailPage extends ConsumerWidget {
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
-                  color: isToday ? theme.colorScheme.primaryContainer.withAlpha(40) : null,
+                  color: isToday ? _green.withAlpha(14) : null,
                   child: Padding(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Text(label,
+                            if (isToday) ...[
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _green,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                            ],
+                            Text(
+                              label,
                               style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                                color: isToday ? theme.colorScheme.primary : null,
-                              )),
+                                fontWeight: FontWeight.w600,
+                                color: isToday ? _green : null,
+                              ),
+                            ),
                             if (isToday)
                               const Padding(
-                                padding: EdgeInsets.only(left: 8),
-                                child: Chip(
-                                  label: Text('今天', style: TextStyle(fontSize: 10)),
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
+                                padding: EdgeInsets.only(left: 6),
+                                child: Text(
+                                  '今天',
+                                  style:
+                                      TextStyle(fontSize: 10, color: _green),
                                 ),
                               ),
                             const Spacer(),
                             TextButton.icon(
-                              onPressed: () => context.push('/plan/$planId/execute', extra: day),
+                              onPressed: () => context.push(
+                                  '/plan/$planId/execute', extra: day),
                               icon: const Icon(Icons.play_arrow, size: 16),
-                              label: const Text('开始', style: TextStyle(fontSize: 12)),
-                              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                              label: const Text('开始',
+                                  style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: _green,
+                                visualDensity: VisualDensity.compact,
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         ...exercises.map((de) => FutureBuilder<ExerciseEntity?>(
                           future: ref.read(exerciseRepoProvider).getById(de.exerciseId),
                           builder: (context, snap) {
                             final ex = snap.data;
+                            final catColor =
+                                AppTheme.categoryColors[ex?.category] ?? Colors.grey;
                             return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 5),
                               child: Row(
                                 children: [
                                   Container(
-                                    width: 40, height: 40,
+                                    width: 36,
+                                    height: 36,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      color: theme.colorScheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: catColor.withAlpha(26),
                                     ),
-                                    child: Center(
-                                      child: Icon(
-                                        AppTheme.categoryIcons[ex?.category] ?? Icons.fitness_center,
-                                        size: 18,
-                                        color: AppTheme.categoryColors[ex?.category],
-                                      ),
+                                    child: Icon(
+                                      AppTheme.categoryIcons[ex?.category] ??
+                                          Icons.fitness_center,
+                                      size: 16,
+                                      color: catColor,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -150,12 +205,15 @@ class PlanDetailPage extends ConsumerWidget {
                                         Text(ex?.name ?? '动作 #${de.exerciseId}',
                                           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                                         Text(_formatTarget(de),
-                                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                              color: theme.colorScheme.outline, fontSize: 11)),
                                       ],
                                     ),
                                   ),
                                   Text('休息 ${de.restSec}s',
-                                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.outline, fontSize: 10)),
+                                  const SizedBox(width: 8),
                                 ],
                               ),
                             );
