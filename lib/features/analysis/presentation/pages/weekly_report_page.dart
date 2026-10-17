@@ -6,6 +6,12 @@ import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.da
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+const _orange = Color(0xFFFF7043);
+const _blue = Color(0xFF42A5F5);
+const _red = Color(0xFFEF5350);
+
 class WeeklyReportPage extends ConsumerWidget {
   const WeeklyReportPage({super.key});
 
@@ -35,6 +41,22 @@ class WeeklyReportPage extends ConsumerWidget {
           final data = snapshot.data ?? const _WeeklyReportData();
           final us = userSettingsAsync.valueOrNull;
 
+          final weekDelta = data.weekMetrics.length >= 2
+              ? (data.weekMetrics.last.weightKg -
+                      data.weekMetrics.first.weightKg) *
+                  2
+              : null;
+          final workoutDayCount = data.weekWorkouts
+              .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+              .toSet()
+              .length;
+          final calEntries =
+              data.dailyCalories.entries.where((e) => e.value > 0).toList();
+          final avgCal = calEntries.isEmpty
+              ? null
+              : calEntries.fold<double>(0, (s, e) => s + e.value) /
+                  calEntries.length;
+
           if (data.weekMetrics.isEmpty && data.weekWorkouts.isEmpty) {
             return Center(
               child: Column(
@@ -51,34 +73,98 @@ class WeeklyReportPage extends ConsumerWidget {
           }
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
+              // ── 核心数据三宫格 ──
+              Row(
+                children: [
+                  _TriCell(
+                    label: '体重变化',
+                    value: weekDelta != null
+                        ? '${weekDelta < -0.05 ? '' : (weekDelta > 0.05 ? '+' : '')}${weekDelta.toStringAsFixed(1)}'
+                        : '—',
+                    unit: '斤',
+                    color: weekDelta == null
+                        ? Colors.white54
+                        : (weekDelta < -0.05
+                            ? _green
+                            : (weekDelta > 0.05 ? _red : Colors.white70)),
+                  ),
+                  const SizedBox(width: 8),
+                  _TriCell(
+                    label: '训练天数',
+                    value: '$workoutDayCount',
+                    unit: '/7 天',
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  _TriCell(
+                    label: '日均摄入',
+                    value: avgCal != null ? '${avgCal.toInt()}' : '—',
+                    unit: 'kcal',
+                    color: _orange,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
               // ── 体重变化 ──
               if (data.weekMetrics.length >= 2) ...[
-                const _SectionTitle(icon: Icons.monitor_weight, title: '体重'),
+                const _SectionTitle(
+                    icon: Icons.monitor_weight, title: '体重', color: _amber),
                 const SizedBox(height: 8),
                 _buildWeightCard(theme, data, us),
                 const SizedBox(height: 20),
               ],
 
               // ── 训练 ──
-              const _SectionTitle(icon: Icons.fitness_center, title: '训练'),
+              const _SectionTitle(
+                  icon: Icons.fitness_center, title: '训练', color: _green),
               const SizedBox(height: 8),
               _buildTrainingCard(theme, data),
               const SizedBox(height: 20),
 
               // ── 训练-体重关联 ──
               if (data.weekWorkouts.isNotEmpty && data.weekMetrics.isNotEmpty) ...[
-                const _SectionTitle(icon: Icons.insights, title: '训练-体重关联'),
+                const _SectionTitle(
+                    icon: Icons.insights, title: '训练-体重关联', color: _blue),
                 const SizedBox(height: 8),
                 _buildCorrelationChart(theme, data),
                 const SizedBox(height: 20),
               ],
 
               // ── 饮食 ──
-              const _SectionTitle(icon: Icons.restaurant, title: '饮食'),
+              const _SectionTitle(
+                  icon: Icons.restaurant, title: '饮食', color: _orange),
               const SizedBox(height: 8),
               _buildDietCard(theme, data, us),
+              const SizedBox(height: 20),
+
+              // ── 本周点评 ──
+              _buildReviewCard(theme, data, us, weekDelta, workoutDayCount, avgCal),
+              const SizedBox(height: 14),
+
+              // ── 分享 ──
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('减脂战报即将上线')),
+                    );
+                  },
+                  icon: const Icon(Icons.ios_share, size: 16),
+                  label: const Text('分享本周战报',
+                      style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _green,
+                    side: BorderSide(color: _green.withAlpha(90)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -353,6 +439,142 @@ class WeeklyReportPage extends ConsumerWidget {
       ),
     );
   }
+
+  /// 本周点评（规则生成的文字分析）
+  Widget _buildReviewCard(
+    ThemeData theme,
+    _WeeklyReportData data,
+    UserSettingsEntity? us,
+    double? weekDelta,
+    int workoutDays,
+    double? avgCal,
+  ) {
+    final lines = <String>[];
+
+    if (weekDelta == null) {
+      lines.add('本周体重记录不足 2 条，继续记录才能看到趋势。');
+    } else if (weekDelta < -0.05) {
+      lines.add('体重本周下降 ${weekDelta.abs().toStringAsFixed(1)} 斤。');
+      if (workoutDays >= 3) {
+        lines.add('训练 $workoutDays 天，频率保持得不错，继续保持这个节奏。');
+      } else {
+        lines.add('训练只有 $workoutDays 天，如果能增加到 3 天以上，减脂会更稳。');
+      }
+    } else if (weekDelta > 0.05) {
+      lines.add('体重本周回升 ${weekDelta.toStringAsFixed(1)} 斤，先别焦虑，可能包含水分波动。');
+      lines.add('注意晚餐碳水量，保持训练频率，下周继续观察趋势。');
+    } else {
+      lines.add('体重基本持平，可能处于平台期。');
+      lines.add('可以尝试调整训练强度或饮食结构，打破平衡。');
+    }
+
+    final tdee = us?.tdee();
+    if (avgCal != null && tdee != null && avgCal > tdee) {
+      lines.add('日均摄入比消耗高 ${(avgCal - tdee).toInt()} kcal，建议控制加餐。');
+    }
+    if (workoutDays == 0) {
+      lines.add('本周还没有训练记录，从 10 分钟开始也比不动强。');
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: _green,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text('本周点评', style: theme.textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...lines.map(
+              (l) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  l,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white70,
+                    height: 1.6,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TriCell extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+
+  const _TriCell({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                          color: color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    ' $unit',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline, fontSize: 9),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _WeeklyReportData {
@@ -370,16 +592,31 @@ class _WeeklyReportData {
 class _SectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
-  const _SectionTitle({required this.icon, required this.title});
+  final Color color;
+  const _SectionTitle({
+    required this.icon,
+    required this.title,
+    this.color = const Color(0xFF66BB6A),
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 8),
-        Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: color.withAlpha(32),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 14, color: color),
+        ),
+        const SizedBox(width: 10),
+        Text(title,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }

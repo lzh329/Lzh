@@ -9,6 +9,12 @@ import 'package:flutter/rendering.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
+const _green = Color(0xFF66BB6A);
+const _amber = Color(0xFFFFA726);
+const _orange = Color(0xFFFF7043);
+const _purple = Color(0xFFAB47BC);
+const _red = Color(0xFFEF5350);
+
 class MonthlyComparePage extends ConsumerWidget {
   const MonthlyComparePage({super.key});
 
@@ -54,47 +60,85 @@ class MonthlyComparePage extends ConsumerWidget {
           final cardKey = GlobalKey();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
               // 对比卡片
               RepaintBoundary(
                 key: cardKey,
                 child: Card(
-                  color: theme.colorScheme.surface,
+                  margin: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
                     child: Column(
                       children: [
-                        Text('简瘦 · 月度报告', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${DateFormat('M月').format(monthStart)} vs ${DateFormat('M月').format(lastMonthStart)}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        // 卡头
+                        Row(
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: _purple.withAlpha(32),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.calendar_view_month,
+                                  size: 16, color: _purple),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('月度报告',
+                                    style: theme.textTheme.titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${DateFormat('M月').format(lastMonthStart)} vs ${DateFormat('M月').format(monthStart)}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.outline,
+                                      fontSize: 10),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            const Text('简瘦',
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.white38)),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        // 体重对比行
-                        if (data.lastMonthAvg != null && data.thisMonthAvg != null)
-                          _buildWeightRow(theme, data),
-                        const SizedBox(height: 16),
-                        // 训练对比行
-                        _buildTrainingRow(theme, data),
-                        const SizedBox(height: 16),
-                        // 饮食对比行
-                        if (data.lastMonthAvgCal != null && data.thisMonthAvgCal != null)
-                          _buildDietRow(theme, data, us),
+                        const SizedBox(height: 14),
+                        Container(height: 1, color: Colors.white.withAlpha(14)),
+                        const SizedBox(height: 8),
+                        if (data.lastMonthAvg != null && data.thisMonthAvg != null) ...[
+                          _buildWeightCompare(theme, data),
+                          Container(height: 1, color: Colors.white.withAlpha(10)),
+                        ],
+                        _buildTrainingCompare(theme, data),
+                        if (data.lastMonthAvgCal != null && data.thisMonthAvgCal != null) ...[
+                          Container(height: 1, color: Colors.white.withAlpha(10)),
+                          _buildDietCompare(theme, data, us),
+                        ],
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               // 分享按钮
               SizedBox(
-                width: double.infinity,
+                height: 44,
                 child: OutlinedButton.icon(
                   onPressed: () => _shareCard(context, cardKey),
-                  icon: const Icon(Icons.share, size: 18),
-                  label: const Text('分享月度报告'),
+                  icon: const Icon(Icons.ios_share, size: 16),
+                  label: const Text('分享月度报告',
+                      style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _purple,
+                    side: BorderSide(color: _purple.withAlpha(90)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -104,62 +148,60 @@ class MonthlyComparePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeightRow(ThemeData theme, _MonthCompareData data) {
+  Widget _buildWeightCompare(ThemeData theme, _MonthCompareData data) {
     final delta = data.thisMonthAvg! - data.lastMonthAvg!;
-    final isDown = delta < -0.05;
-    final arrow = isDown ? '↓' : '↑';
-    final color = isDown ? Colors.green : Colors.red;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _CompareItem(icon: Icons.calendar_today, label: '上月', value: '${(data.lastMonthAvg! * 2).toStringAsFixed(1)} 斤', theme: theme),
-        Icon(arrow == '↓' ? Icons.trending_down : Icons.trending_up, color: color, size: 24),
-        _CompareItem(icon: Icons.calendar_today, label: '本月', value: '${(data.thisMonthAvg! * 2).toStringAsFixed(1)} 斤', theme: theme),
-        const SizedBox(width: 8),
-        _CompareItem(
-          icon: Icons.swap_vert,
-          label: '变化',
-          value: '$arrow ${delta.abs().toStringAsFixed(1)} 斤',
-          color: color,
-          theme: theme,
-        ),
-      ],
+    return _CompareRow(
+      icon: Icons.monitor_weight,
+      color: _amber,
+      label: '月均体重',
+      lastValue: '${(data.lastMonthAvg! * 2).toStringAsFixed(1)} 斤',
+      thisValue: '${(data.thisMonthAvg! * 2).toStringAsFixed(1)} 斤',
+      deltaText: delta.abs() < 0.05
+          ? '持平'
+          : '${delta < 0 ? '↓' : '↑'} ${delta.abs().toStringAsFixed(1)} 斤',
+      deltaColor: delta.abs() < 0.05
+          ? Colors.white54
+          : (delta < 0 ? _green : _red),
     );
   }
 
-  Widget _buildTrainingRow(ThemeData theme, _MonthCompareData data) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _CompareItem(icon: Icons.fitness_center, label: '上月训练', value: '${data.lastMonthWorkoutDays} 天', theme: theme),
-        Container(width: 1, height: 32, color: theme.colorScheme.outline.withAlpha(40)),
-        _CompareItem(icon: Icons.fitness_center, label: '本月训练', value: '${data.thisMonthWorkoutDays} 天', theme: theme),
-      ],
+  Widget _buildTrainingCompare(ThemeData theme, _MonthCompareData data) {
+    final delta = data.thisMonthWorkoutDays - data.lastMonthWorkoutDays;
+    return _CompareRow(
+      icon: Icons.fitness_center,
+      color: _green,
+      label: '训练天数',
+      lastValue: '${data.lastMonthWorkoutDays} 天',
+      thisValue: '${data.thisMonthWorkoutDays} 天',
+      deltaText: delta == 0 ? '持平' : '${delta > 0 ? '+' : ''}$delta 天',
+      deltaColor:
+          delta == 0 ? Colors.white54 : (delta > 0 ? _green : _red),
     );
   }
 
-  Widget _buildDietRow(ThemeData theme, _MonthCompareData data, UserSettingsEntity? us) {
-    final lastDeficit = us?.tdee() != null ? us!.tdee()! - data.lastMonthAvgCal! : null;
-    final thisDeficit = us?.tdee() != null ? us!.tdee()! - data.thisMonthAvgCal! : null;
+  Widget _buildDietCompare(
+      ThemeData theme, _MonthCompareData data, UserSettingsEntity? us) {
+    final lastDeficit =
+        us?.tdee() != null ? us!.tdee()! - data.lastMonthAvgCal! : null;
+    final thisDeficit =
+        us?.tdee() != null ? us!.tdee()! - data.thisMonthAvgCal! : null;
+    final delta = (lastDeficit != null && thisDeficit != null)
+        ? thisDeficit - lastDeficit
+        : null;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _CompareItem(icon: Icons.restaurant, label: '上月日均', value: '${data.lastMonthAvgCal!.toInt()} kcal', theme: theme),
-        Container(width: 1, height: 32, color: theme.colorScheme.outline.withAlpha(40)),
-        _CompareItem(icon: Icons.restaurant, label: '本月日均', value: '${data.thisMonthAvgCal!.toInt()} kcal', theme: theme),
-        if (lastDeficit != null && thisDeficit != null) ...[
-          Container(width: 1, height: 32, color: theme.colorScheme.outline.withAlpha(40)),
-          _CompareItem(
-            icon: Icons.local_fire_department,
-            label: '缺口变化',
-            value: '${(thisDeficit - lastDeficit).toInt()} kcal',
-            color: thisDeficit > lastDeficit ? Colors.green : Colors.red,
-            theme: theme,
-          ),
-        ],
-      ],
+    return _CompareRow(
+      icon: Icons.restaurant,
+      color: _orange,
+      label: '日均摄入',
+      lastValue: '${data.lastMonthAvgCal!.toInt()} kcal',
+      thisValue: '${data.thisMonthAvgCal!.toInt()} kcal',
+      deltaText: delta == null
+          ? null
+          : (delta.abs() < 1
+              ? '缺口持平'
+              : '缺口 ${delta > 0 ? '+' : ''}${delta.toInt()}'),
+      deltaColor:
+          delta == null ? null : (delta > 0 ? _green : _red),
     );
   }
 
@@ -246,23 +288,94 @@ class _MonthCompareData {
   });
 }
 
-class _CompareItem extends StatelessWidget {
+class _CompareRow extends StatelessWidget {
   final IconData icon;
+  final Color color;
   final String label;
-  final String value;
-  final Color? color;
-  final ThemeData theme;
-  const _CompareItem({required this.icon, required this.label, required this.value, this.color, required this.theme});
+  final String lastValue;
+  final String thisValue;
+  final String? deltaText;
+  final Color? deltaColor;
+
+  const _CompareRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.lastValue,
+    required this.thisValue,
+    this.deltaText,
+    this.deltaColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 16, color: (color ?? theme.colorScheme.primary).withAlpha(180)),
-        const SizedBox(height: 4),
-        Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontSize: 10)),
-      ],
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withAlpha(30),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 14, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline, fontSize: 10)),
+                const SizedBox(height: 3),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(lastValue,
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.white54)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 5),
+                      child: Text('→',
+                          style:
+                              TextStyle(fontSize: 10, color: Colors.white38)),
+                    ),
+                    Flexible(
+                      child: Text(thisValue,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (deltaText != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (deltaColor ?? Colors.white54).withAlpha(28),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                deltaText!,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: deltaColor ?? Colors.white54),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
