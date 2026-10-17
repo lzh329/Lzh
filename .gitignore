@@ -29,3 +29,4 @@ macos/Pods/
 .reasonix/
 .flutter-plugins-dependencies
 .workbuddy/
+generated-images/

@@ -51,6 +51,7 @@ flutter:
     - assets/
     - assets/js.jpg
     - assets/kp.png
+    - assets/planet/
 
 flutter_launcher_icons:
   image_path: "assets/js.jpg"
