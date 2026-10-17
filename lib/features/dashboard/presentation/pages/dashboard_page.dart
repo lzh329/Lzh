@@ -8,7 +8,9 @@ import 'package:fittrack/core/services/weight_analysis.dart';
 import 'package:fittrack/core/widgets/info_link_card.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/calendar_widget.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/milestone_celebration.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/recent_workouts_section.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/target_ring_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weight_hero_card.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
@@ -124,6 +126,17 @@ class _DashboardBody extends StatelessWidget {
           bmi: bmi,
           recordedAt: latest?.date,
           onTap: () => context.push('/body'),
+        ),
+
+        // ── 目标进度环 ──
+        TargetRingCard(
+          startJin: data.firstMetric != null
+              ? data.firstMetric!.weightKg * 2
+              : null,
+          currentJin: currentJin,
+          targetJin: targetJin,
+          daysToTarget: daysToTarget,
+          onTap: () => context.push('/goals'),
         ),
 
         // ── 快速入口 ──
@@ -379,14 +392,14 @@ class _WeighInFab extends ConsumerWidget {
                   fillColor: theme.colorScheme.surfaceContainerHighest
                       .withAlpha(80),
                 ),
-                onSubmitted: (_) => _doSave(ctx, ref, weightCtrl),
+                onSubmitted: (_) => _doSave(context, ctx, ref, weightCtrl),
               ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed: () => _doSave(ctx, ref, weightCtrl),
+                  onPressed: () => _doSave(context, ctx, ref, weightCtrl),
                   icon: const Icon(Icons.save, size: 20),
                   label: const Text('保存', style: TextStyle(fontSize: 16)),
                 ),
@@ -399,18 +412,25 @@ class _WeighInFab extends ConsumerWidget {
   }
 
   Future<void> _doSave(
-    BuildContext ctx,
+    BuildContext pageContext,
+    BuildContext sheetCtx,
     WidgetRef ref,
     TextEditingController ctrl,
   ) async {
     final weight = double.tryParse(ctrl.text);
     if (weight == null || weight <= 0) {
-      if (!ctx.mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
+      if (!sheetCtx.mounted) return;
+      ScaffoldMessenger.of(sheetCtx).showSnackBar(
         const SnackBar(content: Text('请输入有效的体重')),
       );
       return;
     }
+
+    // 记录前状态（用于里程碑判断）
+    final dashboard = ref.read(dashboardDataProvider).valueOrNull;
+    final firstKg = dashboard?.firstMetric?.weightKg;
+    final previousKg =
+        dashboard?.todayMetric?.weightKg ?? dashboard?.latestMetric?.weightKg;
 
     final repo = ref.read(bodyMetricRepoProvider);
     final today = DateTime.now();
@@ -427,18 +447,34 @@ class _WeighInFab extends ConsumerWidget {
       await repo.create(date: today, weightKg: weight / 2);
     }
 
+    // ── 里程碑判断：累计减重跨过 5 的倍数 ──
+    int? milestone;
+    if (firstKg != null && previousKg != null) {
+      final oldLoss = firstKg * 2 - previousKg * 2;
+      final newLoss = firstKg * 2 - weight;
+      for (int m = 5; m <= 200; m += 5) {
+        if (oldLoss < m && newLoss >= m) {
+          milestone = m;
+        }
+      }
+    }
+
     // 数据变更 → 依赖自动失效刷新（替代手动刷新计数器）
     ref.invalidate(dashboardDataProvider);
     ref.invalidate(userSettingsProvider);
 
-    if (ctx.mounted) {
-      Navigator.pop(ctx);
-      ScaffoldMessenger.of(ctx).showSnackBar(
+    if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+    if (pageContext.mounted) {
+      ScaffoldMessenger.of(pageContext).showSnackBar(
         SnackBar(
           content: Text('今日 ${weight.toStringAsFixed(1)} 斤 ✓'),
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+
+    if (milestone != null && pageContext.mounted) {
+      await showMilestoneCelebration(pageContext, milestone);
     }
   }
 }

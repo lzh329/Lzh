@@ -110,10 +110,16 @@ class WeightHeroCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(
-              currentJin!.toStringAsFixed(1),
-              style: const TextStyle(
-                  fontSize: 40, fontWeight: FontWeight.bold, height: 1.0),
+            // 数字滚动动效：首次从 0 滚入，数值更新时从当前值过渡到新值
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: currentJin!),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (context, v, _) => Text(
+                v.toStringAsFixed(1),
+                style: const TextStyle(
+                    fontSize: 40, fontWeight: FontWeight.bold, height: 1.0),
+              ),
             ),
             const SizedBox(width: 6),
             Text('斤',
