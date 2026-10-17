@@ -129,7 +129,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
             children: [
               Row(
                 children: [
-                  for (final entry in PlanDayEntity.dayLabels.entries)
+                  for (final entry in PlanDayEntity.dayLabels.asMap().entries)
                     Expanded(
                       child: Builder(
                         builder: (_) {
