@@ -74,7 +74,11 @@ final waterRepoProvider = Provider<WaterRepository>((ref) {
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
 
 void initThemeMode(WidgetRef ref, {required String? themeMode}) {
-  final mode = themeMode == 'dark' ? ThemeMode.dark : themeMode == 'light' ? ThemeMode.light : ThemeMode.dark;
+  final mode = switch (themeMode) {
+    'light' => ThemeMode.light,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.dark,
+  };
   ref.read(themeModeProvider.notifier).state = mode;
 }
 

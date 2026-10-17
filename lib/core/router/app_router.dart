@@ -15,6 +15,7 @@ import 'package:fittrack/features/plan/presentation/pages/plan_create_page.dart'
 import 'package:fittrack/features/plan/presentation/pages/plan_detail_page.dart';
 
 import 'package:fittrack/features/settings/presentation/pages/body_info_page.dart';
+import 'package:fittrack/features/settings/presentation/pages/voice_settings_page.dart';
 import 'package:fittrack/features/diet/presentation/pages/diet_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/weekly_report_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/monthly_compare_page.dart';
@@ -122,6 +123,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/settings/body-info',
       pageBuilder: (context, state) => _subPageTransition(const BodyInfoPage(), state),
+    ),
+    GoRoute(
+      path: '/settings/voice',
+      pageBuilder: (context, state) => _subPageTransition(const VoiceSettingsPage(), state),
     ),
     GoRoute(
       path: '/plan',
