@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:image_picker/image_picker.dart';
@@ -38,10 +39,14 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
 
     DateTime from;
     switch (_timeRange) {
-      case 'week': from = now.subtract(const Duration(days: 7));
-      case 'quarter': from = now.subtract(const Duration(days: 90));
-      case 'all': from = DateTime(2020);
-      default: from = now.subtract(const Duration(days: 30));
+      case 'week':
+        from = now.subtract(const Duration(days: 7));
+      case 'quarter':
+        from = now.subtract(const Duration(days: 90));
+      case 'all':
+        from = DateTime(2020);
+      default:
+        from = now.subtract(const Duration(days: 30));
     }
 
     return Scaffold(
@@ -63,60 +68,13 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                 const SizedBox(height: 20),
               ],
 
-              // ── 趋势图 ──
-              Text('${_metricLabels[_metricType] ?? '体重'}趋势',
-                style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'week', label: Text('周', style: TextStyle(fontSize: 12))),
-                      ButtonSegment(value: 'month', label: Text('月', style: TextStyle(fontSize: 12))),
-                      ButtonSegment(value: 'quarter', label: Text('季', style: TextStyle(fontSize: 12))),
-                      ButtonSegment(value: 'all', label: Text('全部', style: TextStyle(fontSize: 12))),
-                    ],
-                    selected: {_timeRange},
-                    onSelectionChanged: (v) => setState(() => _timeRange = v.first),
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                  ),
-              ),
-              const SizedBox(height: 12),
-              if (data.metrics.isEmpty)
-                const Card(
-                  child: SizedBox(height: 200,
-                    child: Center(child: Text('暂无数据', style: TextStyle(color: Colors.grey)))),
-                )
-              else
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-                    child: _buildChartWithPrediction(data.metrics, theme),
-                  ),
-                ),
-              if (data.metrics.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: ['weight', 'waist', 'hip', 'chest'].map((type) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(_metricLabels[type] ?? type),
-                          selected: _metricType == type,
-                          onSelected: (_) => setState(() => _metricType = type),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
+              // ── 趋势图（指标 chips + 时间范围 合并进同一张卡）──
+              _buildTrendCard(theme, data),
+              const SizedBox(height: 18),
 
-              // ── 录入表单 ──
+              // ── 录入表单（精简模式）──
               Card(
+                margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: _AddMetricForm(
@@ -127,79 +85,25 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
-              // ── 照片栏 ──
-              Row(
-                children: [
-                  Text('记录照片', style: theme.textTheme.titleMedium),
-                  const Spacer(),
-                  if (data.photos.length >= 2)
-                    TextButton.icon(
-                      onPressed: () => _showComparePicker(context, data.photos),
-                      icon: const Icon(Icons.compare, size: 16),
-                      label: const Text('对比', style: TextStyle(fontSize: 13)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (data.photos.isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text('还没有照片\n录入数据时可以拍照记录',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.outline)),
-                    ),
-                  ),
-                )
-              else
-                _PhotoGrid(photos: data.photos, photoRepo: photoRepo, onChanged: () => setState(() {})),
+              // ── 身体相册入口 ──
+              _buildAlbumEntryCard(theme, data.photos.length),
+              const SizedBox(height: 18),
 
-              const SizedBox(height: 16),
-
-              // ── 历史记录 ──
+              // ── 历史记录（紧凑列表，最多 10 条）──
               if (data.metrics.isNotEmpty) ...[
                 Text('历史记录', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
-                ...data.metrics.reversed.take(10).map((m) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12),
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _green.withAlpha(24),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        (m.weightKg * 2).toStringAsFixed(1),
-                        style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: _green),
+                ...data.metrics.reversed.take(10).map(
+                      (m) => _HistoryRow(
+                        metric: m,
+                        onDelete: () async {
+                          await bodyRepo.delete(m.id);
+                          setState(() {});
+                        },
                       ),
                     ),
-                    title: Text('${(m.weightKg * 2).toStringAsFixed(1)} 斤',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    subtitle: Text(DateFormat('yyyy/MM/dd').format(m.date),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      onPressed: () async {
-                        await bodyRepo.delete(m.id);
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                )),
               ],
             ],
           );
@@ -217,6 +121,51 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     final metrics = await bodyRepo.getAll(from: from, to: now);
     final photos = await photoRepo.getAll();
     return _BodyData(metrics: metrics, photos: photos);
+  }
+
+  /// 身体相册入口卡（替代原来的照片网格区块）
+  Widget _buildAlbumEntryCard(ThemeData theme, int photoCount) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.push('/body/album'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _green.withAlpha(32),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library,
+                    size: 16, color: _green),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('身体相册', style: theme.textTheme.bodyLarge),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$photoCount 张照片',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 18, color: theme.colorScheme.outline),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildWeightCard(
@@ -334,10 +283,108 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
   }
 
   static const _metricLabels = {
-    'weight': '体重', 'waist': '腰围', 'hip': '臀围', 'chest': '胸围',
+    'weight': '体重',
+    'waist': '腰围',
+    'hip': '臀围',
+    'chest': '胸围',
   };
 
-  Widget _buildChartWithPrediction(List<BodyMetricEntity> metrics, ThemeData theme) {
+  /// 趋势图卡：卡头一行 = 左侧指标 chips（可横滑）+ 右侧范围 SegmentedButton
+  Widget _buildTrendCard(ThemeData theme, _BodyData data) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _metricLabels.keys.map((type) {
+                        final selected = _metricType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(
+                              _metricLabels[type] ?? type,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: selected
+                                    ? Colors.black
+                                    : theme.colorScheme.outline,
+                              ),
+                            ),
+                            selected: selected,
+                            showCheckmark: false,
+                            selectedColor: _green,
+                            backgroundColor: Colors.white.withAlpha(12),
+                            side: BorderSide(color: Colors.white.withAlpha(20)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            labelPadding:
+                                const EdgeInsets.symmetric(horizontal: 2),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            onSelected: (_) =>
+                                setState(() => _metricType = type),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'week', label: Text('周')),
+                    ButtonSegment(value: 'month', label: Text('月')),
+                    ButtonSegment(value: 'quarter', label: Text('季')),
+                    ButtonSegment(value: 'all', label: Text('全部')),
+                  ],
+                  selected: {_timeRange},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (v) =>
+                      setState(() => _timeRange = v.first),
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
+                    padding: WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(horizontal: 6)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (data.metrics.isEmpty)
+              SizedBox(
+                height: 200,
+                child: Center(
+                  child: Text('暂无数据',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: Colors.grey)),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 4, 6, 4),
+                child: _buildChartWithPrediction(data.metrics, theme),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartWithPrediction(
+      List<BodyMetricEntity> metrics, ThemeData theme) {
     return Column(
       children: [
         SizedBox(height: 220, child: _buildChart(metrics, theme)),
@@ -347,10 +394,12 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     );
   }
 
-  Widget _buildPredictionText(List<BodyMetricEntity> metrics, ThemeData theme) {
+  Widget _buildPredictionText(
+      List<BodyMetricEntity> metrics, ThemeData theme) {
     final validMetrics = metrics.where((m) => true).toList();
     final spots = validMetrics.asMap().entries
-      .map((e) => FlSpot(e.key.toDouble(), e.value.weightKg)).toList();
+        .map((e) => FlSpot(e.key.toDouble(), e.value.weightKg))
+        .toList();
     if (spots.length < 3) return const SizedBox.shrink();
 
     final n = spots.length;
@@ -392,30 +441,41 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
   Widget _buildChart(List<BodyMetricEntity> metrics, ThemeData theme) {
     final validMetrics = metrics.where((m) {
       switch (_metricType) {
-        case 'waist': return m.waistCm != null;
-        case 'hip': return m.hipCm != null;
-        case 'chest': return m.chestCm != null;
-        default: return true;
+        case 'waist':
+          return m.waistCm != null;
+        case 'hip':
+          return m.hipCm != null;
+        case 'chest':
+          return m.chestCm != null;
+        default:
+          return true;
       }
     }).toList();
 
     if (validMetrics.length < 2) {
-      return Center(child: Text('至少需要 2 条数据',
-        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)));
+      return Center(
+          child: Text('至少需要 2 条数据',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.outline)));
     }
 
     double getValue(BodyMetricEntity m) {
       switch (_metricType) {
-        case 'waist': return m.waistCm!;
-        case 'hip': return m.hipCm!;
-        case 'chest': return m.chestCm!;
-        default: return m.weightKg * 2; // 转换为斤
+        case 'waist':
+          return m.waistCm!;
+        case 'hip':
+          return m.hipCm!;
+        case 'chest':
+          return m.chestCm!;
+        default:
+          return m.weightKg * 2; // 转换为斤
       }
     }
 
     final suffix = _metricType == 'weight' ? ' 斤' : ' cm';
     final spots = validMetrics.asMap().entries
-      .map((e) => FlSpot(e.key.toDouble(), getValue(e.value))).toList();
+        .map((e) => FlSpot(e.key.toDouble(), getValue(e.value)))
+        .toList();
 
     // ── 线性回归预测（仅体重） ──
     List<FlSpot> predictSpots = [];
@@ -447,13 +507,19 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
 
     final lineBars = <LineChartBarData>[
       LineChartBarData(
-        spots: spots, isCurved: true,
-        color: theme.colorScheme.primary, barWidth: 2.5,
-        dotData: FlDotData(show: validMetrics.length <= 60,
-          getDotPainter: (spot, percent, bar, index) =>
-            FlDotCirclePainter(radius: 3, color: theme.colorScheme.primary, strokeWidth: 0)),
-        belowBarData: BarAreaData(show: true,
-          color: theme.colorScheme.primary.withAlpha(30))),
+        spots: spots,
+        isCurved: true,
+        color: theme.colorScheme.primary,
+        barWidth: 2.5,
+        dotData: FlDotData(
+            show: validMetrics.length <= 60,
+            getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                radius: 3,
+                color: theme.colorScheme.primary,
+                strokeWidth: 0)),
+        belowBarData:
+            BarAreaData(show: true, color: theme.colorScheme.primary.withAlpha(30)),
+      ),
     ];
 
     if (predictSpots.isNotEmpty) {
@@ -469,38 +535,64 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     }
 
     return LineChart(LineChartData(
-      minY: minY, maxY: maxY,
-      gridData: FlGridData(show: true, horizontalInterval: 1,
-        getDrawingHorizontalLine: (v) =>
-          FlLine(color: theme.colorScheme.outline.withAlpha(40), strokeWidth: 0.5),
-        drawVerticalLine: false),
+      minY: minY,
+      maxY: maxY,
+      gridData: FlGridData(
+          show: true,
+          horizontalInterval: 1,
+          getDrawingHorizontalLine: (v) => FlLine(
+              color: theme.colorScheme.outline.withAlpha(40), strokeWidth: 0.5),
+          drawVerticalLine: false),
       titlesData: FlTitlesData(
-        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40,
-          getTitlesWidget: (value, meta) =>
-            Text('${value.toInt()}', style: TextStyle(fontSize: 10, color: theme.colorScheme.outline)))),
-        bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 34,
-          interval: (validMetrics.length / 6).ceilToDouble().clamp(1, double.infinity),
-          getTitlesWidget: (value, meta) {
-            final i = value.toInt();
-            if (i < 0 || i >= validMetrics.length) return const SizedBox.shrink();
-            return Transform.rotate(angle: -0.7,
-              child: Text(DateFormat('M/dd').format(validMetrics[i].date),
-                style: TextStyle(fontSize: 9, color: theme.colorScheme.outline)));
-          })),
-        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 36,
+                getTitlesWidget: (value, meta) => Text('${value.toInt()}',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.outline)))),
+        bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 34,
+                interval: (validMetrics.length / 6)
+                    .ceilToDouble()
+                    .clamp(1, double.infinity),
+                getTitlesWidget: (value, meta) {
+                  final i = value.toInt();
+                  if (i < 0 || i >= validMetrics.length) {
+                    return const SizedBox.shrink();
+                  }
+                  return Transform.rotate(
+                      angle: -0.7,
+                      child: Text(
+                          DateFormat('M/dd').format(validMetrics[i].date),
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: theme.colorScheme.outline)));
+                })),
+        topTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        rightTitles:
+            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       borderData: FlBorderData(show: false),
       lineBarsData: lineBars,
-      lineTouchData: LineTouchData(touchTooltipData: LineTouchTooltipData(
-        getTooltipItems: (spots) => spots.map((s) =>
-          LineTooltipItem('${s.y.toStringAsFixed(1)}$suffix',
-            TextStyle(color: theme.colorScheme.onInverseSurface, fontSize: 12))).toList()))),
-    );
+      lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (spots) => spots
+                  .map((s) => LineTooltipItem(
+                      '${s.y.toStringAsFixed(1)}$suffix',
+                      TextStyle(
+                          color: theme.colorScheme.onInverseSurface,
+                          fontSize: 12)))
+                  .toList())),
+    ));
   }
 }
 
-/// 页面数据
+/// 三联概览小卡
 class _MiniStatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -556,13 +648,64 @@ class _MiniStatCard extends StatelessWidget {
   }
 }
 
+/// 历史记录紧凑行（高 56）
+class _HistoryRow extends StatelessWidget {
+  final BodyMetricEntity metric;
+  final Future<void> Function() onDelete;
+
+  const _HistoryRow({required this.metric, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: SizedBox(
+        height: 56,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 14, right: 2),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 62,
+                child: Text(
+                  DateFormat('MM/dd').format(metric.date),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ),
+              Text(
+                (metric.weightKg * 2).toStringAsFixed(1),
+                style: theme.textTheme.bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                '斤',
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline, fontSize: 10),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18),
+                color: theme.colorScheme.outline,
+                onPressed: () => onDelete(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BodyData {
   final List<BodyMetricEntity> metrics;
   final List<Photo> photos;
   const _BodyData({this.metrics = const [], this.photos = const []});
 }
 
-// ───────────────────── 录入表单 ─────────────────────
+// ───────────────────── 录入表单（精简模式） ─────────────────────
 
 class _AddMetricForm extends StatefulWidget {
   final BodyMetricRepository bodyRepo;
@@ -588,7 +731,6 @@ class _AddMetricFormState extends State<_AddMetricForm> {
   final _chestCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   DateTime _date = DateTime.now();
-  bool _showAdvanced = false;
   File? _photoFile;
   final _picker = ImagePicker();
 
@@ -603,7 +745,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
   }
 
   Future<void> _takePhoto() async {
-    final file = await _picker.pickImage(source: ImageSource.camera, maxWidth: 1080);
+    final file =
+        await _picker.pickImage(source: ImageSource.camera, maxWidth: 1080);
     if (file != null) {
       setState(() => _photoFile = File(file.path));
     }
@@ -631,7 +774,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
     await NotificationService().showWeightFeedback(
       currentWeightJin: currentJin,
       changeJin: changeJin,
-      totalLossJin: totalLossJin != null && totalLossJin > 0 ? totalLossJin : null,
+      totalLossJin:
+          totalLossJin != null && totalLossJin > 0 ? totalLossJin : null,
     );
   }
 
@@ -680,7 +824,9 @@ class _AddMetricFormState extends State<_AddMetricForm> {
               children: [
                 const Text('🎉', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 16),
-                Text('太棒了！', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text('太棒了！',
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('你已累计减重', style: theme.textTheme.bodyLarge),
                 const SizedBox(height: 4),
@@ -697,16 +843,22 @@ class _AddMetricFormState extends State<_AddMetricForm> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('$firstWeightJin 斤', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
+                    Text('$firstWeightJin 斤',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: theme.colorScheme.outline)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Icon(Icons.arrow_forward, size: 18),
                     ),
-                    Text('$currentWeightJin 斤', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('$currentWeightJin 斤',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('用时 $days 天', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                Text('用时 $days 天',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.outline)),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -729,112 +881,150 @@ class _AddMetricFormState extends State<_AddMetricForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('录入数据', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 12),
+        // ── 标题 + 日期（一行） ──
+        Row(
+          children: [
+            Text('录入数据', style: theme.textTheme.titleSmall),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _date,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                  locale: const Locale('zh'),
+                );
+                if (date != null) setState(() => _date = date);
+              },
+              icon: const Icon(Icons.calendar_today, size: 15),
+              label: Text(DateFormat('M月d日').format(_date),
+                  style: const TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
 
-        // ── 日期（中文选择器） ──
-        Row(children: [
-          Text('日期: ', style: theme.textTheme.bodyMedium),
-          TextButton.icon(
-            onPressed: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _date,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-                locale: const Locale('zh'),
-              );
-              if (date != null) setState(() => _date = date);
-            },
-            icon: const Icon(Icons.calendar_today, size: 16),
-            label: Text(DateFormat('yyyy年M月d日').format(_date)),
-          ),
-        ]),
-        const SizedBox(height: 12),
-
-        // ── 体重 ──
+        // ── 体重（必填） ──
         TextField(
           controller: _weightCtrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: '体重', suffixText: '斤', isDense: true),
+          decoration: const InputDecoration(
+              labelText: '体重', suffixText: '斤', isDense: true),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
 
-        // ── 围度展开 ──
-        InkWell(
-          onTap: () => setState(() => _showAdvanced = !_showAdvanced),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [
-              Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more,
-                size: 18, color: theme.colorScheme.primary),
-              Text(' 围度测量（可选）',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
-            ]),
-          ),
-        ),
-        if (_showAdvanced) ...[
-          const SizedBox(height: 4),
-          Row(children: [
-            Expanded(child: TextField(
-              controller: _waistCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: '腰围', suffixText: 'cm', isDense: true))),
-            const SizedBox(width: 8),
-            Expanded(child: TextField(
-              controller: _hipCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: '臀围', suffixText: 'cm', isDense: true))),
-          ]),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _chestCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: '胸围', suffixText: 'cm', isDense: true)),
-        ],
-
-        // ── 拍照 ──
-        const SizedBox(height: 12),
-        Text('记录照片', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-        const SizedBox(height: 6),
-        if (_photoFile != null)
-          Stack(
-            alignment: Alignment.topRight,
+        // ── 更多数据（围度 / 备注 / 拍照） ──
+        Theme(
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: false,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 4),
+            dense: true,
+            iconColor: theme.colorScheme.outline,
+            collapsedIconColor: theme.colorScheme.outline,
+            title: Text(
+              '更多数据（围度 / 备注 / 拍照）',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.outline),
+            ),
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  _photoFile!,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _waistCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: '腰围', suffixText: 'cm', isDense: true),
+                  ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _hipCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: '臀围', suffixText: 'cm', isDense: true),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _chestCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                    labelText: '胸围', suffixText: 'cm', isDense: true),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                onPressed: _removePhoto,
+              const SizedBox(height: 10),
+              TextField(
+                controller: _noteCtrl,
+                decoration:
+                    const InputDecoration(labelText: '备注（可选）', isDense: true),
               ),
+              const SizedBox(height: 10),
+              if (_photoFile != null)
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        _photoFile!,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      style: IconButton.styleFrom(
+                          backgroundColor: Colors.black45),
+                      onPressed: _removePhoto,
+                    ),
+                  ],
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _takePhoto,
+                    icon: const Icon(Icons.camera_alt, size: 16),
+                    label: const Text('拍照记录', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 34),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
             ],
-          )
-        else
-          OutlinedButton.icon(
-            onPressed: _takePhoto,
-            icon: const Icon(Icons.camera_alt, size: 18),
-            label: const Text('拍照记录'),
           ),
-
+        ),
         const SizedBox(height: 8),
-        TextField(
-          controller: _noteCtrl,
-          decoration: const InputDecoration(labelText: '备注（可选）', isDense: true)),
-        const SizedBox(height: 12),
+
+        // ── 保存 ──
         SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
+          child: FilledButton(
             onPressed: _save,
-            icon: const Icon(Icons.save, size: 18),
-            label: const Text('保存'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.black,
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('保存',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -845,8 +1035,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
     final weight = double.tryParse(_weightCtrl.text);
     if (weight == null || weight <= 0) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请输入有效的体重')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('请输入有效的体重')));
       }
       return;
     }
@@ -895,15 +1085,10 @@ class _AddMetricFormState extends State<_AddMetricForm> {
       // 里程碑检测
       _checkMilestone(oldLevel);
 
-      _weightCtrl.clear();
-      _waistCtrl.clear();
-      _hipCtrl.clear();
-      _chestCtrl.clear();
-      _noteCtrl.clear();
-      setState(() => _photoFile = null);
+      _clearInputs();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已更新当日体重记录')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已更新当日体重记录')));
       }
       widget.onSaved();
       return;
@@ -940,361 +1125,17 @@ class _AddMetricFormState extends State<_AddMetricForm> {
     // 里程碑检测
     _checkMilestone(oldLevel);
 
+    _clearInputs();
+    widget.onSaved();
+  }
+
+  /// 清空表单（保留日期）
+  void _clearInputs() {
     _weightCtrl.clear();
     _waistCtrl.clear();
     _hipCtrl.clear();
     _chestCtrl.clear();
     _noteCtrl.clear();
     setState(() => _photoFile = null);
-    widget.onSaved();
-  }
-}
-
-// ───────────────────── 照片网格 ─────────────────────
-
-  void _showComparePicker(BuildContext context, List<Photo> photos) {
-    int? leftIndex;
-    int? rightIndex;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('选择对比照片'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('选择两张照片进行前后对比',
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: Theme.of(ctx).colorScheme.outline)),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ComparePhotoSlot(
-                        label: '之前',
-                        photos: photos,
-                        selectedIndex: leftIndex,
-                        onSelected: (i) => setDlgState(() => leftIndex = i),
-                        excludeIndex: rightIndex,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.arrow_forward, size: 24),
-                    ),
-                    Expanded(
-                      child: _ComparePhotoSlot(
-                        label: '之后',
-                        photos: photos,
-                        selectedIndex: rightIndex,
-                        onSelected: (i) => setDlgState(() => rightIndex = i),
-                        excludeIndex: leftIndex,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-            FilledButton(
-              onPressed: leftIndex != null && rightIndex != null
-                ? () {
-                    Navigator.pop(ctx);
-                    _showCompareView(context, photos[leftIndex!], photos[rightIndex!]);
-                  }
-                : null,
-              child: const Text('对比'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCompareView(BuildContext context, Photo before, Photo after) {
-    final dateFmt = DateFormat('M月d日');
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: Text('${dateFmt.format(before.date)} → ${dateFmt.format(after.date)}'),
-        ),
-        body: Column(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text('之前 · ${dateFmt.format(before.date)}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                        ),
-                        Expanded(
-                          child: InteractiveViewer(
-                            child: Image.file(File(before.filePath), fit: BoxFit.contain),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(width: 1, color: Colors.white24),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text('之后 · ${dateFmt.format(after.date)}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                        ),
-                        Expanded(
-                          child: InteractiveViewer(
-                            child: Image.file(File(after.filePath), fit: BoxFit.contain),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  '${before.date.difference(after.date).inDays.abs()} 天的变化',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ));
-  }
-
-class _ComparePhotoSlot extends StatelessWidget {
-  final String label;
-  final List<Photo> photos;
-  final int? selectedIndex;
-  final ValueChanged<int> onSelected;
-  final int? excludeIndex;
-
-  const _ComparePhotoSlot({
-    required this.label,
-    required this.photos,
-    required this.selectedIndex,
-    required this.onSelected,
-    this.excludeIndex,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dateFmt = DateFormat('M月d日');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
-        const SizedBox(height: 6),
-        if (selectedIndex != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Stack(
-              children: [
-                Image.file(File(photos[selectedIndex!].filePath), height: 100, width: double.infinity, fit: BoxFit.cover),
-                Positioned(
-                  top: 4, right: 4,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, size: 16, color: Colors.white),
-                    style: IconButton.styleFrom(backgroundColor: Colors.black45, padding: EdgeInsets.zero, minimumSize: const Size(24, 24)),
-                    onPressed: () => onSelected(-1),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0, left: 0, right: 0,
-                  child: Container(
-                    color: Colors.black54,
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(dateFmt.format(photos[selectedIndex!].date), textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          SizedBox(
-            height: 100,
-            child: OutlinedButton(
-              onPressed: () => _showSelectSheet(context),
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Icon(Icons.add_photo_alternate, size: 28),
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _showSelectSheet(BuildContext context) {
-    final dateFmt = DateFormat('M月d日');
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => ListView(
-        shrinkWrap: true,
-        children: [
-          for (int i = 0; i < photos.length; i++)
-            if (i != (excludeIndex ?? -1))
-              ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.file(File(photos[i].filePath), width: 48, height: 48, fit: BoxFit.cover),
-                ),
-                title: Text(dateFmt.format(photos[i].date)),
-                trailing: photos[i].note != null ? Text(photos[i].note!, style: Theme.of(ctx).textTheme.bodySmall) : null,
-                onTap: () {
-                  onSelected(i);
-                  Navigator.pop(ctx);
-                },
-              ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoGrid extends StatelessWidget {
-  final List<Photo> photos;
-  final PhotoRepository photoRepo;
-  final VoidCallback onChanged;
-
-  const _PhotoGrid({
-    required this.photos,
-    required this.photoRepo,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dateFmt = DateFormat('M月d日');
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: photos.length,
-      itemBuilder: (context, index) {
-        final photo = photos[index];
-        return GestureDetector(
-          onTap: () => _showFullScreen(context, photo),
-          onLongPress: () => _confirmDelete(context, photo),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(photo.filePath),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stack) => Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
-                  ),
-                ),
-              ),
-              // 日期标签
-              Positioned(
-                bottom: 0, left: 0, right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
-                  ),
-                  child: Text(
-                    dateFmt.format(photo.date),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showFullScreen(BuildContext context, Photo photo) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            InteractiveViewer(child: Image.file(File(photo.filePath), fit: BoxFit.contain)),
-            Positioned(
-              top: 48, left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                style: IconButton.styleFrom(backgroundColor: Colors.black38),
-                onPressed: () => Navigator.of(ctx).pop(),
-              ),
-            ),
-            if (photo.note != null)
-              Positioned(
-                bottom: 32, left: 16, right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(photo.note!,
-                    style: const TextStyle(color: Colors.white, fontSize: 13)),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, Photo photo) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除照片'),
-        content: const Text('确定要删除这张照片吗？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          TextButton(
-            onPressed: () async {
-              await photoRepo.delete(photo.id);
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-              onChanged();
-            },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
 }

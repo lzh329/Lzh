@@ -6,6 +6,7 @@ import 'package:fittrack/features/workout/presentation/pages/quick_start_page.da
 import 'package:fittrack/features/workout/presentation/pages/workout_active_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_detail_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_metric_page.dart';
+import 'package:fittrack/features/body_log/presentation/pages/body_album_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/settings_page.dart';
 import 'package:fittrack/features/exercise/presentation/pages/exercise_manage_page.dart';
 import 'package:fittrack/features/goal/presentation/pages/goal_list_page.dart';
@@ -168,6 +169,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/body',
       pageBuilder: (context, state) => _subPageTransition(const BodyMetricPage(), state),
+    ),
+    GoRoute(
+      path: '/body/album',
+      pageBuilder: (context, state) => _subPageTransition(const BodyAlbumPage(), state),
     ),
     GoRoute(
       path: '/diet',

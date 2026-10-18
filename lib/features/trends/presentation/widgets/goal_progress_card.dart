@@ -87,11 +87,6 @@ class GoalProgressCard extends StatelessWidget {
                   label: '锻炼日',
                   color: _green,
                 ),
-                _Cell(
-                  value: '${data.photoCount}张',
-                  label: '照片',
-                  color: Colors.white70,
-                ),
               ],
             ),
           ],

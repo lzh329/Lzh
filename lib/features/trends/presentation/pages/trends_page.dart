@@ -45,21 +45,7 @@ class TrendsPage extends ConsumerWidget {
               WeightTimelineCard(data: d),
               WeightChartCard(metrics: d.metrics),
 
-              // 身体照片入口
-              InfoLinkCard(
-                icon: Icons.photo_camera_outlined,
-                iconColor: const Color(0xFFEC407A),
-                title: '身体照片',
-                subtitle: '记录体重时可同时录入围度、对比照片',
-                trailing: Text(
-                  '${d.photoCount} 张',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-                onTap: () => context.push('/body'),
-              ),
-
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
 
               // 情感化 + 分析
               StoryCard(data: d),

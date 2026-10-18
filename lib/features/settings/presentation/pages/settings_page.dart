@@ -80,6 +80,13 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: '记录每日饮水量',
                 onTap: () => context.push('/water'),
               ),
+              SettingsTile(
+                icon: Icons.photo_library,
+                color: _blue,
+                title: '身体相册',
+                subtitle: '查看和管理身体照片',
+                onTap: () => context.push('/body/album'),
+              ),
             ],
           ),
           const SizedBox(height: 18),
