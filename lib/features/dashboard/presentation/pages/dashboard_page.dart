@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/services/weight_analysis.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/calendar_widget.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
@@ -93,6 +94,11 @@ class _DashboardBody extends StatelessWidget {
       ...data.allWorkouts.map((w) => w.date),
     ]);
 
+    // 咕嘎形态（首页陪伴头像 + 距升级提示）
+    final totalLossJin =
+        (startJin != null && currentJin != null) ? startJin - currentJin : 0.0;
+    final guga = GugaLevelService.resolve(totalLossJin);
+
     final todayWorkouts =
         data.allWorkouts.where((w) => _sameDay(w.date, today)).toList();
 
@@ -170,7 +176,14 @@ class _DashboardBody extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
-          GreetingHeader(streakDays: streak),
+          GreetingHeader(
+            streakDays: streak,
+            avatarAsset: guga.stage.asset,
+            gugaName: guga.stage.name,
+            upgradeHint: guga.isMax
+                ? null
+                : '距升级 ${guga.remainToNext!.toStringAsFixed(1)} 斤',
+          ),
           const SizedBox(height: 22),
           HeroWeightSection(
             currentJin: currentJin,
