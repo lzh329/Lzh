@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/services/weight_analysis.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/hero_weight_section.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/today_timeline.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/recent_workouts_section.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weight_spark_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
-const _orange = Color(0xFFFF7043);
-
-/// 主控页 —— v2 仪表盘（精简版）
+/// 主控页 —— v2 仪表盘（每日任务 + 咕嘎陪伴融合版）
 ///
-/// 结构：问候 → 大字体重区（进度条）→ 今日数据三格 → 今日动态时间线 → 页脚入口
+/// 结构：问候 → 今日任务卡（3 件事）→ 大字体重区（进度条）→ 今日数据三格
+///      → 体重趋势 → 最近训练 → 页脚入口
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
@@ -97,37 +93,6 @@ class _DashboardBody extends StatelessWidget {
     final todayWorkouts =
         data.allWorkouts.where((w) => _sameDay(w.date, today)).toList();
 
-    // ── 今日动态 ──
-    final entries = <TimelineEntry>[];
-    if (data.todayMetric != null) {
-      entries.add(TimelineEntry(
-        title: '记录体重 ${(data.todayMetric!.weightKg * 2).toStringAsFixed(1)} 斤',
-        subtitle: _fmtTime(data.todayMetric!.date),
-        color: _amber,
-      ));
-    }
-    for (final w in todayWorkouts) {
-      final names = w.sets
-          .map((s) => data.exerciseNames[s.exerciseId] ?? '')
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .take(2)
-          .join(' · ');
-      entries.add(TimelineEntry(
-        title: names.isEmpty ? '完成训练' : '完成训练 · $names',
-        subtitle: _fmtTime(w.date),
-        color: _green,
-      ));
-    }
-    if (data.todayCalories != null) {
-      entries.add(TimelineEntry(
-        title: '记录饮食 ${data.todayCalories!.round()} kcal',
-        color: _orange,
-      ));
-    } else {
-      entries.add(const TimelineEntry(title: '待记录：今日饮食', done: false));
-    }
-
     return SafeArea(
       bottom: false,
       child: ListView(
@@ -144,7 +109,23 @@ class _DashboardBody extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // 2) 大字体重 + 本周变化 + 目标进度
+          // 2) 今日任务：记录体重 / 完成训练 / 记录饮食 + 咕嘎鼓励
+          TodayTasksCard(
+            todayWeightJin: data.todayMetric != null
+                ? data.todayMetric!.weightKg * 2
+                : null,
+            workoutCount: todayWorkouts.length,
+            calories: data.todayCalories,
+            gugaAsset: guga.stage.asset,
+            // 首页的记录体重入口由 WeighInFab 内部弹层承载，未对外暴露回调，
+            // 因此该行未完成时不展示「去记录」按钮（仅保留勾选框）。
+            onTapWeight: null,
+            onTapWorkout: () => context.push('/workout/quick-start'),
+            onTapDiet: () => context.push('/diet'),
+          ),
+          const SizedBox(height: 22),
+
+          // 3) 大字体重 + 本周变化 + 目标进度
           HeroWeightSection(
             currentJin: currentJin,
             targetJin: targetJin,
@@ -155,7 +136,7 @@ class _DashboardBody extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // 3) 今日数据三格
+          // 4) 今日数据三格
           _TodayStatsCard(
             calories: data.todayCalories,
             cups: data.todayCups,
@@ -166,15 +147,11 @@ class _DashboardBody extends StatelessWidget {
           ),
           const SizedBox(height: 22),
 
-          // 4) 体重趋势（近 7 次）
+          // 5) 体重趋势（近 7 次）
           WeightSparkCard(
             metrics: data.allMetrics,
             onTap: () => context.push('/body'),
           ),
-          const SizedBox(height: 22),
-
-          // 5) 今日动态
-          TodayTimeline(entries: entries),
           const SizedBox(height: 22),
 
           // 6) 最近训练
@@ -370,8 +347,6 @@ class _FooterLink extends StatelessWidget {
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
-
-String _fmtTime(DateTime d) => DateFormat('HH:mm').format(d);
 
 /// 连续打卡天数：从今天（或昨天）向前连续有记录的天数
 int _calcStreak(List<DateTime> dates) {

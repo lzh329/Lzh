@@ -2,15 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fittrack/core/theme/app_theme.dart';
-import 'package:fittrack/core/widgets/timer_card.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_action_card.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_complete_view.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_entry_panel.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_footer.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_header.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_placeholder.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_style.dart';
+import 'package:fittrack/features/workout/presentation/widgets/active_workout_tool_row.dart';
 
 /// 统一训练执行页 —— 自由训练 & 计划训练共用
+///
+/// 布局（Keep「训练中」风格）：
+/// 顶部自定义头部 → 中部动作大卡片（占屏约一半）→ 紧凑输入区 + 工具行
+/// → 底部固定操作区。
 ///
 /// 路由：
 /// - 自由训练：`/workout/active`，extra = `List<ExerciseSlot>`
 /// - 计划训练：`/plan/:id/execute`，extra = `int? dayOfWeek`
+///
+/// 本文件只负责布局与状态分支编排；计时、组次记录、休息倒计时、语音播报、
+/// 保存训练等业务逻辑全部委托给 [WorkoutSessionNotifier]，未作改动。
 class WorkoutActivePage extends ConsumerStatefulWidget {
   /// 自由训练的初始动作槽位（构造函数传入，编译期类型安全；计划训练为 null）
   final List<ExerciseSlot>? initialSlots;
@@ -72,481 +85,340 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
     super.dispose();
   }
 
+  // ──────────────────────────── 构建 ────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final sessionState = ref.watch(workoutSessionProvider);
     final notifier = ref.read(workoutSessionProvider.notifier);
-    final theme = Theme.of(context);
 
-    // 会话初始化中（provider 修改已延后到帧后执行，这里避免空态闪烁）
+    // 分支 1：会话初始化中（provider 修改已延后到帧后执行，避免空态闪烁）
     if (!_sessionReady) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('训练')),
-        body: const Center(child: CircularProgressIndicator()),
+      return ActiveWorkoutPlaceholder(
+        label: '训练',
+        onClose: () => _confirmAbandon(context),
       );
     }
 
-    // 计划模式加载中
+    // 分支 2：计划模式加载中
     if (sessionState.sessionType == 'plan' && sessionState.slots.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('执行计划')),
-        body: const Center(child: CircularProgressIndicator()),
+      return ActiveWorkoutPlaceholder(
+        label: '执行计划',
+        onClose: () => _confirmAbandon(context),
       );
     }
 
-    // 无动作数据
+    // 分支 3：无动作数据
     if (sessionState.slots.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('训练')),
-        body: const Center(child: Text('未选择动作')),
+      return ActiveWorkoutPlaceholder(
+        label: '未选择动作',
+        isLoading: false,
+        onClose: () => Navigator.of(context).maybePop(),
+        closeTooltip: '返回',
       );
     }
 
-    // 全部完成
+    // 分支 4：全部完成
     if (sessionState.isComplete) {
-      return _buildCompleteView(theme, sessionState, notifier);
+      return ActiveWorkoutCompleteView(
+        exerciseCount: sessionState.slots.length,
+        setCount: sessionState.completedSets.length,
+        onSave: () => _saveWorkoutAndExit(notifier),
+        onClose: () => _confirmAbandon(context),
+      );
     }
 
+    // 分支 5：训练进行中
     final slot = sessionState.currentSlot!;
-    final catColor = AppTheme.categoryColors[slot.category] ?? Colors.grey;
     final isLastSet = sessionState.isLastSetOfCurrentSlot;
-    final isLastExercise = sessionState.isLastSlot;
-    final appBarTitle = sessionState.sessionType == 'plan' ? '计划训练' : '训练中';
+    final isTimed = _isTimedCategory(slot.category);
+    final nextSlot = sessionState.currentSlotIndex + 1 < sessionState.slots.length
+        ? sessionState.slots[sessionState.currentSlotIndex + 1]
+        : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(appBarTitle),
-        actions: [
-          TextButton(
-            onPressed: () => _confirmAbandon(context),
-            child: const Text('放弃'),
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: sessionState.isTraining
-            ? BoxDecoration(
-                border: Border.all(color: Colors.redAccent.withAlpha(180), width: 7.5),
-              )
-            : null,
+      backgroundColor: ActiveWorkoutStyle.background,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            // 进度条
-            LinearProgressIndicator(
-              value: (sessionState.currentSlotIndex +
-                      (sessionState.currentSetIndex /
-                          (slot.targetSets > 0 ? slot.targetSets : 1))) /
-                  sessionState.slots.length,
+            ActiveWorkoutHeader(
+              currentIndex: sessionState.currentSlotIndex,
+              total: sessionState.slots.length,
+              progress: _overallProgress(sessionState, slot),
+              onClose: () => _confirmAbandon(context),
             ),
-            // 动作信息头
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: catColor.withAlpha(40),
-                    radius: 24,
-                    child: Icon(
-                      AppTheme.categoryIcons[slot.category] ?? Icons.fitness_center,
-                      color: catColor,
+            const SizedBox(height: ActiveWorkoutStyle.gapSection),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    // 中部主区：动作大卡片（占屏约 50%，键盘弹出时可滚动）
+                    SizedBox(
+                      height: _cardHeight(context),
+                      child: ActiveWorkoutActionCard(
+                        exerciseName: slot.exerciseName,
+                        targetText: _targetText(slot),
+                        statusText: _statusText(sessionState, slot, isLastSet),
+                        isResting: sessionState.isResting,
+                        isTraining: sessionState.isTraining,
+                        isLastSet: isLastSet,
+                        isTimed: isTimed,
+                        targetReps: slot.targetReps,
+                        displaySeconds:
+                            _displaySeconds(sessionState, slot, isTimed),
+                        onSkipRest: () => notifier.stopRest(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(slot.exerciseName, style: theme.textTheme.titleLarge),
-                        const SizedBox(height: 4),
-                        Text(
-                          isLastSet
-                              ? '${slot.targetSets} / ${slot.targetSets} 组 · 已完成'
-                              : '第 ${sessionState.currentSetIndex + 1} / ${slot.targetSets} 组',
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: theme.colorScheme.outline),
-                        ),
-                      ],
+                    if (nextSlot != null) ...[
+                      const SizedBox(height: 8),
+                      _buildNextHint(nextSlot.exerciseName),
+                    ],
+                    const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                    // 下部输入区 + 工具行
+                    ActiveWorkoutEntryPanel(
+                      category: slot.category,
+                      isTimed: isTimed,
+                      isLastSet: isLastSet,
+                      lastReps: sessionState.lastReps,
+                      lastWeight: sessionState.lastWeight,
+                      lastDuration: sessionState.lastDuration,
+                      targetReps: slot.targetReps,
+                      targetDurationSec: slot.targetDurationSec,
+                      targetWeightKg: slot.targetWeightKg,
+                      repsController: _repsCtrl,
+                      weightController: _weightCtrl,
+                      durationController: _durationCtrl,
+                      toolRow: _buildToolRow(sessionState, notifier),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            // 计划训练的目标提示
-            if (sessionState.sessionType == 'plan' && !isLastSet)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: theme.colorScheme.surfaceContainerHighest.withAlpha(60),
-                child: Text(
-                  _formatTarget(slot),
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                    const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                  ],
                 ),
               ),
-
-            // 输入区域
-            if (!isLastSet)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: _buildInputForm(theme, sessionState, notifier, slot),
-                ),
-              ),
+            ),
           ],
         ),
       ),
-      // 底部按钮
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              if (sessionState.currentSetIndex > 0 && !sessionState.isAutoMode)
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => notifier.prevSet(),
-                    child: const Text('上一组'),
-                  ),
-                ),
-              if (sessionState.currentSetIndex > 0 && !sessionState.isAutoMode)
-                const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: isLastSet
-                    ? FilledButton.icon(
-                        onPressed: isLastExercise
-                            ? () => notifier.nextExercise()
-                            : () => notifier.nextExercise(),
-                        icon: Icon(isLastExercise ? Icons.check : Icons.arrow_forward),
-                        label: Text(isLastExercise ? '完成训练' : '下一个动作'),
-                      )
-                    : sessionState.isAutoMode
-                        ? FilledButton.icon(
-                            onPressed: () => notifier.stopAutoMode(),
-                            icon: const Icon(Icons.stop),
-                            label: const Text('停止自动'),
-                            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                          )
-                        : FilledButton.icon(
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              notifier.completeCurrentSet(
-                                reps: _repsCtrl.text,
-                                weight: _weightCtrl.text,
-                                duration: _durationCtrl.text,
-                              );
-                              _repsCtrl.clear();
-                              _weightCtrl.clear();
-                              _durationCtrl.clear();
-                            },
-                            icon: const Icon(Icons.check),
-                            label: const Text('完成本组'),
-                          ),
-              ),
-            ],
-          ),
+      // 底部固定操作区
+      bottomNavigationBar: ActiveWorkoutFooter(
+        primaryLabel: _primaryLabel(sessionState, isLastSet),
+        primaryIcon: _primaryIcon(sessionState, isLastSet),
+        primaryColor: _primaryColor(sessionState),
+        onPrimary: () => _onPrimaryTap(sessionState, notifier, isLastSet),
+        canSkipExercise: !sessionState.isAutoMode,
+        onSkipExercise: () => _skipExercise(notifier),
+        onFinishWorkout: () => _confirmAbandon(context),
+      ),
+    );
+  }
+
+  /// 卡片下方的「下一个动作」提示
+  Widget _buildNextHint(String nextExerciseName) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        '下一个：$nextExerciseName',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 11.5,
+          color: ActiveWorkoutStyle.textTertiary,
         ),
       ),
     );
   }
 
-  Widget _buildInputForm(
-    ThemeData theme,
+  /// 工具行（次级控制，保留原有节拍 / 语音 / 时长设置 / 休息开关等入口）
+  Widget _buildToolRow(
     WorkoutSessionState state,
     WorkoutSessionNotifier notifier,
+  ) {
+    return ActiveWorkoutToolRow(
+      showPrevSet: state.currentSetIndex > 0,
+      isAutoMode: state.isAutoMode,
+      isResting: state.isResting,
+      voiceEnabled: notifier.voiceEnabled,
+      restDurationSec: state.restDurationSec,
+      trainingDurationSec: state.trainingDurationSec,
+      paceIntervalSec: state.paceIntervalSec,
+      onPrevSet: () => notifier.prevSet(),
+      onStartTraining: () {
+        HapticFeedback.selectionClick();
+        notifier.startTraining();
+      },
+      onStopTimer: () => notifier.stopAutoMode(),
+      onToggleRest: () {
+        if (state.isResting) {
+          notifier.stopRest();
+        } else {
+          notifier.startRest();
+        }
+      },
+      onEditTrainingTime: () => _editTrainingTime(notifier, state),
+      onEditRestTime: () => _editRestTime(notifier, state),
+      onCyclePace: () {
+        final next = state.paceIntervalSec >= 4 ? 1 : state.paceIntervalSec + 1;
+        notifier.setPaceIntervalSec(next);
+      },
+      onToggleVoice: () => notifier.setVoiceEnabled(!notifier.voiceEnabled),
+    );
+  }
+
+  // ──────────────────── 状态 -> 主按钮映射 ────────────────────
+
+  String _primaryLabel(WorkoutSessionState state, bool isLastSet) {
+    if (state.isResting) return '跳过休息';
+    if (state.isAutoMode) return '停止计时';
+    if (isLastSet) return state.isLastSlot ? '完成训练' : '下一个动作';
+    return '完成本组';
+  }
+
+  IconData _primaryIcon(WorkoutSessionState state, bool isLastSet) {
+    if (state.isResting) return Icons.timer_off;
+    if (state.isAutoMode) return Icons.stop;
+    if (isLastSet) return state.isLastSlot ? Icons.check : Icons.arrow_forward;
+    return Icons.check;
+  }
+
+  Color _primaryColor(WorkoutSessionState state) {
+    if (state.isAutoMode && !state.isResting) return ActiveWorkoutStyle.orange;
+    return ActiveWorkoutStyle.green;
+  }
+
+  void _onPrimaryTap(
+    WorkoutSessionState state,
+    WorkoutSessionNotifier notifier,
+    bool isLastSet,
+  ) {
+    if (state.isResting) {
+      notifier.stopRest();
+      return;
+    }
+    if (state.isAutoMode) {
+      notifier.stopAutoMode();
+      return;
+    }
+    if (isLastSet) {
+      HapticFeedback.mediumImpact();
+      notifier.nextExercise();
+      return;
+    }
+    _completeCurrentSet(notifier);
+  }
+
+  /// 完成本组：沿用原有「读取输入 -> 记录 -> 清空 controller」流程
+  void _completeCurrentSet(WorkoutSessionNotifier notifier) {
+    HapticFeedback.lightImpact();
+    notifier.completeCurrentSet(
+      reps: _repsCtrl.text,
+      weight: _weightCtrl.text,
+      duration: _durationCtrl.text,
+    );
+    _repsCtrl.clear();
+    _weightCtrl.clear();
+    _durationCtrl.clear();
+  }
+
+  /// 跳过当前动作剩余组，直接进入下一个动作（复用 nextExercise）
+  void _skipExercise(WorkoutSessionNotifier notifier) {
+    _repsCtrl.clear();
+    _weightCtrl.clear();
+    _durationCtrl.clear();
+    notifier.nextExercise();
+  }
+
+  /// 保存训练记录并回到首页（完成态）
+  Future<void> _saveWorkoutAndExit(WorkoutSessionNotifier notifier) async {
+    HapticFeedback.mediumImpact();
+    await notifier.saveWorkout();
+    if (mounted) context.go('/');
+  }
+
+  // ──────────────────────── 计算辅助 ────────────────────────
+
+  /// 中部主区卡片高度：屏幕高度的 50%（限制在 180-420，约占屏 45-55%）
+  double _cardHeight(BuildContext context) {
+    final raw = MediaQuery.sizeOf(context).height * 0.5;
+    if (!raw.isFinite) return 240;
+    return raw.clamp(180.0, 420.0);
+  }
+
+  bool _isTimedCategory(String category) {
+    return category == 'cardio' || category == 'stretch';
+  }
+
+  /// 整体进度（沿用原有算法：已完成动作数 + 当前动作组内进度）
+  double _overallProgress(WorkoutSessionState state, ExerciseSlot slot) {
+    if (state.slots.isEmpty) return 0;
+    final perSlot = slot.targetSets > 0 ? slot.targetSets : 1;
+    final raw =
+        (state.currentSlotIndex + state.currentSetIndex / perSlot) /
+            state.slots.length;
+    if (!raw.isFinite) return 0;
+    return raw.clamp(0.0, 1.0);
+  }
+
+  /// 当前组序号（1 基，动作完成后不超过目标组数）
+  int _currentSetNumber(WorkoutSessionState state, ExerciseSlot slot) {
+    final next = state.currentSetIndex + 1;
+    if (slot.targetSets <= 0) return next;
+    return next.clamp(1, slot.targetSets);
+  }
+
+  /// 大卡片状态文案
+  String _statusText(
+    WorkoutSessionState state,
     ExerciseSlot slot,
+    bool isLastSet,
   ) {
-    final category = slot.category;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 热身组开关 + 节拍控制
-        Row(
-          children: [
-            Text('热身组', style: theme.textTheme.bodyMedium),
-            Switch(
-              value: false, // 简化：热身组状态由调用方管理
-              onChanged: (_) {},
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            const Spacer(),
-            if (!state.isTraining && !state.isResting) ...[
-              Text('节拍',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: state.paceIntervalSec,
-                isDense: true,
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('1秒', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 2, child: Text('2秒', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 3, child: Text('3秒', style: TextStyle(fontSize: 12))),
-                  DropdownMenuItem(value: 4, child: Text('4秒', style: TextStyle(fontSize: 12))),
-                ],
-                onChanged: (v) => notifier.setPaceIntervalSec(v!),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // 次数输入（非有氧动作）
-        if (category != 'cardio') ...[
-          TextField(
-            controller: _repsCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: '次数',
-              hintText: state.lastReps ?? '例如: 12',
-              suffixText: '次',
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // 重量输入（器械动作）
-        if (category == 'gym') ...[
-          TextField(
-            controller: _weightCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: '重量',
-              hintText: state.lastWeight ?? '例如: 60',
-              suffixText: 'kg',
-            ),
-          ),
-        ],
-
-        // 时长输入（有氧/拉伸动作）
-        if (category == 'cardio' || category == 'stretch') ...[
-          TextField(
-            controller: _durationCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: '时长',
-              hintText: state.lastDuration ?? '例如: 300',
-              suffixText: '秒',
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 8),
-        // 保存为默认
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () {
-              notifier.completeCurrentSet(
-                reps: _repsCtrl.text,
-                weight: _weightCtrl.text,
-                duration: _durationCtrl.text,
-              );
-              // Undo the set completion — we just want to save defaults
-              // Actually _saveExerciseDefaults is private; save via completing is wrong.
-              // Just show the snackbar for UX — defaults save on completeCurrentSet.
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('保存为默认值'), duration: Duration(seconds: 1)),
-              );
-            },
-            icon: const Icon(Icons.save_outlined, size: 16),
-            label: const Text('保存为默认', style: TextStyle(fontSize: 13)),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // ── 训练 & 休息倒计时卡片（并列） ──
-        Row(
-          children: [
-            Expanded(
-              child: TimerCard(
-                label: '训练倒计时',
-                seconds: state.isTraining ? state.trainingSeconds : state.trainingDurationSec,
-                isActive: state.isTraining,
-                icon: Icons.fitness_center,
-                color: theme.colorScheme.primary,
-                onEdit: state.isTraining ? null : () => _editTrainingTime(context, notifier, state),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TimerCard(
-                label: '休息倒计时',
-                seconds: state.isResting ? state.restSeconds : state.restDurationSec,
-                isActive: state.isResting,
-                icon: Icons.timer,
-                color: theme.colorScheme.tertiary,
-                onEdit: state.isResting ? null : () => _editRestTime(context, notifier, state),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 16),
-
-        // ── 操作按钮行 ──
-        if (!state.isAutoMode)
-          Row(
-            children: [
-              if (state.sessionType == 'plan')
-                OutlinedButton.icon(
-                  onPressed: () {
-                    _repsCtrl.clear();
-                    _weightCtrl.clear();
-                    _durationCtrl.clear();
-                    notifier.skipCurrentSet();
-                  },
-                  icon: const Icon(Icons.skip_next, size: 18),
-                  label: const Text('跳过'),
-                ),
-              if (state.sessionType == 'plan') const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => notifier.startTraining(),
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('开始训练'),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: state.isResting
-                      ? () => notifier.stopRest()
-                      : () => notifier.startRest(),
-                  icon: Icon(
-                      state.isResting ? Icons.timer_off : Icons.timer, size: 18),
-                  label: Text(state.isResting ? '停止休息' : '休息'),
-                ),
-              ),
-            ],
-          ),
-
-        // ── 语音 & 节拍控制 ──
-        if (!state.isAutoMode) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              FilterChip(
-                avatar: Icon(
-                    notifier.voiceEnabled ? Icons.volume_up : Icons.volume_off,
-                    size: 18),
-                label: Text(notifier.voiceEnabled ? '语音开' : '语音关',
-                    style: const TextStyle(fontSize: 12)),
-                selected: notifier.voiceEnabled,
-                onSelected: (v) => notifier.setVoiceEnabled(v),
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-        ],
-
-        // ── 正在倒计时的大字显示 ──
-        if (state.isTraining || state.isResting) ...[
-          const SizedBox(height: 24),
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  state.isTraining ? '训练中' : '休息中',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  state.isTraining
-                      ? _fmtTime(state.trainingSeconds)
-                      : _fmtTime(state.restSeconds),
-                  style: theme.textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: state.isTraining
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.tertiary,
-                    fontSize: 52,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ],
-    );
+    if (state.isResting) return '休息中';
+    if (state.isTraining) return '训练中';
+    if (isLastSet) return '本动作已完成';
+    return '第 ${_currentSetNumber(state, slot)} 组 / 共 ${slot.targetSets} 组';
   }
 
-  Widget _buildCompleteView(
-    ThemeData theme,
+  /// 大卡片中部大字所用秒数
+  int _displaySeconds(
     WorkoutSessionState state,
-    WorkoutSessionNotifier notifier,
+    ExerciseSlot slot,
+    bool isTimed,
   ) {
-    final totalSets = state.completedSets.length;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('训练中'),
-        actions: [
-          TextButton(
-            onPressed: () => _confirmAbandon(context),
-            child: const Text('放弃'),
-          ),
-        ],
-      ),
-      body: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeOutBack,
-          builder: (context, value, child) {
-            return Transform.scale(
-              scale: value,
-              child: Opacity(
-                opacity: value.clamp(0.0, 1.0),
-                child: child,
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.celebration, size: 64, color: theme.colorScheme.primary),
-                const SizedBox(height: 16),
-                Text('训练完成！', style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 8),
-                Text(
-                  '共 ${state.slots.length} 个动作 · $totalSets 组',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () async {
-                    HapticFeedback.mediumImpact();
-                    await notifier.saveWorkout();
-                    if (mounted) context.go('/');
-                  },
-                  icon: const Icon(Icons.save),
-                  label: const Text('保存训练记录'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    if (state.isResting) return state.restSeconds;
+    if (state.isTraining) return state.trainingSeconds;
+    if (isTimed) return slot.targetDurationSec ?? state.trainingDurationSec;
+    return 0;
   }
 
-  // ── 编辑倒计时对话框 ──
+  /// 目标文案：`3 组 × 15 次` / `3 组 × 30 秒`（可附加目标重量）
+  String _targetText(ExerciseSlot slot) {
+    final buffer = StringBuffer('${slot.targetSets} 组');
+    if (slot.targetReps != null) {
+      buffer.write(' × ${slot.targetReps} 次');
+    } else if (slot.targetDurationSec != null) {
+      buffer.write(' × ${slot.targetDurationSec} 秒');
+    }
+    if (slot.targetWeightKg != null) {
+      buffer.write(' · ${_formatWeight(slot.targetWeightKg!)} kg');
+    }
+    return buffer.toString();
+  }
 
+  String _formatWeight(double weightKg) {
+    return weightKg % 1 == 0
+        ? weightKg.toStringAsFixed(0)
+        : weightKg.toStringAsFixed(1);
+  }
+
+  // ──────────────────────── 对话框 ────────────────────────
+
+  /// 编辑训练时长
   void _editTrainingTime(
-      BuildContext context, WorkoutSessionNotifier notifier, WorkoutSessionState state) {
+    WorkoutSessionNotifier notifier,
+    WorkoutSessionState state,
+  ) {
     final ctrl = TextEditingController(text: '${state.trainingDurationSec}');
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('训练时长（秒）'),
@@ -568,13 +440,16 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           ),
         ],
       ),
-    );
+    ).whenComplete(ctrl.dispose);
   }
 
+  /// 编辑休息时长
   void _editRestTime(
-      BuildContext context, WorkoutSessionNotifier notifier, WorkoutSessionState state) {
+    WorkoutSessionNotifier notifier,
+    WorkoutSessionState state,
+  ) {
     final ctrl = TextEditingController(text: '${state.restDurationSec}');
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('休息时长（秒）'),
@@ -596,11 +471,12 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           ),
         ],
       ),
-    );
+    ).whenComplete(ctrl.dispose);
   }
 
+  /// 确认退出训练
   void _confirmAbandon(BuildContext context) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('放弃训练？'),
@@ -619,22 +495,5 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
         ],
       ),
     );
-  }
-
-  String _fmtTime(int totalSeconds) {
-    final m = totalSeconds ~/ 60;
-    final s = totalSeconds % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  String _formatTarget(ExerciseSlot slot) {
-    final parts = <String>[];
-    parts.add('目标: ${slot.targetSets} 组');
-    if (slot.targetReps != null) parts.add('${slot.targetReps} 次');
-    if (slot.targetWeightKg != null) {
-      parts.add('${slot.targetWeightKg!.toStringAsFixed(1)} kg');
-    }
-    if (slot.targetDurationSec != null) parts.add('${slot.targetDurationSec} 秒');
-    return parts.join(' · ');
   }
 }
