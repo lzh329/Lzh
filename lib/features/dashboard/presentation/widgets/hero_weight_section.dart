@@ -88,10 +88,10 @@ class HeroWeightSection extends StatelessWidget {
                 builder: (context, v, _) => Text(
                   v.toStringAsFixed(1),
                   style: const TextStyle(
-                    fontSize: 40,
+                    fontSize: 52,
                     fontWeight: FontWeight.w700,
                     height: 1.0,
-                    letterSpacing: -0.5,
+                    letterSpacing: -1,
                   ),
                 ),
               ),
@@ -116,7 +116,7 @@ class HeroWeightSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
-                minHeight: 5,
+                minHeight: 6,
                 backgroundColor: Colors.white.withAlpha(16),
                 color: _green,
               ),

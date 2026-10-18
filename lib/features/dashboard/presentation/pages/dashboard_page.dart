@@ -8,6 +8,8 @@ import 'package:fittrack/core/services/weight_analysis.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/hero_weight_section.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/today_timeline.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/recent_workouts_section.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/weight_spark_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
@@ -164,8 +166,22 @@ class _DashboardBody extends StatelessWidget {
           ),
           const SizedBox(height: 22),
 
-          // 4) 今日动态
+          // 4) 体重趋势（近 7 次）
+          WeightSparkCard(
+            metrics: data.allMetrics,
+            onTap: () => context.push('/body'),
+          ),
+          const SizedBox(height: 22),
+
+          // 5) 今日动态
           TodayTimeline(entries: entries),
+          const SizedBox(height: 22),
+
+          // 6) 最近训练
+          RecentWorkoutsSection(
+            workouts: data.recentWorkouts,
+            exerciseNames: data.exerciseNames,
+          ),
           const SizedBox(height: 8),
 
           // 页脚：分析入口
