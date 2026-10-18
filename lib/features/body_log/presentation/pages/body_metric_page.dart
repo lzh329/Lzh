@@ -14,9 +14,9 @@ import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart'
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
-const _blue = Color(0xFF42A5F5);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
+const _blue = Color(0xFF38BDF8);
 const _red = Color(0xFFEF5350);
 
 class BodyMetricPage extends ConsumerStatefulWidget {

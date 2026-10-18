@@ -8,8 +8,8 @@ class WeightTimelineCard extends StatelessWidget {
 
   const WeightTimelineCard({super.key, required this.data});
 
-  static const _green = Color(0xFF66BB6A);
-  static const _amber = Color(0xFFFFA726);
+  static const _green = Color(0xFFFF8A00);
+  static const _amber = Color(0xFFFFC53D);
 
   @override
   Widget build(BuildContext context) {

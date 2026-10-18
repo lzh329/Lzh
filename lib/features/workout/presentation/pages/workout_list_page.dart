@@ -24,9 +24,9 @@ final _exerciseNamesProvider = FutureProvider<Map<int, String>>((ref) async {
   return {for (final e in list) e.id: e.name};
 });
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 const _orange = Color(0xFFFF9800);
-const _blue = Color(0xFF42A5F5);
+const _blue = Color(0xFF38BDF8);
 
 /// 训练记录页 —— 周视图 + 当天记录（v2）
 class WorkoutListPage extends ConsumerStatefulWidget {

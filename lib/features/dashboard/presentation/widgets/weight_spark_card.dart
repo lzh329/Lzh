@@ -8,7 +8,7 @@ class WeightSparkCard extends StatelessWidget {
 
   const WeightSparkCard({super.key, required this.metrics, this.onTap});
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFF3DDC84); // 趋势线表达「下降 = 健康」
   static const _red = Color(0xFFEF5350);
 
   @override

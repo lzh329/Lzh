@@ -8,7 +8,7 @@ import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_pa
 import 'package:fittrack/features/body_log/presentation/widgets/photo_preview_dialog.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_tile.dart';
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 
 /// 身体相册 —— 集中查看 / 拍照补充 / 删除 / 前后对比身体照片
 class BodyAlbumPage extends ConsumerStatefulWidget {

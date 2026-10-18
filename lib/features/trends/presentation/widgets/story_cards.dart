@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
 
 /// 你的变化故事卡 —— 情感化激励
 class StoryCard extends StatelessWidget {

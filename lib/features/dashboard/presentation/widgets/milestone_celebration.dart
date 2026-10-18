@@ -30,7 +30,7 @@ class _MilestoneView extends StatelessWidget {
 
   const _MilestoneView({required this.milestoneJin});
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +151,7 @@ class _Glow extends StatelessWidget {
 
   const _Glow({required this.size, required this.alpha});
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   @override
   Widget build(BuildContext context) {

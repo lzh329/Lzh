@@ -8,7 +8,7 @@ import 'package:fittrack/features/plan/domain/repositories/plan_repository.dart'
 
 final _planListProvider = FutureProvider<List<PlanEntity>>((ref) => ref.watch(planRepoProvider).getAll());
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 const _grey = Color(0xFF90A4AE);
 
 class PlanListPage extends ConsumerStatefulWidget {

@@ -21,7 +21,7 @@ class GreetingHeader extends StatelessWidget {
     this.upgradeHint,
   });
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 

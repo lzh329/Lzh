@@ -97,7 +97,7 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
       child: MaterialApp.router(
         title: '简瘦',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
+        theme: AppTheme.dark,
         darkTheme: AppTheme.dark,
         themeMode: themeMode,
         supportedLocales: const [Locale('zh', 'CN'), Locale('en')],

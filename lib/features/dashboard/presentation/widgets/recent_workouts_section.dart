@@ -86,11 +86,11 @@ class _WorkoutTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF66BB6A).withAlpha(30),
+                  color: const Color(0xFFFF8A00).withAlpha(30),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.fitness_center,
-                    size: 18, color: Color(0xFF66BB6A)),
+                    size: 18, color: Color(0xFFFF8A00)),
               ),
               const SizedBox(width: 12),
               Expanded(

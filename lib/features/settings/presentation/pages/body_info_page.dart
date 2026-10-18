@@ -4,10 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
-const _blue = Color(0xFF42A5F5);
-const _purple = Color(0xFFAB47BC);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
+const _blue = Color(0xFF38BDF8);
+const _purple = Color(0xFFC084FC);
 
 /// 身体信息页 —— v2 视觉统一（分组卡 + 彩色图标 + 大数字计算卡）
 class BodyInfoPage extends ConsumerStatefulWidget {

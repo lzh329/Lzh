@@ -11,7 +11,7 @@ final workoutTemplatesProvider =
   return ref.watch(workoutTemplateRepoProvider).getAll();
 });
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 
 /// 分类筛选的固定顺序（"全部"始终在最前）
 const _focusOrder = <String>['全身', '放松', '碎片'];
@@ -449,11 +449,11 @@ class _TemplateCover extends StatelessWidget {
 
   /// accentKey → 渐变双色（深色收尾，保证白字可读）
   static const _gradients = <String, List<Color>>{
-    'green': [Color(0xFF66BB6A), Color(0xFF1B5E20)],
+    'green': [Color(0xFFFF8A00), Color(0xFF1B5E20)],
     'orange': [Color(0xFFFF7043), Color(0xFFBF360C)],
     'red': [Color(0xFFEF5350), Color(0xFFB71C1C)],
     'cyan': [Color(0xFF26C6DA), Color(0xFF00695C)],
-    'purple': [Color(0xFFAB47BC), Color(0xFF4A148C)],
+    'purple': [Color(0xFFC084FC), Color(0xFF4A148C)],
   };
 
   static const _icons = <String, IconData>{
@@ -464,7 +464,7 @@ class _TemplateCover extends StatelessWidget {
     'purple': Icons.nightlight_round,
   };
 
-  static const List<Color> _fallback = [Color(0xFF66BB6A), Color(0xFF1B5E20)];
+  static const List<Color> _fallback = [Color(0xFFFF8A00), Color(0xFF1B5E20)];
 
   @override
   Widget build(BuildContext context) {

@@ -10,7 +10,7 @@ class CompanionCard extends StatelessWidget {
 
   const CompanionCard({super.key, this.totalLossJin, this.onTap});
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   @override
   Widget build(BuildContext context) {

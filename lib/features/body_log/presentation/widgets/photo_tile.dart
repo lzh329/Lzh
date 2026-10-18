@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/database/database.dart';
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 
 /// 相册单格：圆角封面 + 底部日期半透明条
 ///

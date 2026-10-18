@@ -17,7 +17,7 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
   List<Map<String, String>> _voices = [];
   bool _voicesLoaded = false;
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   @override
   void initState() {

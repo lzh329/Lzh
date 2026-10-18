@@ -136,11 +136,11 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF66BB6A).withAlpha(22),
+                            color: const Color(0xFFFF8A00).withAlpha(22),
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: const Icon(Icons.fitness_center,
-                              size: 30, color: Color(0xFF66BB6A)),
+                              size: 30, color: Color(0xFFFF8A00)),
                         ),
                         const SizedBox(height: 14),
                         Text('暂无匹配动作',

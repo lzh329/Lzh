@@ -82,8 +82,8 @@ final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
 
 void initThemeMode(WidgetRef ref, {required String? themeMode}) {
   final mode = switch (themeMode) {
-    'light' => ThemeMode.light,
     'system' => ThemeMode.system,
+    // App 固定深色设计：'light' 与未知值都回退深色
     _ => ThemeMode.dark,
   };
   ref.read(themeModeProvider.notifier).state = mode;

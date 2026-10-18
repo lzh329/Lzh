@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const _seedColor = Color(0xFF66BB6A);
+  static const _seedColor = Color(0xFFFF8A00);
 
   static ThemeData get light => ThemeData(
     useMaterial3: true,
@@ -53,30 +53,30 @@ class AppTheme {
     useMaterial3: true,
     brightness: Brightness.dark,
     // v2 统一底色：近黑（非纯黑），让卡片有层次
-    scaffoldBackgroundColor: const Color(0xFF0B0B0B),
+    scaffoldBackgroundColor: const Color(0xFF0F0D0C),
     colorScheme: const ColorScheme.dark(
       surface: Colors.black,
       onSurface: Colors.white,
-      primary: Colors.white,
+      primary: Color(0xFFFF8A00),
       onPrimary: Colors.black,
       secondary: Colors.white70,
       onSecondary: Colors.black,
       outline: Colors.white38,
-      surfaceContainerHighest: Color(0xFF1A1A1A),
-      primaryContainer: Color(0xFF2A2A2A),
+      surfaceContainerHighest: Color(0xFF1B1713),
+      primaryContainer: Color(0xFF2A231C),
       onPrimaryContainer: Colors.white,
-      secondaryContainer: Color(0xFF2A2A2A),
+      secondaryContainer: Color(0xFF2A231C),
       onSecondaryContainer: Colors.white70,
       tertiary: Colors.white54,
       onTertiary: Colors.black,
-      tertiaryContainer: Color(0xFF2A2A2A),
+      tertiaryContainer: Color(0xFF2A231C),
       onTertiaryContainer: Colors.white,
       onInverseSurface: Colors.black,
     ),
     appBarTheme: const AppBarTheme(
       centerTitle: false,
       elevation: 0,
-      backgroundColor: Color(0xFF0B0B0B),
+      backgroundColor: Color(0xFF0F0D0C),
       foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: TextStyle(
@@ -87,14 +87,14 @@ class AppTheme {
     ),
     cardTheme: CardThemeData(
       elevation: 0,
-      color: const Color(0xFF1A1A1A),
+      color: const Color(0xFF1B1713),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       elevation: 2,
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFFFF8A00),
       foregroundColor: Colors.black,
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -110,7 +110,7 @@ class AppTheme {
     iconTheme: const IconThemeData(color: Colors.white),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.black,
-      indicatorColor: const Color(0xFF66BB6A),
+      indicatorColor: const Color(0xFFFF8A00),
       elevation: 0,
       iconTheme: WidgetStateProperty.resolveWith((states) =>
           states.contains(WidgetState.selected)
@@ -159,10 +159,10 @@ class AppTheme {
   );
 
   static const categoryColors = {
-    'bodyweight': Color(0xFF42A5F5),
+    'bodyweight': Color(0xFF38BDF8),
     'gym': Color(0xFFEF5350),
     'cardio': Color(0xFFFF9800),
-    'stretch': Color(0xFF66BB6A),
+    'stretch': Color(0xFFFF8A00),
   };
 
   static const categoryLabels = {

@@ -9,16 +9,16 @@ class ActiveWorkoutStyle {
   const ActiveWorkoutStyle._();
 
   /// 页面底色：近黑
-  static const Color background = Color(0xFF0B0B0B);
+  static const Color background = Color(0xFF0F0D0C);
 
   /// 卡片底色
-  static const Color surface = Color(0xFF1A1A1A);
+  static const Color surface = Color(0xFF1B1713);
 
   /// 主色（按钮 / 计时数字 / 进度条）
-  static const Color green = Color(0xFF66BB6A);
+  static const Color green = Color(0xFFFF8A00);
 
   /// 休息态强调色
-  static const Color orange = Color(0xFFFFA726);
+  static const Color orange = Color(0xFFFFC53D);
 
   /// 结束 / 放弃 类操作
   static const Color danger = Color(0xFFEF5350);

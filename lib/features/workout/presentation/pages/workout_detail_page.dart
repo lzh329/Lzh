@@ -13,9 +13,9 @@ import 'package:fittrack/features/settings/domain/entities/user_settings_entity.
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
-const _purple = Color(0xFFAB47BC);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
+const _purple = Color(0xFFC084FC);
 
 class WorkoutDetailPage extends ConsumerWidget {
   final int workoutId;

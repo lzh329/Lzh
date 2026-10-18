@@ -20,7 +20,7 @@ class WeighInFab extends ConsumerWidget {
         HapticFeedback.mediumImpact();
         _showQuickWeightInput(context, ref, todayMetric);
       },
-      backgroundColor: hasRecorded ? const Color(0xFF66BB6A) : null,
+      backgroundColor: hasRecorded ? const Color(0xFFFF8A00) : null,
       icon: Icon(hasRecorded ? Icons.check_circle : Icons.monitor_weight),
       label: Text(
         hasRecorded

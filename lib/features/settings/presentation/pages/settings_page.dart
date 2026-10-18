@@ -13,11 +13,11 @@ import 'package:fittrack/features/settings/presentation/widgets/settings_section
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
-  static const _green = Color(0xFF66BB6A);
-  static const _amber = Color(0xFFFFA726);
-  static const _blue = Color(0xFF42A5F5);
+  static const _green = Color(0xFFFF8A00);
+  static const _amber = Color(0xFFFFC53D);
+  static const _blue = Color(0xFF38BDF8);
   static const _cyan = Color(0xFF26C6DA);
-  static const _purple = Color(0xFFAB47BC);
+  static const _purple = Color(0xFFC084FC);
   static const _orange = Color(0xFFFB8C00);
   static const _grey = Color(0xFF90A4AE);
 
@@ -158,10 +158,6 @@ class SettingsPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: SegmentedButton<ThemeMode>(
                   segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('浅色', style: TextStyle(fontSize: 12)),
-                    ),
                     ButtonSegment(
                       value: ThemeMode.dark,
                       label: Text('深色', style: TextStyle(fontSize: 12)),

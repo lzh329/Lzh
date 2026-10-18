@@ -7,7 +7,7 @@ import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 
-const _green = Color(0xFF66BB6A);
+const _green = Color(0xFFFF8A00);
 
 class PlanDetailPage extends ConsumerWidget {
   final int planId;

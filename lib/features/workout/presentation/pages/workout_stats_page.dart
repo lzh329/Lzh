@@ -46,8 +46,8 @@ final _prListProvider = FutureProvider<List<_PrExercise>>((ref) async {
 
 // ── 页面 ──
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
 
 class WorkoutStatsPage extends ConsumerStatefulWidget {
   const WorkoutStatsPage({super.key});

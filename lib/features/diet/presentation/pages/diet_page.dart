@@ -7,10 +7,10 @@ import 'package:fittrack/features/diet/domain/entities/diet_entity.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
 
 const _orange = Color(0xFFFF7043);
-const _amber = Color(0xFFFFA726);
-const _green = Color(0xFF66BB6A);
-const _purple = Color(0xFFAB47BC);
-const _blue = Color(0xFF42A5F5);
+const _amber = Color(0xFFFFC53D);
+const _green = Color(0xFFFF8A00);
+const _purple = Color(0xFFC084FC);
+const _blue = Color(0xFF38BDF8);
 
 class DietPage extends ConsumerStatefulWidget {
   const DietPage({super.key});

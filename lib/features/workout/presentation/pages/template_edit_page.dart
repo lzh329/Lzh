@@ -25,7 +25,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   bool _loading = false;
   bool _saving = false;
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
   static const _difficulties = ['入门', '中阶', '高阶'];
   static const _focuses = ['全身', '放松', '碎片'];
 

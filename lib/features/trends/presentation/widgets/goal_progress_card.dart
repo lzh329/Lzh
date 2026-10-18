@@ -8,7 +8,7 @@ class GoalProgressCard extends StatelessWidget {
 
   const GoalProgressCard({super.key, required this.data});
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
 
   @override
   Widget build(BuildContext context) {

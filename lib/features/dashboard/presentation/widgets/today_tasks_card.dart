@@ -42,7 +42,7 @@ class TodayTasksCard extends StatelessWidget {
     this.onTapDiet,
   });
 
-  static const _green = Color(0xFF66BB6A);
+  static const _green = Color(0xFFFF8A00);
   static const Color _cardText = Colors.white;
   static const Color _doneText = Colors.white54;
 

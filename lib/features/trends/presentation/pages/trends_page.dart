@@ -59,21 +59,21 @@ class TrendsPage extends ConsumerWidget {
               ),
               InfoLinkCard(
                 icon: Icons.summarize_outlined,
-                iconColor: const Color(0xFF66BB6A),
+                iconColor: const Color(0xFFFF8A00),
                 title: '周报',
                 subtitle: '本周训练天数 · 饮食总结',
                 onTap: () => context.push('/analysis/weekly'),
               ),
               InfoLinkCard(
                 icon: Icons.calendar_view_month,
-                iconColor: const Color(0xFFAB47BC),
+                iconColor: const Color(0xFFC084FC),
                 title: '月度对比',
                 subtitle: '月度体重 · 训练 · 饮食变化对比',
                 onTap: () => context.push('/analysis/monthly'),
               ),
               InfoLinkCard(
                 icon: Icons.ios_share,
-                iconColor: const Color(0xFFFFA726),
+                iconColor: const Color(0xFFFFC53D),
                 title: '减脂战报',
                 subtitle: '生成包含体重变化和照片的分享卡片',
                 onTap: () {

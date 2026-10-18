@@ -11,7 +11,7 @@ final _todayCupsProvider = FutureProvider<int>((ref) {
   return ref.watch(waterRepoProvider).getTodayCups();
 });
 
-const _blue = Color(0xFF42A5F5);
+const _blue = Color(0xFF38BDF8);
 
 /// 饮水页 —— v2 视觉：杯子网格打卡 + 历史记录
 class WaterPage extends ConsumerWidget {

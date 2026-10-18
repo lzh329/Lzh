@@ -6,10 +6,10 @@ import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.da
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
 const _orange = Color(0xFFFF7043);
-const _blue = Color(0xFF42A5F5);
+const _blue = Color(0xFF38BDF8);
 const _red = Color(0xFFEF5350);
 
 class WeeklyReportPage extends ConsumerWidget {
@@ -596,7 +596,7 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.icon,
     required this.title,
-    this.color = const Color(0xFF66BB6A),
+    this.color = const Color(0xFFFF8A00),
   });
 
   @override

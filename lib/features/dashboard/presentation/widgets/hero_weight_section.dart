@@ -19,8 +19,8 @@ class HeroWeightSection extends StatelessWidget {
     this.onTap,
   });
 
-  static const _green = Color(0xFF66BB6A);
-  static const _amber = Color(0xFFFFA726);
+  static const _green = Color(0xFFFF8A00);
+  static const _amber = Color(0xFFFFC53D);
 
   @override
   Widget build(BuildContext context) {
@@ -161,8 +161,9 @@ class _ChangeTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final down = change < -0.05;
     final up = change > 0.05;
+    // 体重下降用亮绿（好消息语义），上升用红
     final color = down
-        ? const Color(0xFF66BB6A)
+        ? const Color(0xFF3DDC84)
         : (up ? const Color(0xFFEF5350) : Colors.white54);
     final label = down
         ? '-${change.abs().toStringAsFixed(1)}'

@@ -9,10 +9,10 @@ import 'package:flutter/rendering.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFF66BB6A);
-const _amber = Color(0xFFFFA726);
+const _green = Color(0xFFFF8A00);
+const _amber = Color(0xFFFFC53D);
 const _orange = Color(0xFFFF7043);
-const _purple = Color(0xFFAB47BC);
+const _purple = Color(0xFFC084FC);
 const _red = Color(0xFFEF5350);
 
 class MonthlyComparePage extends ConsumerWidget {
