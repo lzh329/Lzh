@@ -44,7 +44,7 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
       if (!mounted) return;
       setState(() {
         _photos = sorted;
-        // 日期 → 体重，供对比页标注
+        // 日期 → 体重(kg，库里存储单位)，供对比页标注（展示时 ×2 还原为斤）
         _weights = {for (final m in metrics) photoDayKey(m.date): m.weightKg};
       });
     } catch (_) {
