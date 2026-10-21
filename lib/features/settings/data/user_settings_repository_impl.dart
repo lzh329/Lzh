@@ -65,7 +65,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
           carbsTargetG: carbsTargetG != null ? Value(carbsTargetG) : const Value.absent(),
           fatTargetG: fatTargetG != null ? Value(fatTargetG) : const Value.absent(),
         ));
-      return (await get())!;
+      return _rereadOrThrow();
     } else {
       await _db.into(_db.userSettings).insert(UserSettingsCompanion(
         heightCm: heightCm != null ? Value(heightCm) : const Value.absent(),
@@ -89,8 +89,20 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         carbsTargetG: carbsTargetG != null ? Value(carbsTargetG) : const Value.absent(),
         fatTargetG: fatTargetG != null ? Value(fatTargetG) : const Value.absent(),
       ));
-      return (await get())!;
+      return _rereadOrThrow();
     }
+  }
+
+  /// 写入后回读最新记录
+  ///
+  /// 用显式异常替代原来的 `!` 空断言：极端情况（并发删除 / 写入被丢弃）下
+  /// 抛出可读错误，由上层 try/catch 兜底，避免空断言导致难以定位的崩溃。
+  Future<UserSettingsEntity> _rereadOrThrow() async {
+    final saved = await get();
+    if (saved == null) {
+      throw StateError('UserSettings 写入后回读为空');
+    }
+    return saved;
   }
 
   UserSettingsEntity _toEntity(UserSetting row) => UserSettingsEntity(

@@ -13,14 +13,35 @@ class WorkoutCoach {
   Timer? _paceTimer;
   bool enabled = true;
 
+  /// 是否已完成 TTS 引擎初始化（语言 / 音量 / 音色 / 语速）
+  bool _inited = false;
+
   double _rate = 0.45;
   double _pitch = 1.0;
   String? _voiceName;
 
+  /// 懒初始化：首次播报前确保 TTS 语言等参数已设置（幂等，仅生效一次）
+  ///
+  /// 全项目原先没有任何地方调用 [init]，导致中文播报可能读错或无声，
+  /// 因此改为在每次播报入口处按需触发。
+  Future<void> _ensureInit() async {
+    if (_inited) return;
+    _inited = true; // 先置位，避免并发调用时重复初始化
+    await init();
+  }
+
+  /// 初始化 TTS 引擎：中文语言 + 音量 + 语速/音色
+  ///
+  /// 模拟器或设备缺少 TTS 引擎时相关调用会抛异常，
+  /// 此处逐个 try/catch 兜底，保证训练流程不因语音不可用而崩溃。
   Future<void> init() async {
-    await _tts.setLanguage('zh-CN');
-    await _tts.setVolume(1.0);
-    _applySettings();
+    try {
+      await _tts.setLanguage('zh-CN');
+    } catch (_) {}
+    try {
+      await _tts.setVolume(1.0);
+    } catch (_) {}
+    await _applySettings();
   }
 
   /// 从外部设置语音参数（由调用方从 UserSettings 读取后传入）
@@ -42,8 +63,10 @@ class WorkoutCoach {
         await _tts.setVoice({'name': voice, 'locale': 'zh-CN'});
       } catch (_) {}
     }
-    await _tts.setSpeechRate(_rate);
-    await _tts.setPitch(_pitch);
+    try {
+      await _tts.setSpeechRate(_rate);
+      await _tts.setPitch(_pitch);
+    } catch (_) {}
   }
 
   /// 获取系统可用音色列表
@@ -71,14 +94,29 @@ class WorkoutCoach {
 
   Future<void> speak(String text) async {
     if (!enabled) return;
-    await _tts.speak(text);
+    await _ensureInit();
+    try {
+      await _tts.speak(text);
+    } catch (_) {}
   }
 
   /// 立即播报（先停止当前语音，避免队列堆积）
   Future<void> speakImmediate(String text) async {
     if (!enabled) return;
-    await _tts.stop();
-    await _tts.speak(text);
+    await _ensureInit();
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    try {
+      await _tts.speak(text);
+    } catch (_) {}
+  }
+
+  /// 停止当前播报并清空 TTS 队列
+  Future<void> stop() async {
+    try {
+      await _tts.stop();
+    } catch (_) {}
   }
 
   void beep() {
@@ -102,6 +140,7 @@ class WorkoutCoach {
 
   Future<void> announceSetStart(String exerciseName, int setNumber) async {
     if (!enabled) return;
+    await _ensureInit();
     await speak(exerciseName);
     await Future.delayed(const Duration(milliseconds: 800));
     await speak('开始');
@@ -117,16 +156,19 @@ class WorkoutCoach {
 
   Future<void> announceSetEnd(int setNumber) async {
     if (!enabled) return;
+    await _ensureInit();
     await speak('第${_numberToChinese(setNumber)}组已结束');
   }
 
   Future<void> announceWorkoutDone() async {
     if (!enabled) return;
+    await _ensureInit();
     await speak('训练完成，辛苦了');
   }
 
   Future<void> announceAbandon() async {
     if (!enabled) return;
+    await _ensureInit();
     await speak('训练已取消');
   }
 

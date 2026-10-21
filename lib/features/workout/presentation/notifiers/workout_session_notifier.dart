@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/countdown_controller.dart';
@@ -334,14 +335,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   /// 保存计时器默认值
+  ///
+  /// 属于「顺手持久化」，与训练流程无关；UserSettings 尚未初始化或写库失败时
+  /// 只记录日志，绝不能把异常抛给调用方（否则会出现未捕获异常红屏）。
   Future<void> _saveTimerDefaults() async {
-    await _ref.read(userSettingsRepoProvider).save(
-      defaultTrainingSec: state.trainingDurationSec,
-      defaultRestSec: state.restDurationSec,
-    );
+    try {
+      await _ref.read(userSettingsRepoProvider).save(
+        defaultTrainingSec: state.trainingDurationSec,
+        defaultRestSec: state.restDurationSec,
+      );
+    } catch (e) {
+      debugPrint('保存计时器默认值失败: $e');
+    }
   }
 
   // ── 休息计时器 ──
+
+  /// 休息倒计时需要语音播报的关键秒数（其余秒静默）
+  static const Set<int> _restAnnouncePoints = {10, 5, 3, 2, 1};
+
+  /// 训练倒计时需要语音播报的关键秒数（其余秒静默）
+  static const Set<int> _trainingAnnouncePoints = {5, 4, 3, 2, 1};
 
   void _startRest(int durationSec) {
     if (durationSec <= 0) return;
@@ -350,7 +364,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       restDurationSec: durationSec,
       isResting: true,
     );
-    if (_coachEnabled) _coach.speak('休息$durationSec秒');
+    if (_coachEnabled) _coach.speakImmediate('休息$durationSec秒');
     _restCtrl.start(durationSec,
       onTick: _onRestTick,
       onComplete: _onRestComplete,
@@ -364,15 +378,25 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   void stopRest() {
     _restCtrl.cancel();
     state = state.copyWith(isResting: false, restSeconds: 0);
+    // 跳过休息时立刻清空未播完的语音，避免「已经结束了还在念数字」
+    _coach.stop();
   }
 
+  /// 休息每秒回调
+  ///
+  /// 原先每秒都 speak 一次，TTS 队列严重堆积（播报落后数秒、休息结束后仍在念数字）。
+  /// 现在只在关键节点用 [WorkoutCoach.speakImmediate] 播报，其余秒静默。
   void _onRestTick() {
-    state = state.copyWith(restSeconds: state.restSeconds - 1);
-    _coach.speak('${state.restSeconds}');
+    final next = state.restSeconds - 1;
+    state = state.copyWith(restSeconds: next);
+    if (_coachEnabled && _restAnnouncePoints.contains(next)) {
+      _coach.speakImmediate('$next');
+    }
   }
 
   void _onRestComplete() {
     state = state.copyWith(isResting: false, restSeconds: 0);
+    if (_coachEnabled) _coach.speakImmediate('休息结束');
     if (state.isAutoMode) {
       _startTraining();
     }
@@ -408,9 +432,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _startTraining();
   }
 
+  /// 训练每秒回调：仅在最后 5 秒做关键播报，避免 TTS 队列堆积
   void _onTrainingTick() {
-    state = state.copyWith(trainingSeconds: state.trainingSeconds - 1);
-    _coach.speak('${state.trainingSeconds}');
+    final next = state.trainingSeconds - 1;
+    state = state.copyWith(trainingSeconds: next);
+    if (_coachEnabled && _trainingAnnouncePoints.contains(next)) {
+      _coach.speakImmediate('$next');
+    }
   }
 
   void _onTrainingComplete() {
@@ -458,6 +486,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _trainingCtrl.cancel();
     _restCtrl.cancel();
     _coach.stopPace();
+    // 停止计时后同步清空语音队列
+    _coach.stop();
     state = state.copyWith(
       isAutoMode: false,
       isTraining: false,
@@ -468,6 +498,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   /// 只停止自动模式状态（不 cancel timer，timer 已自然结束）
+  ///
+  /// 注意：此处不清空语音（不调用 `_coach.stop()`），
+  /// 因为紧接着会播报「第 X 组已结束」，避免平台通道竞态把播报吞掉。
   void _stopAutoModeStateOnly() {
     _trainingCtrl.cancel();
     _restCtrl.cancel();
@@ -478,18 +511,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   // ── 设置 ──
 
+  /// 设置休息时长（秒）
+  ///
+  /// - 正数才生效；先更新状态再异步落盘，落盘异常已被 [_saveTimerDefaults] 吞掉
+  /// - 若当前正处于休息中，立即按新时长重启倒计时（符合用户「改了马上生效」的预期）
   void setRestDurationSec(int sec) {
-    if (sec > 0) {
-      state = state.copyWith(restDurationSec: sec);
-      _saveTimerDefaults();
+    if (sec <= 0) return;
+    final wasResting = state.isResting;
+    state = state.copyWith(restDurationSec: sec);
+    if (wasResting) {
+      _startRest(sec);
     }
+    _saveTimerDefaults();
   }
 
+  /// 设置训练时长（秒）
+  ///
+  /// 训练计时进行中不打断当前倒计时，只更新默认值，下一组生效。
   void setTrainingDurationSec(int sec) {
-    if (sec > 0) {
-      state = state.copyWith(trainingDurationSec: sec);
-      _saveTimerDefaults();
-    }
+    if (sec <= 0) return;
+    state = state.copyWith(trainingDurationSec: sec);
+    _saveTimerDefaults();
   }
 
   void setPaceIntervalSec(int sec) {

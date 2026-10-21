@@ -432,8 +432,15 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
-              final v = int.tryParse(ctrl.text);
-              if (v != null && v > 0) notifier.setTrainingDurationSec(v);
+              final v = int.tryParse(ctrl.text.trim());
+              if (v == null || v <= 0) {
+                // 非法输入：不关闭弹窗，给出明确提示
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('请输入大于 0 的秒数')),
+                );
+                return;
+              }
+              notifier.setTrainingDurationSec(v);
               Navigator.pop(ctx);
             },
             child: const Text('确定'),
@@ -463,8 +470,15 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
-              final v = int.tryParse(ctrl.text);
-              if (v != null && v > 0) notifier.setRestDurationSec(v);
+              final v = int.tryParse(ctrl.text.trim());
+              if (v == null || v <= 0) {
+                // 非法输入：不关闭弹窗，给出明确提示，让用户重新输入
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('请输入大于 0 的秒数')),
+                );
+                return;
+              }
+              notifier.setRestDurationSec(v);
               Navigator.pop(ctx);
             },
             child: const Text('确定'),
