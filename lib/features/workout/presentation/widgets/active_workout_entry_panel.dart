@@ -13,6 +13,9 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
   /// 是否计时类动作（有氧 / 拉伸）
   final bool isTimed;
 
+  /// 是否处于休息倒计时（休息中允许先填下一组）
+  final bool isResting;
+
   /// 当前动作所有组是否已完成（完成后隐藏输入框）
   final bool isLastSet;
 
@@ -45,6 +48,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
     super.key,
     required this.category,
     required this.isTimed,
+    this.isResting = false,
     required this.isLastSet,
     required this.lastReps,
     required this.lastWeight,
@@ -65,6 +69,23 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!isLastSet) ...[
+          if (isResting) ...[
+            const Row(
+              children: [
+                Icon(Icons.timer_outlined,
+                    size: 12, color: ActiveWorkoutStyle.green),
+                SizedBox(width: 4),
+                Text(
+                  '休息中 · 可以先填下一组',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: ActiveWorkoutStyle.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
           _buildInputRow(),
           const SizedBox(height: 8),
         ],
@@ -82,7 +103,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
       fields.add(
         _buildField(
           controller: repsController,
-          label: '次数',
+          label: isResting ? '下一组 · 次数' : '次数',
           hint: lastReps ?? '${targetReps ?? 12}',
           suffix: '次',
         ),
@@ -94,7 +115,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
       fields.add(
         _buildField(
           controller: weightController,
-          label: '重量',
+          label: isResting ? '下一组 · 重量' : '重量',
           hint: _numberHint(lastWeight, targetWeightKg),
           suffix: 'kg',
           decimal: true,
@@ -107,7 +128,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
       fields.add(
         _buildField(
           controller: durationController,
-          label: '时长',
+          label: isResting ? '下一组 · 时长' : '时长',
           hint: lastDuration ?? '${targetDurationSec ?? 60}',
           suffix: '秒',
         ),

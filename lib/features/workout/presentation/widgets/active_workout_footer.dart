@@ -66,7 +66,7 @@ class ActiveWorkoutFooter extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _SecondaryButton(
-                      label: '跳过动作',
+                      label: '下一个动作',
                       onPressed: canSkipExercise ? onSkipExercise : null,
                       color: ActiveWorkoutStyle.textSecondary,
                       side: true,

@@ -180,6 +180,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
                     ActiveWorkoutEntryPanel(
                       category: slot.category,
                       isTimed: isTimed,
+                      isResting: sessionState.isResting,
                       isLastSet: isLastSet,
                       lastReps: sessionState.lastReps,
                       lastWeight: sessionState.lastWeight,
