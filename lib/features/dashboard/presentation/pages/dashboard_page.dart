@@ -5,17 +5,16 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/services/weight_analysis.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/hero_weight_section.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/recent_workouts_section.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/weight_spark_card.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/photo_compare_card.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/today_training_card.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/today_weight_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-/// 主控页 —— v2 仪表盘（每日任务 + 咕嘎陪伴融合版）
+/// 主控页 —— v5「训练优先」布局
 ///
-/// 结构：问候 → 今日任务卡（3 件事）→ 大字体重区（进度条）→ 今日数据三格
-///      → 体重趋势 → 最近训练 → 页脚入口
+/// 结构：问候（咕嘎小头像）→ 今日训练（一键开始）→ 体重记录
+///      → 身体变化对比（最早 vs 最新）→ 今日小字（热量 / 饮水 / 饮食）
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
@@ -55,7 +54,6 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final latest = data.latestMetric;
     final today = DateTime.now();
 
@@ -66,8 +64,6 @@ class _DashboardBody extends StatelessWidget {
         : null;
     final startJin =
         data.firstMetric != null ? data.firstMetric!.weightKg * 2 : null;
-    final daysToTarget = WeightAnalysis.predictDaysToTarget(
-        data.allMetrics, settings?.targetWeightKg);
     final weekChange = (data.weekStartMetric != null &&
             latest != null &&
             data.weekStartMetric!.id != latest.id)
@@ -85,20 +81,32 @@ class _DashboardBody extends StatelessWidget {
       ...data.allWorkouts.map((w) => w.date),
     ]);
 
-    // 咕嘎形态（首页陪伴头像 + 距升级提示）
+    // 咕嘎形态（问候区小头像 + 距升级提示）
     final totalLossJin =
         (startJin != null && currentJin != null) ? startJin - currentJin : 0.0;
     final guga = GugaLevelService.resolve(totalLossJin);
 
-    final todayWorkouts =
-        data.allWorkouts.where((w) => _sameDay(w.date, today)).toList();
+    // ── 今日训练卡内容 ──
+    final activePlan = data.activePlan;
+    final planItems = data.todayPlanItems;
+    final itemLabels = planItems
+        .map((d) =>
+            '${data.exerciseNames[d.exerciseId] ?? '动作 #${d.exerciseId}'} ${d.targetSets} 组')
+        .toList();
+    final dayLabel = activePlan != null && planItems.isNotEmpty
+        ? '${_weekdayLabel(today.weekday)} · 排期'
+        : null;
+
+    // ── 照片对比 ──
+    final photoLoss =
+        (startJin != null && currentJin != null) ? startJin - currentJin : null;
 
     return SafeArea(
       bottom: false,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
-          // 1) 问候 + 连续打卡 + 咕嘎头像
+          // 1) 问候 + 连续打卡 + 咕嘎小头像
           GreetingHeader(
             streakDays: streak,
             avatarAsset: guga.stage.asset,
@@ -107,80 +115,53 @@ class _DashboardBody extends StatelessWidget {
                 ? null
                 : '距升级 ${guga.remainToNext!.toStringAsFixed(1)} 斤',
           ),
-          const SizedBox(height: 20),
-
-          // 2) 今日任务：记录体重 / 完成训练 / 记录饮食 + 咕嘎鼓励
-          TodayTasksCard(
-            todayWeightJin: data.todayMetric != null
-                ? data.todayMetric!.weightKg * 2
-                : null,
-            workoutCount: todayWorkouts.length,
-            calories: data.todayCalories,
-            gugaAsset: guga.stage.asset,
-            // 首页的记录体重入口由 WeighInFab 内部弹层承载，未对外暴露回调，
-            // 因此该行未完成时不展示「去记录」按钮（仅保留勾选框）。
-            onTapWeight: null,
-            onTapWorkout: () => context.push('/workout/quick-start'),
-            onTapDiet: () => context.push('/diet'),
-          ),
           const SizedBox(height: 22),
 
-          // 3) 大字体重 + 本周变化 + 目标进度
-          HeroWeightSection(
+          // 2) 今日训练（训练优先）
+          TodayTrainingCard(
+            planName: activePlan?.name,
+            dayLabel: dayLabel,
+            itemLabels: itemLabels,
+            hasPlan: activePlan != null,
+            onStart: () {
+              if (activePlan != null) {
+                context.push('/plan/${activePlan.id}/execute');
+              }
+            },
+            onBrowse: () => context.push('/workout/quick-start'),
+          ),
+          const SizedBox(height: 12),
+
+          // 3) 体重记录
+          TodayWeightCard(
             currentJin: currentJin,
+            weekChangeJin: weekChange,
             targetJin: targetJin,
             progress: progress,
-            weekChangeJin: weekChange,
-            daysToTarget: daysToTarget,
+            lastRecordedAt: data.todayMetric?.date ?? latest?.date,
+            onRecord: () => context.push('/body'),
             onTap: () => context.push('/body'),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
 
-          // 4) 今日数据三格
-          _TodayStatsCard(
+          // 4) 身体变化对比（照片显眼入口）
+          PhotoCompareCard(
+            firstPath: data.firstPhoto?.filePath,
+            firstDate: data.firstPhoto?.date,
+            latestPath: data.latestPhoto?.filePath,
+            latestDate: data.latestPhoto?.date,
+            lossJin: photoLoss,
+            onTap: () => context.push('/body/album'),
+          ),
+          const SizedBox(height: 18),
+
+          // 5) 今日小字：热量 / 饮水 / 饮食
+          _MiniStatsRow(
             calories: data.todayCalories,
             cups: data.todayCups,
-            workoutCount: todayWorkouts.length,
-            onCaloriesTap: () => context.push('/diet'),
-            onWaterTap: () => context.push('/water'),
-            onWorkoutTap: () => context.push('/workout/quick-start'),
-          ),
-          const SizedBox(height: 22),
-
-          // 5) 体重趋势（近 7 次）
-          WeightSparkCard(
-            metrics: data.allMetrics,
-            onTap: () => context.push('/body'),
-          ),
-          const SizedBox(height: 22),
-
-          // 6) 最近训练
-          RecentWorkoutsSection(
-            workouts: data.recentWorkouts,
-            exerciseNames: data.exerciseNames,
-          ),
-          const SizedBox(height: 8),
-
-          // 页脚：分析入口
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _FooterLink(
-                label: '本周周报',
-                onTap: () => context.push('/analysis/weekly'),
-              ),
-              Text(
-                ' · ',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              _FooterLink(
-                label: '月度对比',
-                onTap: () => context.push('/analysis/monthly'),
-              ),
-            ],
+            hasDiet: data.todayCalories != null,
+            onCalories: () => context.push('/diet'),
+            onWater: () => context.push('/water'),
           ),
         ],
       ),
@@ -188,90 +169,20 @@ class _DashboardBody extends StatelessWidget {
   }
 }
 
-/// 今日数据：一张卡内三等分（热量 / 饮水 / 训练）
-class _TodayStatsCard extends StatelessWidget {
+/// 底部一行小字（热量 / 饮水 / 饮食），点击跳转
+class _MiniStatsRow extends StatelessWidget {
   final double? calories;
   final int cups;
-  final int workoutCount;
-  final VoidCallback onCaloriesTap;
-  final VoidCallback onWaterTap;
-  final VoidCallback onWorkoutTap;
+  final bool hasDiet;
+  final VoidCallback onCalories;
+  final VoidCallback onWater;
 
-  const _TodayStatsCard({
+  const _MiniStatsRow({
     required this.calories,
     required this.cups,
-    required this.workoutCount,
-    required this.onCaloriesTap,
-    required this.onWaterTap,
-    required this.onWorkoutTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: _TodayStatCell(
-                label: '今日热量',
-                value: calories != null ? '${calories!.round()}' : '—',
-                unit: 'kcal',
-                onTap: onCaloriesTap,
-              ),
-            ),
-            const _CellDivider(),
-            Expanded(
-              child: _TodayStatCell(
-                label: '今日饮水',
-                value: '$cups',
-                unit: '杯',
-                onTap: onWaterTap,
-              ),
-            ),
-            const _CellDivider(),
-            Expanded(
-              child: _TodayStatCell(
-                label: '今日训练',
-                value: '$workoutCount',
-                unit: '次',
-                onTap: onWorkoutTap,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 三格之间的细分隔线
-class _CellDivider extends StatelessWidget {
-  const _CellDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 34,
-      color: Colors.white.withAlpha(14),
-    );
-  }
-}
-
-class _TodayStatCell extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final VoidCallback onTap;
-
-  const _TodayStatCell({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.onTap,
+    required this.hasDiet,
+    required this.onCalories,
+    required this.onWater,
   });
 
   @override
@@ -279,64 +190,67 @@ class _TodayStatCell extends StatelessWidget {
     final theme = Theme.of(context);
     final outline = theme.colorScheme.outline;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(fontSize: 10, color: outline),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              unit,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(fontSize: 10, color: outline),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _MiniStat(
+          icon: Icons.local_fire_department_outlined,
+          text: calories != null ? '${calories!.round()} kcal' : '饮食未记录',
+          color: const Color(0xFFFFC53D),
+          outline: outline,
+          onTap: onCalories,
         ),
-      ),
+        _MiniStat(
+          icon: Icons.water_drop_outlined,
+          text: '$cups 杯水',
+          color: const Color(0xFF38BDF8),
+          outline: outline,
+          onTap: onWater,
+        ),
+        _MiniStat(
+          icon: Icons.restaurant_outlined,
+          text: hasDiet ? '饮食已记录' : '记录饮食',
+          color: const Color(0xFFFF8A00),
+          outline: outline,
+          onTap: onCalories,
+        ),
+      ],
     );
   }
 }
 
-/// 页脚文字链
-class _FooterLink extends StatelessWidget {
-  final String label;
+class _MiniStat extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+  final Color outline;
   final VoidCallback onTap;
 
-  const _FooterLink({required this.label, required this.onTap});
+  const _MiniStat({
+    required this.icon,
+    required this.text,
+    required this.color,
+    required this.outline,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 11, color: theme.colorScheme.outline),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: TextStyle(fontSize: 10.5, color: outline),
+            ),
+          ],
         ),
       ),
     );
@@ -345,8 +259,8 @@ class _FooterLink extends StatelessWidget {
 
 // ───────────── 辅助函数 ─────────────
 
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+String _weekdayLabel(int w) =>
+    const ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][w - 1];
 
 /// 连续打卡天数：从今天（或昨天）向前连续有记录的天数
 int _calcStreak(List<DateTime> dates) {

@@ -12,6 +12,8 @@ import 'package:fittrack/features/body_log/domain/repositories/body_metric_repos
 import 'package:fittrack/features/body_log/data/body_metric_repository_impl.dart';
 import 'package:fittrack/features/plan/domain/repositories/plan_repository.dart';
 import 'package:fittrack/features/plan/data/plan_repository_impl.dart';
+import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
+import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 import 'package:fittrack/features/body_log/domain/repositories/photo_repository.dart';
 import 'package:fittrack/features/body_log/data/photo_repository_impl.dart';
 import 'package:fittrack/features/goal/domain/entities/goal_entity.dart';
@@ -108,6 +110,16 @@ class DashboardData {
   final Map<int, String> exerciseNames;
   final int weekWorkoutDays;
 
+  /// 当前激活的训练计划（首页「今日训练」）
+  final PlanEntity? activePlan;
+
+  /// 今天该练的动作（来自激活计划，dayOfWeek 匹配今天）
+  final List<PlanDayEntity> todayPlanItems;
+
+  /// 最早 / 最新身体照片（首页「身体变化」对比）
+  final Photo? firstPhoto;
+  final Photo? latestPhoto;
+
   const DashboardData({
     this.calendarWorkoutDates = const {},
     this.allWorkouts = const [],
@@ -123,6 +135,10 @@ class DashboardData {
     this.goals = const [],
     this.exerciseNames = const {},
     this.weekWorkoutDays = 0,
+    this.activePlan,
+    this.todayPlanItems = const [],
+    this.firstPhoto,
+    this.latestPhoto,
   });
 }
 
@@ -161,6 +177,20 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
       .toSet()
       .length;
 
+  // 激活计划 + 今日排期（dayOfWeek: 0=周日 ... 6=周六）
+  final plans = await ref.watch(planRepoProvider).getAll();
+  final activePlans = plans.where((p) => p.isActive).toList();
+  final activePlan = activePlans.isNotEmpty ? activePlans.first : null;
+  final todayWeekday = now.weekday % 7;
+  final todayPlanItems = activePlan == null
+      ? const <PlanDayEntity>[]
+      : activePlan.days.where((d) => d.dayOfWeek == todayWeekday).toList();
+
+  // 最早 / 最新照片（仓储按 date desc 返回）
+  final photos = await ref.watch(photoRepoProvider).getAll();
+  final latestPhoto = photos.isNotEmpty ? photos.first : null;
+  final firstPhoto = photos.isNotEmpty ? photos.last : null;
+
   return DashboardData(
     calendarWorkoutDates: calWorkouts.map((w) => DateTime(w.date.year, w.date.month, w.date.day)).toSet(),
     allWorkouts: calWorkouts,
@@ -176,6 +206,10 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
     goals: goals.where((g) => !g.isCompleted).toList(),
     exerciseNames: exerciseNames,
     weekWorkoutDays: weekWorkoutDays,
+    activePlan: activePlan,
+    todayPlanItems: todayPlanItems,
+    firstPhoto: firstPhoto,
+    latestPhoto: latestPhoto,
   );
 });
 
