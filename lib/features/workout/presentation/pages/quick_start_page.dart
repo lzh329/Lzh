@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
+import 'package:fittrack/features/workout/presentation/widgets/history_segment.dart';
+import 'package:fittrack/features/workout/presentation/widgets/plan_segment.dart';
 
 /// 训练模板数据源（推荐模板 + 我的模板）
 final workoutTemplatesProvider =
@@ -27,6 +29,9 @@ class QuickStartPage extends ConsumerStatefulWidget {
 
 class _QuickStartPageState extends ConsumerState<QuickStartPage> {
   bool _starting = false;
+
+  /// 分段：0=计划 1=模板 2=历史
+  int _segment = 1;
 
   /// 当前分类筛选（纯前端过滤已加载列表）
   String _focus = _allFocus;
@@ -96,99 +101,138 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('加载失败'),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => ref.invalidate(workoutTemplatesProvider),
-                child: const Text('重试'),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(
+                    value: 0,
+                    label: Text('计划', style: TextStyle(fontSize: 12)),
+                  ),
+                  ButtonSegment(
+                    value: 1,
+                    label: Text('模板', style: TextStyle(fontSize: 12)),
+                  ),
+                  ButtonSegment(
+                    value: 2,
+                    label: Text('历史', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+                selected: {_segment},
+                onSelectionChanged: (s) => setState(() => _segment = s.first),
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
               ),
-            ],
+            ),
           ),
-        ),
-        data: (templates) {
-          final recommended = templates.where((t) => t.isRecommended).toList();
-          final mine = templates.where((t) => !t.isRecommended).toList();
-          final filters = _buildFilters(recommended);
-          // 选中的分类在数据变化后可能已不存在 → 回落到 "全部"
-          final active = filters.contains(_focus) ? _focus : _allFocus;
-          final visible = active == _allFocus
-              ? recommended
-              : recommended.where((t) => t.focus == active).toList();
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              // ── 分类 chips + 自定义入口 ──
-              _FilterBar(
-                filters: filters,
-                active: active,
-                onSelect: (f) => setState(() => _focus = f),
-              ),
-
-              const SizedBox(height: 18),
-
-              // ── 推荐模板 ──
-              _SectionHeader(
-                title: '推荐模板',
-                trailing: '${visible.length} 个',
-              ),
-              const SizedBox(height: 10),
-              if (visible.isEmpty)
-                const _HintCard(text: '该分类下暂无模板，换个分类试试')
-              else
-                ...visible.map(
-                  (t) => _TemplateCard(
-                    template: t,
-                    starting: _starting,
-                    coverHeight: 132,
-                    onStart: () => _startTemplate(t),
-                  ),
-                ),
-
-              const SizedBox(height: 8),
-
-              // ── 我的模板 ──
-              _SectionHeader(
-                title: '我的模板',
-                trailingAction: TextButton.icon(
-                  onPressed: () => context.push('/workout/template-edit'),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('新建'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    foregroundColor: _green,
-                    textStyle: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (mine.isEmpty)
-                _EmptyMineCard(
-                  onCreate: () => context.push('/workout/template-edit'),
-                )
-              else
-                ...mine.map(
-                  (t) => _TemplateCard(
-                    template: t,
-                    starting: _starting,
-                    coverHeight: 92,
-                    onStart: () => _startTemplate(t),
-                    onEdit: () =>
-                        context.push('/workout/template-edit?id=${t.id}'),
-                  ),
-                ),
-              // 底部留白由 ListView padding 的 bottom 24 承担
-            ],
-          );
-        },
+          Expanded(
+            child: switch (_segment) {
+              0 => const PlanSegment(),
+              2 => const HistorySegment(),
+              _ => _buildTemplateView(async),
+            },
+          ),
+        ],
       ),
+    );
+  }
+
+  /// 模板分段（原页面主体：分类 + 推荐模板 + 我的模板）
+  Widget _buildTemplateView(AsyncValue<List<WorkoutTemplateEntity>> async) {
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('加载失败'),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => ref.invalidate(workoutTemplatesProvider),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+      data: (templates) {
+        final recommended = templates.where((t) => t.isRecommended).toList();
+        final mine = templates.where((t) => !t.isRecommended).toList();
+        final filters = _buildFilters(recommended);
+        // 选中的分类在数据变化后可能已不存在 → 回落到 "全部"
+        final active = filters.contains(_focus) ? _focus : _allFocus;
+        final visible =
+            active == _allFocus ? recommended : recommended.where((t) => t.focus == active).toList();
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          children: [
+            // ── 分类 chips + 自定义入口 ──
+            _FilterBar(
+              filters: filters,
+              active: active,
+              onSelect: (f) => setState(() => _focus = f),
+            ),
+
+            const SizedBox(height: 18),
+
+            // ── 推荐模板 ──
+            _SectionHeader(
+              title: '推荐模板',
+              trailing: '${visible.length} 个',
+            ),
+            const SizedBox(height: 10),
+            if (visible.isEmpty)
+              const _HintCard(text: '该分类下暂无模板，换个分类试试')
+            else
+              ...visible.map(
+                (t) => _TemplateCard(
+                  template: t,
+                  starting: _starting,
+                  coverHeight: 132,
+                  onStart: () => _startTemplate(t),
+                ),
+              ),
+
+            const SizedBox(height: 8),
+
+            // ── 我的模板 ──
+            _SectionHeader(
+              title: '我的模板',
+              trailingAction: TextButton.icon(
+                onPressed: () => context.push('/workout/template-edit'),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('新建'),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  foregroundColor: _green,
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (mine.isEmpty)
+              _EmptyMineCard(
+                onCreate: () => context.push('/workout/template-edit'),
+              )
+            else
+              ...mine.map(
+                (t) => _TemplateCard(
+                  template: t,
+                  starting: _starting,
+                  coverHeight: 92,
+                  onStart: () => _startTemplate(t),
+                  onEdit: () => context.push('/workout/template-edit?id=${t.id}'),
+                ),
+              ),
+            // 底部留白由 ListView padding 的 bottom 24 承担
+          ],
+        );
+      },
     );
   }
 }
