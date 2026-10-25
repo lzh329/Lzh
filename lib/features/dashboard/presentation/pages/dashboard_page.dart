@@ -74,15 +74,6 @@ class _DashboardBody extends StatelessWidget {
 
     // 今日训练安排（计划排期）
     final activePlan = data.activePlan;
-    final planItems = data.todayPlanItems;
-    final trainingTitle = activePlan == null
-        ? null
-        : (planItems.isEmpty
-            ? '${activePlan.name} · 今天休息'
-            : '${activePlan.name} · ${planItems.length} 个动作');
-    final trainingSummary = planItems.isEmpty
-        ? null
-        : '共 ${planItems.fold<int>(0, (s, d) => s + d.targetSets)} 组';
 
     return SafeArea(
       bottom: false,
@@ -106,8 +97,6 @@ class _DashboardBody extends StatelessWidget {
                 ? data.todayMetric!.weightKg * 2
                 : null,
             latestWeightJin: currentJin,
-            trainingTitle: trainingTitle,
-            trainingSummary: trainingSummary,
             hasTraining: activePlan != null,
             workoutCount: todayWorkouts.length,
             calories: data.todayCalories,
