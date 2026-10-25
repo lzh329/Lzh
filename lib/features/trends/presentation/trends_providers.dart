@@ -16,6 +16,15 @@ class TrendsData {
   final DateTime? targetDate;
   final double? todayCalories;
 
+  /// 今日饮水（杯）
+  final int todayCups;
+
+  /// 本周训练次数
+  final int weekWorkoutCount;
+
+  /// 本周训练总时长（分钟）
+  final int weekWorkoutMinutes;
+
   const TrendsData({
     this.metrics = const [],
     this.targetJin,
@@ -27,6 +36,9 @@ class TrendsData {
     this.daysToTarget,
     this.targetDate,
     this.todayCalories,
+    this.todayCups = 0,
+    this.weekWorkoutCount = 0,
+    this.weekWorkoutMinutes = 0,
   });
 
   bool get hasWeight => metrics.isNotEmpty;
@@ -74,11 +86,15 @@ final trendsDataProvider = FutureProvider<TrendsData>((ref) async {
   }
 
   final todayCalories = await dietRepo.getDailyCalories(now);
-  final weekWorkoutDays = workouts
-      .where((w) => !w.date.isBefore(monday))
+  final todayCups = await ref.watch(waterRepoProvider).getTodayCups();
+  final weekWorkouts =
+      workouts.where((w) => !w.date.isBefore(monday)).toList();
+  final weekWorkoutDays = weekWorkouts
       .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
       .toSet()
       .length;
+  final weekWorkoutMinutes = weekWorkouts.fold<int>(
+      0, (sum, w) => sum + ((w.durationSec ?? 0) / 60).round());
 
   return TrendsData(
     metrics: metrics,
@@ -97,5 +113,8 @@ final trendsDataProvider = FutureProvider<TrendsData>((ref) async {
     daysToTarget: WeightAnalysis.predictDaysToTarget(metrics, targetKg),
     targetDate: WeightAnalysis.predictTargetDate(metrics, targetKg),
     todayCalories: todayCalories > 0 ? todayCalories : null,
+    todayCups: todayCups,
+    weekWorkoutCount: weekWorkouts.length,
+    weekWorkoutMinutes: weekWorkoutMinutes,
   );
 });
