@@ -16,7 +16,6 @@ class SettingsPage extends ConsumerWidget {
   static const _green = Color(0xFFFF8A00);
   static const _amber = Color(0xFFFFC53D);
   static const _blue = Color(0xFF38BDF8);
-  static const _cyan = Color(0xFF26C6DA);
   static const _purple = Color(0xFFC084FC);
   static const _orange = Color(0xFFFB8C00);
   static const _grey = Color(0xFF90A4AE);
@@ -24,7 +23,6 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final themeMode = ref.watch(themeModeProvider);
     final settings = ref.watch(userSettingsProvider).valueOrNull;
     final latestWeight =
         ref.watch(dashboardDataProvider).valueOrNull?.latestMetric?.weightKg;
@@ -48,9 +46,9 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
 
-          // ── 目标与记录 ──
+          // ── 我的档案 ──
           SettingsSection(
-            title: '目标与记录',
+            title: '我的档案',
             children: [
               SettingsTile(
                 icon: Icons.flag,
@@ -74,13 +72,6 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push('/settings/exercises'),
               ),
               SettingsTile(
-                icon: Icons.water_drop,
-                color: _cyan,
-                title: '饮水记录',
-                subtitle: '记录每日饮水量',
-                onTap: () => context.push('/water'),
-              ),
-              SettingsTile(
                 icon: Icons.photo_library,
                 color: _blue,
                 title: '身体相册',
@@ -91,9 +82,9 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
 
-          // ── 提醒与语音 ──
+          // ── 偏好设置 ──
           SettingsSection(
-            title: '提醒与语音',
+            title: '偏好设置',
             children: [
               SettingsTile(
                 icon: Icons.notifications,
@@ -127,69 +118,6 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: voiceEnabled ? '已启用 · 语速与音色可调' : '关闭',
                 onTap: () => context.push('/settings/voice'),
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // ── 外观 ──
-          SettingsSection(
-            title: '外观',
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: _purple.withAlpha(32),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.palette, size: 18, color: _purple),
-                    ),
-                    const SizedBox(width: 14),
-                    Text('主题', style: theme.textTheme.bodyLarge),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('深色', style: TextStyle(fontSize: 12)),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('跟随系统', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                  selected: {themeMode},
-                  onSelectionChanged: (v) async {
-                    final mode = v.first;
-                    ref.read(themeModeProvider.notifier).state = mode;
-                    await ref.read(userSettingsRepoProvider).save(
-                          themeMode: mode == ThemeMode.light
-                              ? 'light'
-                              : (mode == ThemeMode.dark ? 'dark' : 'system'),
-                        );
-                  },
-                  style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // ── 隐私与安全 ──
-          SettingsSection(
-            title: '隐私与安全',
-            children: [
               SettingsTile(
                 icon: Icons.lock_outline,
                 color: _grey,
@@ -220,47 +148,18 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
 
-          // ── 数据 ──
+          // ── 数据与关于 ──
           SettingsSection(
-            title: '数据',
+            title: '数据与关于',
             children: [
               SettingsTile(
-                icon: Icons.file_download_outlined,
+                icon: Icons.storage_outlined,
                 color: _grey,
-                title: '导出训练记录',
-                subtitle: '导出为 CSV 文件并分享',
-                onTap: () => exportWorkouts(context, ref),
+                title: '数据管理',
+                subtitle: '导出训练 / 身体数据 · 备份与恢复',
+                onTap: () => context.push('/settings/data'),
               ),
-              SettingsTile(
-                icon: Icons.monitor_weight_outlined,
-                color: _grey,
-                title: '导出身体数据',
-                subtitle: '体重、围度数据导出为 CSV',
-                onTap: () => exportBodyMetrics(context, ref),
-              ),
-              SettingsTile(
-                icon: Icons.backup_outlined,
-                color: _grey,
-                title: '备份数据库',
-                subtitle: '导出完整数据库文件',
-                onTap: () => backupDatabase(context),
-              ),
-              SettingsTile(
-                icon: Icons.restore,
-                color: _grey,
-                title: '恢复数据库',
-                subtitle: '从备份文件恢复（需重启）',
-                onTap: () => restoreDatabase(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // ── 关于 ──
-          const SettingsSection(
-            title: '关于',
-            children: [
-              SettingsTile(
+              const SettingsTile(
                 icon: Icons.info_outline,
                 color: _grey,
                 title: '关于简瘦',
