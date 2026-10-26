@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
+import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
 /// 嘎教练 —— AI 减脂教练聊天页
 ///
@@ -43,6 +45,11 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(aiChatProvider);
+    // 当前咕嘎形态的头像（按累计减重）—— 让对话像咕嘎在说话
+    final trends = ref.watch(trendsDataProvider).valueOrNull;
+    final stage =
+        GugaLevelService.resolve(trends?.totalLossJin ?? 0).stage;
+    final headAsset = stage.asset.replaceFirst('.png', '_head.png');
 
     ref.listen(aiChatProvider, (prev, next) {
       if (next.error != null && next.error != prev?.error) {
@@ -56,7 +63,14 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('嘎教练'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _GugaAvatar(asset: headAsset, size: 30),
+            const SizedBox(width: 8),
+            const Text('嘎教练'),
+          ],
+        ),
         centerTitle: false,
         actions: [
           IconButton(
@@ -86,8 +100,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           if (!chat.hasKey) const _ApiKeyCard(),
           Expanded(
             child: chat.messages.isEmpty && chat.streamingText.isEmpty
-                ? _EmptyHint(onTap: _send, prompts: _quickPrompts)
-                : _MessageList(chat: chat),
+                ? _EmptyHint(
+                    onTap: _send, prompts: _quickPrompts, headAsset: headAsset)
+                : _MessageList(chat: chat, headAsset: headAsset),
           ),
           _InputBar(
             controller: _inputCtrl,
@@ -129,15 +144,15 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '免费获取：open.bigmodel.cn 注册后创建 API Key，'
-              '模型 GLM-4-Flash 不收费。',
+              '去 platform.deepseek.com 创建 API Key（sk- 开头），'
+              '模型 DeepSeek-V4.1-Flash，按量计费，日常聊天每次约几分钱。',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               decoration: const InputDecoration(
-                hintText: '粘贴以 id- 或 sk- 开头的 Key',
+                hintText: '粘贴 sk- 开头的 Key',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -166,7 +181,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 /// 消息列表（reverse 布局：流式气泡固定在底部）
 class _MessageList extends StatelessWidget {
   final AiChatState chat;
-  const _MessageList({required this.chat});
+  final String headAsset;
+  const _MessageList({required this.chat, required this.headAsset});
 
   @override
   Widget build(BuildContext context) {
@@ -174,12 +190,13 @@ class _MessageList extends StatelessWidget {
       if (chat.streamingText.isNotEmpty || chat.isStreaming)
         _Bubble.assistant(
           text: chat.streamingText,
+          headAsset: headAsset,
           pending: chat.isStreaming && chat.streamingText.isEmpty,
         ),
       ...chat.messages.reversed.map(
         (m) => m.role == 'user'
             ? _Bubble.user(text: m.content)
-            : _Bubble.assistant(text: m.content),
+            : _Bubble.assistant(text: m.content, headAsset: headAsset),
       ),
     ];
     return ListView(
@@ -190,18 +207,50 @@ class _MessageList extends StatelessWidget {
   }
 }
 
+/// 咕嘎圆形头像（对话里代表"咕嘎在说话"）
+class _GugaAvatar extends StatelessWidget {
+  final String asset;
+  final double size;
+  const _GugaAvatar({required this.asset, this.size = 30});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceAlt,
+        border: Border.all(color: AppColors.primary.withAlpha(90), width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        filterQuality: FilterQuality.medium,
+      ),
+    );
+  }
+}
+
 /// 单条消息气泡
 class _Bubble extends StatelessWidget {
   final String text;
   final bool isUser;
   final bool pending;
+  final String? headAsset;
 
   const _Bubble.user({required this.text})
       : isUser = true,
-        pending = false;
+        pending = false,
+        headAsset = null;
 
-  const _Bubble.assistant({required this.text, this.pending = false})
-      : isUser = false;
+  const _Bubble.assistant({
+    required this.text,
+    this.headAsset,
+    this.pending = false,
+  }) : isUser = false;
 
   @override
   Widget build(BuildContext context) {
@@ -213,43 +262,77 @@ class _Bubble extends StatelessWidget {
       bottomLeft: Radius.circular(isUser ? 14 : 4),
       bottomRight: Radius.circular(isUser ? 4 : 14),
     );
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+      decoration: BoxDecoration(color: bg, borderRadius: radius),
+      child: pending
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(text, style: TextStyle(color: fg, fontSize: 15, height: 1.5)),
+    );
+
+    if (isUser) {
+      return Align(alignment: Alignment.centerRight, child: bubble);
+    }
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-        decoration: BoxDecoration(color: bg, borderRadius: radius),
-        child: pending
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Text(text, style: TextStyle(color: fg, fontSize: 15, height: 1.5)),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (headAsset != null) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 6, right: 8),
+              child: _GugaAvatar(asset: headAsset!, size: 28),
+            ),
+          ],
+          Flexible(child: bubble),
+        ],
       ),
     );
   }
 }
 
-/// 空状态：快捷提问
+/// 空状态：咕嘎开口说话 + 快捷提问
 class _EmptyHint extends StatelessWidget {
   final void Function(String) onTap;
   final List<String> prompts;
-  const _EmptyHint({required this.onTap, required this.prompts});
+  final String headAsset;
+  const _EmptyHint({
+    required this.onTap,
+    required this.prompts,
+    required this.headAsset,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.chat_bubble_outline,
-              size: 56, color: AppColors.textTertiary),
+          _GugaAvatar(asset: headAsset, size: 76),
           const SizedBox(height: 12),
-          const Text('问问嘎教练，它了解你的体重和训练数据',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border, width: 0.6),
+            ),
+            child: const Text(
+              '我是嘎教练，你的体重、训练、饮食数据我都看着呢。\n想问什么，直接说～',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textPrimary, height: 1.5),
+            ),
+          ),
           const SizedBox(height: 18),
           Wrap(
             spacing: 10,
@@ -292,7 +375,7 @@ class _ApiKeyCard extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              '尚未配置 AI Key（免费）。点右上角钥匙图标，粘贴智谱开放平台的 API Key 即可开始。',
+              '尚未配置 AI Key。点右上角钥匙图标，粘贴 DeepSeek 开放平台的 API Key 即可开始。',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
             ),
           ),

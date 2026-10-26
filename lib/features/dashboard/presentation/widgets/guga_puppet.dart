@@ -25,6 +25,9 @@ class GugaPuppet extends StatefulWidget {
 
   final VoidCallback? onTap;
 
+  /// 气泡是否作为"AI 教练入口"展示（带聊天图标 + 主题色描边）
+  final bool isChatEntry;
+
   const GugaPuppet({
     super.key,
     required this.headAsset,
@@ -33,6 +36,7 @@ class GugaPuppet extends StatefulWidget {
     this.lineIndex = 0,
     this.height = 150,
     this.onTap,
+    this.isChatEntry = false,
   });
 
   @override
@@ -153,14 +157,35 @@ class _GugaPuppetState extends State<GugaPuppet> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
+              color: widget.isChatEntry
+                  ? AppColors.primary.withAlpha(20)
+                  : AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border, width: 0.6),
+              border: Border.all(
+                color: widget.isChatEntry
+                    ? AppColors.primary.withAlpha(140)
+                    : AppColors.border,
+                width: 0.6,
+              ),
             ),
-            child: Text(
-              _line,
-              style: const TextStyle(
-                  fontSize: 10.5, color: AppColors.textSecondary),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.isChatEntry) ...[
+                  const Icon(Icons.chat_bubble_outline,
+                      size: 12, color: AppColors.primaryText),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  _line,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: widget.isChatEntry
+                        ? AppColors.primaryText
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

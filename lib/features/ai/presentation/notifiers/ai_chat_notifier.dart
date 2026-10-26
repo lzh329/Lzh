@@ -73,7 +73,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     if (content.isEmpty || state.isStreaming) return;
     if (!state.hasKey) {
       state = state.copyWith(
-          error: '请先在「我的 → AI 教练」里配置 API Key');
+          error: '请先点右上角钥匙图标，配置 DeepSeek API Key');
       return;
     }
     final userMsg = AiMessage(role: 'user', content: content);

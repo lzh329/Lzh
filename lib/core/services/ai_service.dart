@@ -11,19 +11,19 @@ class AiMessage {
   const AiMessage({required this.role, required this.content});
 }
 
-/// 智谱开放平台（GLM）聊天服务
+/// DeepSeek 聊天服务（OpenAI 兼容）
 ///
-/// - 端点兼容 OpenAI 格式：/api/paas/v4/chat/completions
-/// - 默认模型 glm-4-flash（免费档，支持流式）
+/// - 端点：https://api.deepseek.com/chat/completions
+/// - 默认模型 deepseek-flash（即 DeepSeek-V4.1-Flash，支持流式 + 视觉）
 /// - SSE 流式解析：每收到一段增量回调 [onDelta]
 /// - API Key 解析：--dart-define 优先，设置里存的 key 兜底
 class AiService {
   AiService._();
 
-  static const _endpoint =
-      'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-  static const _model = 'glm-4-flash';
-  static const _envKey = String.fromEnvironment('ZHIPU_API_KEY');
+  static const _endpoint = 'https://api.deepseek.com/chat/completions';
+  static const _model =
+      String.fromEnvironment('DEEPSEEK_MODEL', defaultValue: 'deepseek-flash');
+  static const _envKey = String.fromEnvironment('DEEPSEEK_API_KEY');
 
   /// 解析最终生效的 API Key（编译期注入优先）
   static String? resolveKey(String? settingsKey) {
@@ -40,7 +40,7 @@ class AiService {
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
     double temperature = 0.8,
-    int maxTokens = 1024,
+    int maxTokens = 2048,
     http.Client? client,
   }) async {
     final httpClient = client ?? http.Client();

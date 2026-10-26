@@ -121,13 +121,6 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push('/settings/voice'),
               ),
               SettingsTile(
-                icon: Icons.smart_toy_outlined,
-                color: _green,
-                title: '嘎教练（AI）',
-                subtitle: '懂你数据的 AI 减脂教练 · 免费模型',
-                onTap: () => context.push('/ai/coach'),
-              ),
-              SettingsTile(
                 icon: Icons.lock_outline,
                 color: _grey,
                 title: '隐私锁',

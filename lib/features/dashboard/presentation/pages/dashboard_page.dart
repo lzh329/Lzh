@@ -102,14 +102,16 @@ class _DashboardBody extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
 
-          // 2) 咕嘎站立区（2D 立绘 + 呼吸浮动 + 点击弹跳）
+          // 2) 咕嘎站立区（2D 立绘 + 呼吸浮动 + 点击进入 AI 教练）
           Center(
             child: GugaPuppet(
               headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
               bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
               height: 150,
-              lines: const ['今天也一起加油吧', '不错嘛，继续保持', '全部完成！抱抱！'],
+              lines: const ['点我聊聊，我在听', '今天吃啥好？问我', '训练有疑问？戳我'],
               lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
+              isChatEntry: true,
+              onTap: () => context.push('/ai/coach'),
             ),
           ),
           const SizedBox(height: 16),
