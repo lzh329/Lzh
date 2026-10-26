@@ -245,15 +245,25 @@ Future<void> backupDatabase(BuildContext context) async {
 
 Future<void> restoreDatabase(BuildContext context) async {
   try {
-    final dir = await getApplicationDocumentsDirectory();
-    final backupFile = File('${dir.path}/fittrack_backup_latest.sqlite');
+    // 优先用自动备份目录里的 latest 镜像，其次兼容旧位置（应用文档根目录）
+    final docs = await getApplicationDocumentsDirectory();
+    final candidates = [
+      File('${docs.path}/backups/fittrack_backup_latest.sqlite'),
+      File('${docs.path}/fittrack_backup_latest.sqlite'),
+    ];
+    File? backupFile;
+    for (final f in candidates) {
+      if (await f.exists()) {
+        backupFile = f;
+        break;
+      }
+    }
 
-    if (!await backupFile.exists()) {
+    if (backupFile == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('未找到备份文件，请先备份或放入 fittrack_backup_latest.sqlite 到应用目录'),
+            content: Text('未找到备份文件，请先在上方"立即备份"或导出数据库'),
           ),
         );
       }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/countdown_controller.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
+import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
@@ -390,6 +391,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isComplete: true,
       );
       if (_coachEnabled) _coach.announceWorkoutDone();
+      NotificationService().hideWorkoutOngoing();
       return;
     }
 
@@ -526,6 +528,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       onTick: _onRestTick,
       onComplete: _onRestComplete,
     );
+    _syncOngoing();
   }
 
   void startRest() {
@@ -546,6 +549,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _coach.stop();
     // 跳过休息后若当前动作是计时类 → 直接开始倒计时（不用再手动点）
     _autoStartTimedIfNeeded();
+    _syncOngoing();
   }
 
   /// 休息每秒回调
@@ -559,6 +563,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (_coachEnabled && next > 0) {
       _coach.speakImmediate('$next');
     }
+    if (next % 5 == 0) _syncOngoing();
   }
 
   void _onRestComplete() {
@@ -613,6 +618,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       onTick: _onTrainingTick,
       onComplete: _onTrainingComplete,
     );
+    _syncOngoing();
   }
 
   void startTraining() {
@@ -627,6 +633,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (_coachEnabled && next > 0 && next <= _trainingTotal - 3) {
       _coach.speakImmediate('$next');
     }
+    if (next % 5 == 0) _syncOngoing();
   }
 
   void _onTrainingComplete() {
@@ -640,6 +647,40 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       weight: null,
       duration: _trainingTotal > 0 ? '$_trainingTotal' : null,
     );
+  }
+
+  // ── 训练常驻通知（锁屏/通知栏可见，切出去也能看到进度）──
+
+  String _fmtClock(int sec) {
+    final m = sec ~/ 60;
+    final s = sec % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  /// 按当前状态刷新常驻通知（秒级 tick 每 5 秒调一次即可）
+  void _syncOngoing() {
+    final slot = state.currentSlot;
+    if (slot == null || state.isComplete) {
+      NotificationService().hideWorkoutOngoing();
+      return;
+    }
+    final title = '训练中 · 第${state.currentRound}/${state.totalRounds}轮 · '
+        '动作${state.currentSlotIndex + 1}/${state.slots.length}';
+
+    String status;
+    if (state.isResting) {
+      final nextIdx = state.currentSlotIndex + 1;
+      final nextName = nextIdx < state.slots.length
+          ? state.slots[nextIdx].exerciseName
+          : '下一轮';
+      status = '休息 ${_fmtClock(state.restSeconds)} · 下一个：$nextName';
+    } else if (state.isTraining) {
+      status = '${slot.exerciseName} · 倒计时 ${_fmtClock(state.trainingSeconds)}';
+    } else {
+      status = '${slot.exerciseName} · 继续完成本轮';
+    }
+
+    NotificationService().showWorkoutOngoing(title: title, text: status);
   }
 
   // ── 前后台切换 / 离开页面 ──
@@ -669,6 +710,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isAutoMode: false,
         restSeconds: 0,
         trainingSeconds: 0,
+      );
+      NotificationService().showWorkoutOngoing(
+        title: '训练已暂停',
+        text: '回到 App 从暂停处继续',
       );
     }
   }
@@ -719,6 +764,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _trainingCtrl.cancel();
     _coach.stopPace();
     _coach.stop();
+    NotificationService().hideWorkoutOngoing();
   }
 
   // ── 自动模式控制 ──

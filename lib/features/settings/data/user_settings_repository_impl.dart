@@ -35,6 +35,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     int? defaultRestSec,
     int? restShortSec,
     int? restLongSec,
+    bool? autoBackupEnabled,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,
@@ -80,6 +81,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             restShortSec != null ? Value(restShortSec) : const Value.absent(),
         restLongSec:
             restLongSec != null ? Value(restLongSec) : const Value.absent(),
+        autoBackupEnabled: autoBackupEnabled != null
+            ? Value(autoBackupEnabled)
+            : const Value(true),
         dailyCalorieTarget: dailyCalorieTarget != null
             ? Value(dailyCalorieTarget)
             : const Value.absent(),
@@ -134,6 +138,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
                 : const Value.absent(),
             restLongSec:
                 restLongSec != null ? Value(restLongSec) : const Value.absent(),
+            autoBackupEnabled: autoBackupEnabled != null
+                ? Value(autoBackupEnabled)
+                : const Value.absent(),
             dailyCalorieTarget: dailyCalorieTarget != null
                 ? Value(dailyCalorieTarget)
                 : const Value.absent(),
@@ -182,6 +189,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         defaultRestSec: row.defaultRestSec,
         restShortSec: row.restShortSec,
         restLongSec: row.restLongSec,
+        autoBackupEnabled: row.autoBackupEnabled,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,

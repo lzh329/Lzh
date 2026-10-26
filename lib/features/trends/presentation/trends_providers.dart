@@ -25,6 +25,12 @@ class TrendsData {
   /// 本周训练总时长（分钟）
   final int weekWorkoutMinutes;
 
+  /// 有训练记录的日期集合（按天去重，打卡日历用）
+  final Set<DateTime> workoutDates;
+
+  /// 有称重记录的日期集合（按天去重，打卡日历用）
+  final Set<DateTime> weighInDates;
+
   const TrendsData({
     this.metrics = const [],
     this.targetJin,
@@ -39,6 +45,8 @@ class TrendsData {
     this.todayCups = 0,
     this.weekWorkoutCount = 0,
     this.weekWorkoutMinutes = 0,
+    this.workoutDates = const {},
+    this.weighInDates = const {},
   });
 
   bool get hasWeight => metrics.isNotEmpty;
@@ -116,5 +124,11 @@ final trendsDataProvider = FutureProvider<TrendsData>((ref) async {
     todayCups: todayCups,
     weekWorkoutCount: weekWorkouts.length,
     weekWorkoutMinutes: weekWorkoutMinutes,
+    workoutDates: workouts
+        .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+        .toSet(),
+    weighInDates: metrics
+        .map((m) => DateTime(m.date.year, m.date.month, m.date.day))
+        .toSet(),
   );
 });

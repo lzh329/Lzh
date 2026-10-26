@@ -23,6 +23,9 @@ class UserSettingsEntity {
 
   /// 循环模式：轮间休息（秒）
   final int? restLongSec;
+
+  /// 每周自动备份数据库（默认开）
+  final bool autoBackupEnabled;
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -49,6 +52,7 @@ class UserSettingsEntity {
     this.defaultRestSec,
     this.restShortSec,
     this.restLongSec,
+    this.autoBackupEnabled = true,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,

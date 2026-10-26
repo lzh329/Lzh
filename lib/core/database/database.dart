@@ -122,6 +122,9 @@ class UserSettings extends Table {
   // 循环模式休息时长（动作间 / 轮间）—— 用户在训练设置里改过就记住
   IntColumn get restShortSec => integer().nullable()();
   IntColumn get restLongSec => integer().nullable()();
+  // 每周自动备份数据库开关（默认开）
+  BoolColumn get autoBackupEnabled =>
+      boolean().withDefault(const Constant(true))();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -205,7 +208,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 14; // v14: 循环模式休息时长（rest_short_sec / rest_long_sec）
+  int get schemaVersion => 15; // v15: 自动备份开关（auto_backup_enabled）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -279,6 +282,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 14) {
             await m.addColumn(userSettings, userSettings.restShortSec);
             await m.addColumn(userSettings, userSettings.restLongSec);
+          }
+          // v15: 自动备份开关
+          if (from < 15) {
+            await m.addColumn(userSettings, userSettings.autoBackupEnabled);
           }
         },
       );

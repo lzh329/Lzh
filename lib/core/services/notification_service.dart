@@ -149,6 +149,46 @@ class NotificationService {
     );
   }
 
+  /// 训练进行中的常驻通知（锁屏 / 通知栏可见，切出去也能看到进度）
+  ///
+  /// ongoing + autoCancel=false：用户不能左滑划掉，训练结束由 App 主动取消。
+  static const int workoutOngoingId = 8888;
+
+  Future<void> showWorkoutOngoing({
+    required String title,
+    required String text,
+  }) async {
+    try {
+      await _plugin.show(
+        workoutOngoingId,
+        title,
+        text,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'workout_ongoing',
+            '训练进行中',
+            channelDescription: '训练时的常驻进度显示（锁屏/通知栏可见）',
+            importance: Importance.low,
+            priority: Priority.low,
+            ongoing: true,
+            onlyAlertOnce: true,
+            showWhen: false,
+            autoCancel: false,
+          ),
+          iOS: DarwinNotificationDetails(presentSound: false),
+        ),
+      );
+    } catch (_) {
+      // 通知权限被拒等情况静默失败，不影响训练本身
+    }
+  }
+
+  Future<void> hideWorkoutOngoing() async {
+    try {
+      await _plugin.cancel(workoutOngoingId);
+    } catch (_) {}
+  }
+
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
   }

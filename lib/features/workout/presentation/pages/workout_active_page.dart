@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
@@ -55,6 +56,8 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
     super.initState();
     _notifier = ref.read(workoutSessionProvider.notifier);
     WidgetsBinding.instance.addObserver(this);
+    // 训练期间保持屏幕常亮：锁屏/省电不会冻结倒计时，看动作也方便
+    WakelockPlus.enable();
   }
 
   @override
@@ -126,6 +129,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    WakelockPlus.disable();
     // 离开训练页：停掉倒计时与语音队列（否则退出后仍在念数字）
     _notifier.stopAllTimersAndVoice();
     _repsCtrl.dispose();

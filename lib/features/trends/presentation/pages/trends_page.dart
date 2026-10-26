@@ -11,6 +11,7 @@ import 'package:fittrack/features/trends/presentation/widgets/stats_summary_card
 import 'package:fittrack/features/trends/presentation/widgets/story_cards.dart';
 import 'package:fittrack/features/trends/presentation/widgets/weight_chart_card.dart';
 import 'package:fittrack/features/trends/presentation/widgets/weight_timeline_card.dart';
+import 'package:fittrack/features/trends/presentation/widgets/workout_heatmap_card.dart';
 
 /// 趋势页 —— 减脂进程全景（v2）
 class TrendsPage extends ConsumerWidget {
@@ -50,6 +51,10 @@ class TrendsPage extends ConsumerWidget {
                 todayCups: d.todayCups,
                 weekWorkoutCount: d.weekWorkoutCount,
                 weekWorkoutMinutes: d.weekWorkoutMinutes,
+              ),
+              WorkoutHeatmapCard(
+                workoutDates: d.workoutDates,
+                weighInDates: d.weighInDates,
               ),
               WeightTimelineCard(data: d),
               WeightChartCard(metrics: d.metrics),

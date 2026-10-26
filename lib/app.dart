@@ -8,6 +8,7 @@ import 'core/router/app_router.dart';
 import 'core/providers.dart';
 import 'features/plan/domain/entities/plan_day_entity.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/auto_backup_service.dart';
 
 class FitTrackApp extends ConsumerStatefulWidget {
   final bool initialReminderEnabled;
@@ -43,6 +44,19 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
     // 如果提醒已启用，排入通知
     if (widget.initialReminderEnabled) {
       _scheduleOnStart();
+    }
+    // 每周自动备份数据库（开关在「数据管理」页，默认开）
+    _runAutoBackup();
+  }
+
+  Future<void> _runAutoBackup() async {
+    try {
+      final settings = await ref.read(userSettingsRepoProvider).get();
+      await AutoBackupService.runIfNeeded(
+        enabled: settings?.autoBackupEnabled ?? true,
+      );
+    } catch (_) {
+      // 备份失败不影响启动
     }
   }
 
