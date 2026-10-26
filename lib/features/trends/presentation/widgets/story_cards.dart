@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
 
 /// 你的变化故事卡 —— 情感化激励
 class StoryCard extends StatelessWidget {
@@ -18,7 +19,7 @@ class StoryCard extends StatelessWidget {
     final loss = data.totalLossJin;
 
     return Card(
-      color: const Color(0xFF12251A),
+      color: AppColors.surface,
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -30,7 +31,8 @@ class StoryCard extends StatelessWidget {
                 const Icon(Icons.auto_awesome, size: 16, color: _green),
                 const SizedBox(width: 6),
                 Text('你的变化故事',
-                    style: theme.textTheme.titleSmall?.copyWith(color: _green)),
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: AppColors.primaryText)),
               ],
             ),
             const SizedBox(height: 10),
@@ -44,16 +46,16 @@ class StoryCard extends StatelessWidget {
               Text(
                 '累计减重 ${loss.abs().toStringAsFixed(1)} 斤',
                 style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600, color: _green),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.success),
               ),
             ],
             const SizedBox(height: 6),
             Text(
-              (loss ?? 0) > 0.05
-                  ? '这是你减脂旅程的重要成果，继续保持！'
-                  : '每一次记录，都是向目标迈进的一步。',
+              (loss ?? 0) > 0.05 ? '这是你减脂旅程的重要成果，继续保持！' : '每一次记录，都是向目标迈进的一步。',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: Colors.white60),
+                  ?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -83,13 +85,13 @@ class EffectAnalysisCard extends StatelessWidget {
     if (loss > 0.3) {
       verdict =
           '体重呈现下降趋势，$days 天内从 ${data.startJin!.toStringAsFixed(1)} 降到 ${data.currentJin!.toStringAsFixed(1)}，你的减脂策略有效！';
-      verdictColor = _green;
+      verdictColor = AppColors.success;
     } else if (loss < -0.3) {
       verdict = '体重有所回升，注意保持饮食和训练节奏。';
-      verdictColor = const Color(0xFFEF5350);
+      verdictColor = AppColors.danger;
     } else {
       verdict = '体重保持平稳，继续坚持记录吧。';
-      verdictColor = Colors.white70;
+      verdictColor = AppColors.textSecondary;
     }
 
     return Card(
@@ -101,7 +103,11 @@ class EffectAnalysisCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(width: 4, height: 16, color: _green, margin: const EdgeInsets.only(right: 8)),
+                Container(
+                    width: 4,
+                    height: 16,
+                    color: _green,
+                    margin: const EdgeInsets.only(right: 8)),
                 Text('减脂效果分析', style: theme.textTheme.titleSmall),
               ],
             ),
@@ -130,7 +136,7 @@ class EffectAnalysisCard extends StatelessWidget {
               Text(
                 '（需 3 条以上体重记录才能预测达标日期）',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: AppColors.textTertiary),
               ),
             ],
           ],
@@ -155,16 +161,16 @@ class WeekOverviewCard extends StatelessWidget {
     final Color changeColor;
     if (change == null) {
       changeText = '—';
-      changeColor = Colors.white54;
+      changeColor = AppColors.textTertiary;
     } else if (change < -0.05) {
       changeText = '${change.abs().toStringAsFixed(1)}斤';
-      changeColor = _green;
+      changeColor = AppColors.success;
     } else if (change > 0.05) {
       changeText = '+${change.toStringAsFixed(1)}斤';
-      changeColor = const Color(0xFFEF5350);
+      changeColor = AppColors.danger;
     } else {
       changeText = '0.0斤';
-      changeColor = Colors.white70;
+      changeColor = AppColors.textSecondary;
     }
 
     return Card(
@@ -182,14 +188,14 @@ class WeekOverviewCard extends StatelessWidget {
                 _Cell(
                   value: '${data.weekWorkoutDays}/7天',
                   label: '训练',
-                  color: _green,
+                  color: AppColors.primaryText,
                 ),
                 _Cell(
                   value: data.todayCalories != null
                       ? '${data.todayCalories!.round()}'
                       : '—',
                   label: '今日摄入(kcal)',
-                  color: Colors.white70,
+                  color: AppColors.textPrimary,
                 ),
               ],
             ),
@@ -222,7 +228,7 @@ class _Cell extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
           ),
         ],
       ),

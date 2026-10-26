@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 import 'package:fittrack/features/workout/presentation/widgets/history_segment.dart';
@@ -13,7 +14,7 @@ final workoutTemplatesProvider =
   return ref.watch(workoutTemplateRepoProvider).getAll();
 });
 
-const _green = Color(0xFFFF8A00);
+const _green = AppColors.primary;
 
 /// 分类筛选的固定顺序（"全部"始终在最前）
 const _focusOrder = <String>['全身', '放松', '碎片'];
@@ -164,8 +165,9 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
         final filters = _buildFilters(recommended);
         // 选中的分类在数据变化后可能已不存在 → 回落到 "全部"
         final active = filters.contains(_focus) ? _focus : _allFocus;
-        final visible =
-            active == _allFocus ? recommended : recommended.where((t) => t.focus == active).toList();
+        final visible = active == _allFocus
+            ? recommended
+            : recommended.where((t) => t.focus == active).toList();
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -179,56 +181,23 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
 
             const SizedBox(height: 18),
 
-            // ── 推荐模板 ──
-            _SectionHeader(
-              title: '推荐模板',
-              trailing: '${visible.length} 个',
+            // ── 我的模板（独立组件，默认 2 个 + 展开/收起）──
+            _MyTemplatesSection(
+              templates: mine,
+              starting: _starting,
+              onStart: _startTemplate,
+              onCreate: () => context.push('/workout/template-edit'),
+              onEdit: (t) => context.push('/workout/template-edit?id=${t.id}'),
             ),
-            const SizedBox(height: 10),
-            if (visible.isEmpty)
-              const _HintCard(text: '该分类下暂无模板，换个分类试试')
-            else
-              ...visible.map(
-                (t) => _TemplateCard(
-                  template: t,
-                  starting: _starting,
-                  coverHeight: 132,
-                  onStart: () => _startTemplate(t),
-                ),
-              ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
 
-            // ── 我的模板 ──
-            _SectionHeader(
-              title: '我的模板',
-              trailingAction: TextButton.icon(
-                onPressed: () => context.push('/workout/template-edit'),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('新建'),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  foregroundColor: _green,
-                  textStyle: const TextStyle(fontSize: 12),
-                ),
-              ),
+            // ── 推荐模板（独立组件管理展开状态，保证点击必生效）──
+            _RecommendedSection(
+              templates: visible,
+              starting: _starting,
+              onStart: _startTemplate,
             ),
-            const SizedBox(height: 10),
-            if (mine.isEmpty)
-              _EmptyMineCard(
-                onCreate: () => context.push('/workout/template-edit'),
-              )
-            else
-              ...mine.map(
-                (t) => _TemplateCard(
-                  template: t,
-                  starting: _starting,
-                  coverHeight: 92,
-                  onStart: () => _startTemplate(t),
-                  onEdit: () => context.push('/workout/template-edit?id=${t.id}'),
-                ),
-              ),
             // 底部留白由 ListView padding 的 bottom 24 承担
           ],
         );
@@ -281,15 +250,14 @@ class _FilterBar extends StatelessWidget {
               onPressed: () => context.push('/workout/custom'),
               icon: const Icon(Icons.tune, size: 14),
               label: const Text('自定义',
-                  style:
-                      TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
+                foregroundColor: AppColors.textSecondary,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
-                side: BorderSide(color: Colors.white.withAlpha(38)),
+                side: const BorderSide(color: AppColors.borderStrong),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(17),
                 ),
@@ -320,10 +288,10 @@ class _FocusChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? _green.withAlpha(28) : Colors.white.withAlpha(10),
+          color: selected ? _green.withAlpha(28) : AppColors.surfaceAlt,
           borderRadius: BorderRadius.circular(17),
           border: Border.all(
-            color: selected ? _green : Colors.transparent,
+            color: selected ? _green : AppColors.border,
             width: 1,
           ),
         ),
@@ -332,7 +300,7 @@ class _FocusChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            color: selected ? _green : Colors.white70,
+            color: selected ? _green : AppColors.textSecondary,
           ),
         ),
       ),
@@ -375,7 +343,7 @@ class _SectionHeader extends StatelessWidget {
             child: Text(
               trailing!,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                  ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
             ),
           ),
       ],
@@ -435,7 +403,7 @@ class _TemplateCard extends StatelessWidget {
                   Text(
                     '${template.items.length} 个动作 · ${template.focus}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                      color: AppColors.textTertiary,
                       fontSize: 11,
                     ),
                     maxLines: 1,
@@ -451,9 +419,9 @@ class _TemplateCard extends StatelessWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: _green,
-                    foregroundColor: Colors.black,
+                    foregroundColor: AppColors.onPrimary,
                     disabledBackgroundColor: _green.withAlpha(60),
-                    disabledForegroundColor: Colors.black54,
+                    disabledForegroundColor: AppColors.textTertiary,
                     elevation: 0,
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
@@ -493,7 +461,7 @@ class _TemplateCover extends StatelessWidget {
 
   /// accentKey → 渐变双色（深色收尾，保证白字可读）
   static const _gradients = <String, List<Color>>{
-    'green': [Color(0xFFFF8A00), Color(0xFF1B5E20)],
+    'green': [AppColors.primary, Color(0xFF1B5E20)],
     'orange': [Color(0xFFFF7043), Color(0xFFBF360C)],
     'red': [Color(0xFFEF5350), Color(0xFFB71C1C)],
     'cyan': [Color(0xFF26C6DA), Color(0xFF00695C)],
@@ -508,7 +476,7 @@ class _TemplateCover extends StatelessWidget {
     'purple': Icons.nightlight_round,
   };
 
-  static const List<Color> _fallback = [Color(0xFFFF8A00), Color(0xFF1B5E20)];
+  static const List<Color> _fallback = [AppColors.primary, Color(0xFF1B5E20)];
 
   @override
   Widget build(BuildContext context) {
@@ -570,7 +538,7 @@ class _TemplateCover extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -588,8 +556,7 @@ class _TemplateCover extends StatelessWidget {
                   onTap: onEdit,
                   child: const Padding(
                     padding: EdgeInsets.all(6),
-                    child: Icon(Icons.edit_note,
-                        size: 18, color: Colors.white),
+                    child: Icon(Icons.edit_note, size: 18, color: Colors.white),
                   ),
                 ),
               ),
@@ -670,11 +637,11 @@ class _EmptyMineCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(12),
+                  color: AppColors.surfaceAlt,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.bookmark_add_outlined,
-                    size: 22, color: Colors.white38),
+                    size: 22, color: AppColors.textTertiary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -692,7 +659,7 @@ class _EmptyMineCard extends StatelessWidget {
                     Text(
                       '把常做的动作存成模板，一键开练',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
+                        color: AppColors.textTertiary,
                         fontSize: 11,
                       ),
                       maxLines: 1,
@@ -707,7 +674,7 @@ class _EmptyMineCard extends StatelessWidget {
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: _green,
-                    foregroundColor: Colors.black,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     minimumSize: Size.zero,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -731,6 +698,162 @@ class _EmptyMineCard extends StatelessWidget {
   }
 }
 
+/// 我的模板区（独立管理展开状态，默认显示 2 个）
+class _MyTemplatesSection extends StatefulWidget {
+  final List<WorkoutTemplateEntity> templates;
+  final bool starting;
+  final ValueChanged<WorkoutTemplateEntity> onStart;
+  final VoidCallback onCreate;
+  final ValueChanged<WorkoutTemplateEntity> onEdit;
+
+  const _MyTemplatesSection({
+    required this.templates,
+    required this.starting,
+    required this.onStart,
+    required this.onCreate,
+    required this.onEdit,
+  });
+
+  @override
+  State<_MyTemplatesSection> createState() => _MyTemplatesSectionState();
+}
+
+class _MyTemplatesSectionState extends State<_MyTemplatesSection> {
+  bool _expanded = false;
+  static const _green = AppColors.primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = widget.templates;
+    final visible = _expanded ? list : list.take(2).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: '我的模板',
+          trailing: list.isEmpty ? null : '${list.length} 个',
+          trailingAction: list.length > 2
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(64, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        foregroundColor: AppColors.primaryText,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: Text(_expanded ? '收起' : '展开'),
+                    ),
+                    IconButton(
+                      onPressed: widget.onCreate,
+                      tooltip: '新建模板',
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      color: _green,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                )
+              : TextButton.icon(
+                  onPressed: widget.onCreate,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('新建'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    foregroundColor: AppColors.primaryText,
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 10),
+        if (list.isEmpty)
+          _EmptyMineCard(onCreate: widget.onCreate)
+        else
+          ...visible.map(
+            (t) => _TemplateCard(
+              template: t,
+              starting: widget.starting,
+              coverHeight: 92,
+              onStart: () => widget.onStart(t),
+              onEdit: () => widget.onEdit(t),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 推荐模板区（独立管理展开状态，避免父级 async 闭包重建不生效）
+class _RecommendedSection extends StatefulWidget {
+  final List<WorkoutTemplateEntity> templates;
+  final bool starting;
+  final ValueChanged<WorkoutTemplateEntity> onStart;
+
+  const _RecommendedSection({
+    required this.templates,
+    required this.starting,
+    required this.onStart,
+  });
+
+  @override
+  State<_RecommendedSection> createState() => _RecommendedSectionState();
+}
+
+class _RecommendedSectionState extends State<_RecommendedSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = widget.templates;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: '推荐模板',
+          trailing: '${list.length} 个',
+          trailingAction: list.length > 3
+              ? TextButton(
+                  onPressed: () {
+                    setState(() => _expanded = !_expanded);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_expanded ? '已展开全部模板' : '已收起'),
+                        duration: const Duration(milliseconds: 600),
+                      ),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(72, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    foregroundColor: AppColors.primaryText,
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  child: Text(_expanded ? '收起' : '展开'),
+                )
+              : null,
+        ),
+        const SizedBox(height: 10),
+        if (list.isEmpty)
+          const _HintCard(text: '该分类下暂无模板，换个分类试试')
+        else if (_expanded)
+          ...list.map(
+            (t) => _TemplateCard(
+              template: t,
+              starting: widget.starting,
+              coverHeight: 132,
+              onStart: () => widget.onStart(t),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// 分类筛选后无内容的轻提示
 class _HintCard extends StatelessWidget {
   final String text;
@@ -748,7 +871,7 @@ class _HintCard extends StatelessWidget {
           child: Text(
             text,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 12),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 12),
           ),
         ),
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
@@ -8,7 +10,7 @@ class GoalProgressCard extends StatelessWidget {
 
   const GoalProgressCard({super.key, required this.data});
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +25,7 @@ class GoalProgressCard extends StatelessWidget {
             child: Text(
               '记录第一条体重，开始追踪你的减脂趋势',
               style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
           ),
         ),
@@ -69,23 +71,23 @@ class GoalProgressCard extends StatelessWidget {
                     ? '以 ${DateFormat('M月d日').format(data.startDate!)} 的 ${data.startJin!.toStringAsFixed(1)} 斤为起始基准，已记录 ${data.daysRecorded} 天'
                     : '',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: AppColors.textTertiary),
               ),
             ),
             const SizedBox(height: 14),
-            Container(height: 1, color: Colors.white.withAlpha(16)),
+            Container(height: 1, color: AppColors.border),
             const SizedBox(height: 12),
             Row(
               children: [
                 _Cell(
                   value: '${data.currentJin!.toStringAsFixed(1)}斤',
                   label: '当前',
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                 ),
                 _Cell(
                   value: '${data.workoutDays}天',
                   label: '锻炼日',
-                  color: _green,
+                  color: AppColors.primaryText,
                 ),
               ],
             ),
@@ -118,7 +120,7 @@ class _Cell extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
           ),
         ],
       ),

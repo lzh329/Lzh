@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练倒计时/休息倒计时卡片，支持编辑按钮
 class TimerCard extends StatelessWidget {
   final String label;
@@ -29,7 +31,7 @@ class TimerCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isActive ? color : theme.colorScheme.outline.withAlpha(40),
+          color: isActive ? color : AppColors.border,
         ),
       ),
       child: Padding(
@@ -40,12 +42,11 @@ class TimerCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon,
-                    size: 16,
-                    color: isActive ? color : theme.colorScheme.outline),
+                    size: 16, color: isActive ? color : AppColors.textTertiary),
                 const SizedBox(width: 4),
                 Text(label,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isActive ? color : theme.colorScheme.outline,
+                      color: isActive ? color : AppColors.textTertiary,
                       fontWeight: isActive ? FontWeight.bold : null,
                     )),
                 if (onEdit != null) ...[
@@ -53,10 +54,10 @@ class TimerCard extends StatelessWidget {
                   InkWell(
                     onTap: onEdit,
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(2),
+                    child: const Padding(
+                      padding: EdgeInsets.all(2),
                       child: Icon(Icons.edit,
-                          size: 14, color: theme.colorScheme.outline),
+                          size: 14, color: AppColors.textTertiary),
                     ),
                   ),
                 ],

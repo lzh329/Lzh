@@ -50,9 +50,10 @@ flutter:
   assets:
     - assets/
     - assets/js.jpg
-    - assets/kp.png
     - assets/planet/
     - assets/guga/
+    - assets/guga2d/
+    - assets/guga3d/
 
 flutter_launcher_icons:
   image_path: "assets/js.jpg"
@@ -60,12 +61,12 @@ flutter_launcher_icons:
   ios: false
 
 flutter_native_splash:
-  image: assets/kp.png
-  color: "000000"
+  # 原 assets/kp.png 是满屏深色海报，浅色主题下会让启动首帧仍然发黑，
+  # 故改为纯品牌暖白底启动（如需恢复海报，取消下面 image 注释后重跑 create）。
+  # image: assets/kp.png
+  color: "F7F4F0"
   android: true
   ios: false
-  android_gravity: fill
   android_12:
-    image: assets/kp.png
-    color: "000000"
-    android_gravity: fill
+    # image: assets/kp.png
+    color: "F7F4F0"

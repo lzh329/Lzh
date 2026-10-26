@@ -7,7 +7,8 @@ class GugaStage {
   final String name;
   final String tagline; // 当前状态的一句话
   final double minLossJin; // 进入该等级所需的累计减重（斤）
-  final String asset;
+  final String asset; // 待机立绘
+  final String actionAsset; // 点击互动动作帧
 
   const GugaStage({
     required this.level,
@@ -15,6 +16,7 @@ class GugaStage {
     required this.tagline,
     required this.minLossJin,
     required this.asset,
+    required this.actionAsset,
   });
 }
 
@@ -24,28 +26,24 @@ const gugaStages = <GugaStage>[
     name: '肥咕嘎',
     tagline: '先动起来，比什么都重要',
     minLossJin: 0,
-    asset: 'assets/guga/guga_lv1.png',
+    asset: 'assets/guga3d/guga_fat.png',
+    actionAsset: 'assets/guga3d/guga_fat_happy.png',
   ),
   GugaStage(
     level: 2,
-    name: '微胖咕嘎',
+    name: '普通咕嘎',
     tagline: '已经上路了，保持节奏',
     minLossJin: 2,
-    asset: 'assets/guga/guga_lv2.png',
+    asset: 'assets/guga3d/guga_normal.png',
+    actionAsset: 'assets/guga3d/guga_normal_wave.png',
   ),
   GugaStage(
     level: 3,
-    name: '精神咕嘎',
-    tagline: '状态在线，继续往前冲',
+    name: '小咕嘎',
+    tagline: '轻盈的你，最好看',
     minLossJin: 5,
-    asset: 'assets/guga/guga_lv3.png',
-  ),
-  GugaStage(
-    level: 4,
-    name: '精瘦咕嘎',
-    tagline: '你已经赢过了昨天的自己',
-    minLossJin: 10,
-    asset: 'assets/guga/guga_lv4.png',
+    asset: 'assets/guga3d/guga_small.png',
+    actionAsset: 'assets/guga3d/guga_small_happy.png',
   ),
 ];
 
@@ -95,9 +93,8 @@ class GugaLevelService {
       remain = null;
     } else {
       final span = next.minLossJin - stage.minLossJin;
-      progress = span <= 0
-          ? 1
-          : ((loss - stage.minLossJin) / span).clamp(0.0, 1.0);
+      progress =
+          span <= 0 ? 1 : ((loss - stage.minLossJin) / span).clamp(0.0, 1.0);
       remain = (next.minLossJin - loss).clamp(0.0, 999.0).toDouble();
     }
 

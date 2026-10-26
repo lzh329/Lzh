@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
-/// 训练执行页加载态 / 空态占位视图（深色背景 + 居中内容 + 左上关闭）。
+/// 训练执行页加载态 / 空态占位视图（浅色背景 + 居中内容 + 左上关闭）。
 class ActiveWorkoutPlaceholder extends StatelessWidget {
   /// 居中展示的文案
   final String label;

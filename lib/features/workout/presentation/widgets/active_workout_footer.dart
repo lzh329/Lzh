@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页底部固定操作区（Keep「训练中」风格）。
 ///
 /// 主按钮（全宽 52 高、绿色黑字）+ 次按钮行（跳过动作 / 结束训练）。
@@ -47,7 +49,7 @@ class ActiveWorkoutFooter extends StatelessWidget {
                   onPressed: onPrimary,
                   style: FilledButton.styleFrom(
                     backgroundColor: primaryColor,
-                    foregroundColor: Colors.black,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.all(Radius.circular(14)),

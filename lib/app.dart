@@ -32,7 +32,8 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
   void initState() {
     super.initState();
     // 初始化提醒状态
-    initReminderState(ref,
+    initReminderState(
+      ref,
       enabled: widget.initialReminderEnabled,
       hour: widget.initialReminderHour,
       minute: widget.initialReminderMinute,
@@ -92,21 +93,22 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
   @override
   Widget build(BuildContext context) {
     initializeDateFormatting('zh_CN');
-    final themeMode = ref.watch(themeModeProvider);
     return _LockGate(
-      child: MaterialApp.router(
-        title: '简瘦',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        darkTheme: AppTheme.dark,
-        themeMode: themeMode,
-        supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        routerConfig: appRouter,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: MaterialApp.router(
+          title: '减肥嘎',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          themeMode: ThemeMode.light,
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          routerConfig: appRouter,
+        ),
       ),
     );
   }
@@ -120,7 +122,8 @@ class _LockGate extends ConsumerStatefulWidget {
   ConsumerState<_LockGate> createState() => _LockGateState();
 }
 
-class _LockGateState extends ConsumerState<_LockGate> with WidgetsBindingObserver {
+class _LockGateState extends ConsumerState<_LockGate>
+    with WidgetsBindingObserver {
   bool _locked = false;
 
   @override
@@ -178,7 +181,7 @@ class _LockGateState extends ConsumerState<_LockGate> with WidgetsBindingObserve
                     } else {
                       ctrl.clear();
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('PIN 码错误')));
+                          const SnackBar(content: Text('PIN 码错误')));
                     }
                   }
                 },

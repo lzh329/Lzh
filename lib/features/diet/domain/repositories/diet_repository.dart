@@ -2,7 +2,8 @@ import '../entities/diet_entity.dart';
 
 abstract class DietRepository {
   // 食物库
-  Future<List<FoodLibraryEntity>> searchFoods({String? query, String? category});
+  Future<List<FoodLibraryEntity>> searchFoods(
+      {String? query, String? category});
   Future<FoodLibraryEntity?> getFoodById(int id);
 
   // 饮食记录

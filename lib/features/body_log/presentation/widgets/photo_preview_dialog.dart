@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/database/database.dart';
 
-const _red = Color(0xFFEF5350);
+const _red = AppColors.danger;
 
 /// 删除确认弹窗；返回 true 表示确认删除
 Future<bool> confirmDeletePhoto(BuildContext context) async {
@@ -64,8 +66,8 @@ Future<bool?> showPhotoPreview(BuildContext context, Photo photo) {
                 File(photo.filePath),
                 fit: BoxFit.contain,
                 errorBuilder: (c, e, s) => const Center(
-                  child: Icon(Icons.broken_image,
-                      size: 48, color: Colors.white24),
+                  child:
+                      Icon(Icons.broken_image, size: 48, color: Colors.white24),
                 ),
               ),
             ),

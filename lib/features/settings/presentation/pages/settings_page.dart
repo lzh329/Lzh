@@ -7,18 +7,20 @@ import 'package:fittrack/features/settings/presentation/settings_actions.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_header_card.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// "我的"（设置）页 —— v2 重做
 ///
 /// 结构：个人资料卡 → 目标与记录 → 提醒与语音 → 外观 → 隐私 → 数据 → 关于
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
-  static const _green = Color(0xFFFF8A00);
-  static const _amber = Color(0xFFFFC53D);
-  static const _blue = Color(0xFF38BDF8);
-  static const _purple = Color(0xFFC084FC);
-  static const _orange = Color(0xFFFB8C00);
-  static const _grey = Color(0xFF90A4AE);
+  static const _green = AppColors.primary;
+  static const _amber = AppColors.warning;
+  static const _blue = AppColors.info;
+  static const _purple = AppColors.analysis;
+  static const _orange = AppColors.warning;
+  static const _grey = AppColors.textTertiary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -162,7 +164,7 @@ class SettingsPage extends ConsumerWidget {
               const SettingsTile(
                 icon: Icons.info_outline,
                 color: _grey,
-                title: '关于简瘦',
+                title: '关于减肥嘎',
                 subtitle: 'v1.2.0 · 个人减脂助手',
                 trailing: SizedBox.shrink(),
               ),
@@ -174,7 +176,7 @@ class SettingsPage extends ConsumerWidget {
             child: Text(
               '让每一次改变都被看见',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline.withAlpha(120),
+                color: AppColors.textTertiary,
                 fontSize: 11,
               ),
             ),

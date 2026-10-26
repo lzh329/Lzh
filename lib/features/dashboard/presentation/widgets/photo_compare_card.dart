@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 首页「身体变化对比」卡 —— 最早 vs 最新照片 + 累计减重
 class PhotoCompareCard extends StatelessWidget {
   final String? firstPath;
@@ -22,8 +24,8 @@ class PhotoCompareCard extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _orange = Color(0xFFFF8A00);
-  static const _green = Color(0xFF3DDC84);
+  static const _orange = AppColors.primary;
+  static const _green = AppColors.success;
 
   @override
   Widget build(BuildContext context) {
@@ -82,8 +84,8 @@ class PhotoCompareCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: _orange.withAlpha(26),
                         borderRadius: BorderRadius.circular(10),
-                        border:
-                            Border.all(color: _orange.withAlpha(70), width: 0.8),
+                        border: Border.all(
+                            color: _orange.withAlpha(70), width: 0.8),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -121,22 +123,23 @@ class PhotoCompareCard extends StatelessWidget {
       height: 64,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
+        color: AppColors.surfaceAlt,
         borderRadius: BorderRadius.circular(10),
-        border:
-            highlight ? Border.all(color: _orange.withAlpha(80), width: 0.8) : null,
+        border: highlight
+            ? Border.all(color: _orange.withAlpha(80), width: 0.8)
+            : null,
       ),
       child: path == null
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_a_photo_outlined,
-                      size: 16, color: theme.colorScheme.outline),
+                  const Icon(Icons.add_a_photo_outlined,
+                      size: 16, color: AppColors.textTertiary),
                   const SizedBox(height: 2),
                   Text(label,
-                      style: TextStyle(
-                          fontSize: 9, color: theme.colorScheme.outline)),
+                      style: const TextStyle(
+                          fontSize: 9, color: AppColors.textTertiary)),
                 ],
               ),
             )
@@ -146,10 +149,10 @@ class PhotoCompareCard extends StatelessWidget {
                 Image.file(
                   File(path),
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
+                  errorBuilder: (_, __, ___) => const Icon(
                     Icons.broken_image_outlined,
                     size: 16,
-                    color: theme.colorScheme.outline,
+                    color: AppColors.textTertiary,
                   ),
                 ),
                 Positioned(

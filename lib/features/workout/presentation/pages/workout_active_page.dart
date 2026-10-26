@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,7 +36,8 @@ class WorkoutActivePage extends ConsumerStatefulWidget {
   ConsumerState<WorkoutActivePage> createState() => _WorkoutActivePageState();
 }
 
-class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
+class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
+    with WidgetsBindingObserver {
   bool _initialized = false;
   bool _sessionReady = false;
   late final String _location;
@@ -43,6 +46,31 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   final _repsCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
   final _durationCtrl = TextEditingController();
+
+  /// 提前持有 notifier：dispose 里还要用它清掉计时与语音
+  late final WorkoutSessionNotifier _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = ref.read(workoutSessionProvider.notifier);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        // 切后台 / 回桌面：暂停倒计时并静音，避免在桌面上继续念数字
+        _notifier.pauseForBackground();
+      case AppLifecycleState.resumed:
+        _notifier.resumeFromBackground();
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -64,21 +92,42 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   void _initSession() {
     final notifier = ref.read(workoutSessionProvider.notifier);
 
+    Future<void> init;
     if (_location.startsWith('/plan/')) {
       final parts = _location.split('/');
-      final planId = int.tryParse(parts.length > 2 ? parts[2].split('?').first : '') ?? 0;
+      final planId =
+          int.tryParse(parts.length > 2 ? parts[2].split('?').first : '') ?? 0;
       final dayOfWeek = _extra is int ? _extra : DateTime.now().weekday % 7;
-      notifier.initPlan(planId, dayOfWeek);
+      init = notifier.initPlan(planId, dayOfWeek);
     } else if (widget.initialSlots != null) {
       notifier.initFree(widget.initialSlots!);
+      init = Future.value();
     } else if (_extra is List<ExerciseSlot>) {
       // 兼容通过 extra 直接传参的旧调用路径
       notifier.initFree(_extra);
+      init = Future.value();
+    } else {
+      init = Future.value();
     }
+
+    // 计时类动作：进入执行页直接开始倒计时
+    init.then((_) {
+      if (!mounted) return;
+      final s = ref.read(workoutSessionProvider);
+      final slot = s.currentSlot;
+      if (slot == null) return;
+      final isTimed = slot.category == 'cardio' ||
+          slot.category == 'stretch' ||
+          slot.targetDurationSec != null;
+      if (isTimed) notifier.startTraining();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // 离开训练页：停掉倒计时与语音队列（否则退出后仍在念数字）
+    _notifier.stopAllTimersAndVoice();
     _repsCtrl.dispose();
     _weightCtrl.dispose();
     _durationCtrl.dispose();
@@ -131,10 +180,12 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
     // 分支 5：训练进行中
     final slot = sessionState.currentSlot!;
     final isLastSet = sessionState.isLastSetOfCurrentSlot;
-    final isTimed = _isTimedCategory(slot.category);
-    final nextSlot = sessionState.currentSlotIndex + 1 < sessionState.slots.length
-        ? sessionState.slots[sessionState.currentSlotIndex + 1]
-        : null;
+    final isTimed =
+        _isTimedCategory(slot.category) || slot.targetDurationSec != null;
+    final nextSlot =
+        sessionState.currentSlotIndex + 1 < sessionState.slots.length
+            ? sessionState.slots[sessionState.currentSlotIndex + 1]
+            : null;
 
     return Scaffold(
       backgroundColor: ActiveWorkoutStyle.background,
@@ -146,7 +197,10 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
               currentIndex: sessionState.currentSlotIndex,
               total: sessionState.slots.length,
               progress: _overallProgress(sessionState, slot),
+              roundText:
+                  '第 ${sessionState.currentRound} 轮 / 共 ${sessionState.totalRounds} 轮 · 动作 ${sessionState.currentSlotIndex + 1}/${sessionState.slots.length}',
               onClose: () => _confirmAbandon(context),
+              onSettings: () => _showSettingsSheet(notifier),
             ),
             const SizedBox(height: ActiveWorkoutStyle.gapSection),
             Expanded(
@@ -168,6 +222,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
                         targetReps: slot.targetReps,
                         displaySeconds:
                             _displaySeconds(sessionState, slot, isTimed),
+                        restTotalSec: sessionState.restDurationSec,
                         onSkipRest: () => notifier.stopRest(),
                       ),
                     ),
@@ -175,25 +230,51 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
                       const SizedBox(height: 8),
                       _buildNextHint(nextSlot.exerciseName),
                     ],
-                    const SizedBox(height: ActiveWorkoutStyle.gapBlock),
-                    // 下部输入区 + 工具行
-                    ActiveWorkoutEntryPanel(
-                      category: slot.category,
-                      isTimed: isTimed,
-                      isResting: sessionState.isResting,
-                      isLastSet: isLastSet,
-                      lastReps: sessionState.lastReps,
-                      lastWeight: sessionState.lastWeight,
-                      lastDuration: sessionState.lastDuration,
-                      targetReps: slot.targetReps,
-                      targetDurationSec: slot.targetDurationSec,
-                      targetWeightKg: slot.targetWeightKg,
-                      repsController: _repsCtrl,
-                      weightController: _weightCtrl,
-                      durationController: _durationCtrl,
-                      toolRow: _buildToolRow(sessionState, notifier),
-                    ),
-                    const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                    // 计时类动作（平板支撑 / 拉伸 / 有氧）不做手动输入：
+                    // 倒计时自动开始，组次与时长在右上角 ⚙ 训练设置里调整
+                    if (!isTimed) ...[
+                      const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                      ActiveWorkoutEntryPanel(
+                        category: slot.category,
+                        isTimed: isTimed,
+                        isResting: sessionState.isResting,
+                        isLastSet: isLastSet,
+                        lastReps: sessionState.lastReps,
+                        lastWeight: sessionState.lastWeight,
+                        lastDuration: sessionState.lastDuration,
+                        targetReps: slot.targetReps,
+                        targetDurationSec: slot.targetDurationSec,
+                        targetWeightKg: slot.targetWeightKg,
+                        repsController: _repsCtrl,
+                        weightController: _weightCtrl,
+                        durationController: _durationCtrl,
+                      ),
+                      const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: ActiveWorkoutStyle.gapBlock,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.timer_outlined,
+                              size: 12,
+                              color: ActiveWorkoutStyle.textTertiary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '倒计时自动开始 · 时长可在右上角 ⚙ 调整',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: ActiveWorkoutStyle.textTertiary
+                                    .withAlpha(200),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -226,6 +307,166 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           fontSize: 11.5,
           color: ActiveWorkoutStyle.textTertiary,
         ),
+      ),
+    );
+  }
+
+  /// 通用「秒数」编辑弹窗
+  void _editSeconds(
+    BuildContext context,
+    String title,
+    int current,
+    ValueChanged<int> onSave,
+  ) {
+    final ctrl = TextEditingController(text: '$current');
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration:
+              const InputDecoration(hintText: '例如: 30', suffixText: '秒'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              final v = int.tryParse(ctrl.text.trim());
+              if (v == null || v <= 0) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('请输入大于 0 的秒数')),
+                );
+                return;
+              }
+              onSave(v);
+              Navigator.pop(ctx);
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    ).whenComplete(ctrl.dispose);
+  }
+
+  /// 训练设置弹层（把计时 / 休息 / 节拍 / 语音等次级控制从主界面收走）
+  void _showSettingsSheet(WorkoutSessionNotifier notifier) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) {
+          final s = ref.watch(workoutSessionProvider);
+          final slot = s.currentSlot;
+          final isTimed = slot != null &&
+              (_isTimedCategory(slot.category) ||
+                  slot.targetDurationSec != null);
+          final actionDuration =
+              slot?.targetDurationSec ?? s.trainingDurationSec;
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '训练设置',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    '计时 · 休息 · 节拍 · 语音',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+                  // 计时类动作：本动作时长（不在主界面放输入框，统一在这里改）
+                  if (isTimed) ...[
+                    _TimeCard(
+                      label: '本动作时长 · ${slot.exerciseName}',
+                      value: '$actionDuration',
+                      unit: '秒',
+                      onTap: () => _editSeconds(
+                        context,
+                        '${slot.exerciseName} 时长（秒）',
+                        actionDuration,
+                        (v) => notifier.setCurrentSlotDurationSec(v),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  // 大号时间设置（本次重构重点）
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TimeCard(
+                          label: '动作间休息',
+                          value: '${s.restShortSec}',
+                          unit: '秒',
+                          onTap: () => _editSeconds(
+                            context,
+                            '动作间休息（秒）',
+                            s.restShortSec,
+                            (v) => notifier.setRestShortSec(v),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _TimeCard(
+                          label: '轮间休息',
+                          value: '${s.restLongSec}',
+                          unit: '秒',
+                          onTap: () => _editSeconds(
+                            context,
+                            '轮间休息（秒）',
+                            s.restLongSec,
+                            (v) => notifier.setRestLongSec(v),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _TimeCard(
+                    label: '计时动作默认时长（未单独设置的动作）',
+                    value: '${s.trainingDurationSec}',
+                    unit: '秒',
+                    onTap: () => _editSeconds(
+                      context,
+                      '计时动作默认时长（秒）',
+                      s.trainingDurationSec,
+                      (v) => notifier.setTrainingDurationSec(v),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildToolRow(s, notifier),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -271,14 +512,13 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   String _primaryLabel(WorkoutSessionState state, bool isLastSet) {
     if (state.isResting) return '跳过休息';
     if (state.isAutoMode) return '停止计时';
-    if (isLastSet) return state.isLastSlot ? '完成训练' : '下一个动作';
-    return '完成本组';
+    final isFinal = state.currentRound >= state.totalRounds && state.isLastSlot;
+    return isFinal ? '完成训练' : '完成';
   }
 
   IconData _primaryIcon(WorkoutSessionState state, bool isLastSet) {
     if (state.isResting) return Icons.timer_off;
     if (state.isAutoMode) return Icons.stop;
-    if (isLastSet) return state.isLastSlot ? Icons.check : Icons.arrow_forward;
     return Icons.check;
   }
 
@@ -298,11 +538,6 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
     }
     if (state.isAutoMode) {
       notifier.stopAutoMode();
-      return;
-    }
-    if (isLastSet) {
-      HapticFeedback.mediumImpact();
-      notifier.nextExercise();
       return;
     }
     _completeCurrentSet(notifier);
@@ -353,18 +588,10 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   double _overallProgress(WorkoutSessionState state, ExerciseSlot slot) {
     if (state.slots.isEmpty) return 0;
     final perSlot = slot.targetSets > 0 ? slot.targetSets : 1;
-    final raw =
-        (state.currentSlotIndex + state.currentSetIndex / perSlot) /
-            state.slots.length;
+    final raw = (state.currentSlotIndex + state.currentSetIndex / perSlot) /
+        state.slots.length;
     if (!raw.isFinite) return 0;
     return raw.clamp(0.0, 1.0);
-  }
-
-  /// 当前组序号（1 基，动作完成后不超过目标组数）
-  int _currentSetNumber(WorkoutSessionState state, ExerciseSlot slot) {
-    final next = state.currentSetIndex + 1;
-    if (slot.targetSets <= 0) return next;
-    return next.clamp(1, slot.targetSets);
   }
 
   /// 大卡片状态文案
@@ -375,8 +602,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
   ) {
     if (state.isResting) return '休息中';
     if (state.isTraining) return '训练中';
-    if (isLastSet) return '本动作已完成';
-    return '第 ${_currentSetNumber(state, slot)} 组 / 共 ${slot.targetSets} 组';
+    return '第 ${state.currentRound} 轮 / 共 ${state.totalRounds} 轮';
   }
 
   /// 大卡片中部大字所用秒数
@@ -427,10 +653,12 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '例如: 60', suffixText: '秒'),
+          decoration:
+              const InputDecoration(hintText: '例如: 60', suffixText: '秒'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(ctrl.text.trim());
@@ -465,10 +693,12 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           controller: ctrl,
           keyboardType: TextInputType.number,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '例如: 90', suffixText: '秒'),
+          decoration:
+              const InputDecoration(hintText: '例如: 90', suffixText: '秒'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(ctrl.text.trim());
@@ -500,7 +730,10 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('继续训练')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.surface,
+            ),
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.pop(context);
@@ -508,6 +741,69 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage> {
             child: const Text('放弃'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 训练设置弹层里的大号时间卡（显示 30px 数值 + 点击编辑）
+class _TimeCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final VoidCallback onTap;
+
+  const _TimeCard({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.onTap,
+  });
+
+  static const _orange = AppColors.primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 10.5, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                      fontSize: 30, fontWeight: FontWeight.w700, height: 1.0),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  unit,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textSecondary),
+                ),
+                const Spacer(),
+                const Icon(Icons.edit, size: 14, color: _orange),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 首页「今日打卡」卡 —— 大号进度环 + 三宫格打卡块
 ///
 /// 三件事：记录体重 / 完成训练 / 记录饮食。
@@ -11,12 +13,15 @@ class TodayTasksCard extends StatelessWidget {
   final double? latestWeightJin;
   final bool hasTraining;
   final int workoutCount;
-  final double? calories;
+
+  /// 今日是否已拍身体照片
+  final bool photoDone;
+
   final String? gugaAsset;
 
   final VoidCallback onWeight;
   final VoidCallback onWorkout;
-  final VoidCallback onDiet;
+  final VoidCallback onPhoto;
 
   const TodayTasksCard({
     super.key,
@@ -24,15 +29,15 @@ class TodayTasksCard extends StatelessWidget {
     this.latestWeightJin,
     this.hasTraining = false,
     this.workoutCount = 0,
-    this.calories,
+    this.photoDone = false,
     this.gugaAsset,
     required this.onWeight,
     required this.onWorkout,
-    required this.onDiet,
+    required this.onPhoto,
   });
 
-  static const _orange = Color(0xFFFF8A00);
-  static const _green = Color(0xFF3DDC84);
+  static const _orange = AppColors.primary;
+  static const _green = AppColors.success;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +45,7 @@ class TodayTasksCard extends StatelessWidget {
 
     final weightDone = todayWeightJin != null;
     final workoutDone = workoutCount > 0;
-    final dietDone = calories != null;
+    final dietDone = photoDone;
     final doneCount =
         [weightDone, workoutDone, dietDone].where((d) => d).length;
 
@@ -54,7 +59,7 @@ class TodayTasksCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: _orange.withAlpha(70), width: 0.8),
+        side: const BorderSide(color: AppColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
@@ -79,8 +84,8 @@ class TodayTasksCard extends StatelessWidget {
                   doneCount == 3
                       ? '全部完成'
                       : (doneCount == 0 ? '从第一项开始' : '正在推进'),
-                  style:
-                      const TextStyle(fontSize: 10, color: Colors.white38),
+                  style: const TextStyle(
+                      fontSize: 10, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -117,7 +122,8 @@ class TodayTasksCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       const Text(
                         '今日已完成',
-                        style: TextStyle(fontSize: 10, color: Colors.white38),
+                        style: TextStyle(
+                            fontSize: 10, color: AppColors.textTertiary),
                       ),
                     ],
                   ),
@@ -153,11 +159,11 @@ class TodayTasksCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 _TaskTile(
-                  icon: Icons.restaurant_outlined,
-                  label: '饮食',
-                  value: dietDone ? '${calories!.round()} kcal' : '去记录',
+                  icon: Icons.photo_camera_outlined,
+                  label: '今日图片',
+                  value: dietDone ? '已记录' : '去拍照',
                   done: dietDone,
-                  onTap: onDiet,
+                  onTap: onPhoto,
                 ),
               ],
             ),
@@ -169,13 +175,15 @@ class TodayTasksCard extends StatelessWidget {
                 Container(
                   width: 24,
                   height: 24,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    color: AppColors.surfaceAlt,
+                    border: Border.all(color: AppColors.border),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: gugaAsset != null
-                      ? Image.asset(gugaAsset!, fit: BoxFit.cover)
+                      ? Image.asset(gugaAsset!,
+                          fit: BoxFit.cover, alignment: Alignment.topCenter)
                       : const Icon(Icons.sentiment_satisfied_alt,
                           size: 14, color: _orange),
                 ),
@@ -185,7 +193,7 @@ class TodayTasksCard extends StatelessWidget {
                     encourage,
                     style: TextStyle(
                       fontSize: 11,
-                      color: doneCount == 3 ? _green : Colors.white60,
+                      color: doneCount == 3 ? _green : AppColors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -207,7 +215,7 @@ class _RingPainter extends CustomPainter {
 
   _RingPainter({required this.progress, required this.total});
 
-  static const _orange = Color(0xFFFF8A00);
+  static const _orange = AppColors.primary;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -233,7 +241,7 @@ class _RingPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 10
           ..strokeCap = StrokeCap.round
-          ..color = Colors.white.withAlpha(16),
+          ..color = AppColors.surfaceMuted,
       );
 
       // 点亮段（按进度部分填充）
@@ -291,13 +299,13 @@ class _TaskTile extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _orange = Color(0xFFFF8A00);
+  static const _orange = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
     final borderColor = done
-        ? _orange.withAlpha(150)
-        : (highlight ? _orange.withAlpha(90) : Colors.white.withAlpha(16));
+        ? _orange
+        : (highlight ? _orange.withAlpha(140) : AppColors.border);
 
     return Expanded(
       child: InkWell(
@@ -308,7 +316,7 @@ class _TaskTile extends StatelessWidget {
           curve: Curves.easeOut,
           height: 108,
           decoration: BoxDecoration(
-            color: done ? _orange.withAlpha(22) : Colors.white.withAlpha(6),
+            color: done ? _orange : AppColors.surfaceAlt,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: borderColor, width: done ? 1.2 : 0.8),
             boxShadow: done
@@ -327,7 +335,10 @@ class _TaskTile extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(icon, size: 24, color: done ? _orange : Colors.white38),
+                  Icon(icon,
+                      size: 24,
+                      color:
+                          done ? AppColors.onPrimary : AppColors.textTertiary),
                   if (done)
                     Positioned(
                       right: -9,
@@ -336,11 +347,11 @@ class _TaskTile extends StatelessWidget {
                         width: 16,
                         height: 16,
                         decoration: const BoxDecoration(
-                          color: _orange,
+                          color: AppColors.surface,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.check,
-                            size: 11, color: Colors.black),
+                            size: 11, color: AppColors.primary),
                       ),
                     ),
                 ],
@@ -351,7 +362,7 @@ class _TaskTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
-                  color: done ? Colors.white70 : Colors.white,
+                  color: done ? AppColors.onPrimary : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 3),
@@ -362,8 +373,8 @@ class _TaskTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9.5,
                     color: done
-                        ? _orange
-                        : (highlight ? _orange : Colors.white38),
+                        ? AppColors.onPrimary
+                        : (highlight ? _orange : AppColors.textTertiary),
                     fontWeight: (done || highlight)
                         ? FontWeight.w600
                         : FontWeight.normal,

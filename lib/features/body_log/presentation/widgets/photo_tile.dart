@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 
-const _green = Color(0xFFFF8A00);
+const _green = AppColors.primary;
 
 /// 相册单格：圆角封面 + 底部日期半透明条
 ///
@@ -41,9 +42,9 @@ class PhotoTile extends StatelessWidget {
               File(photo.filePath),
               fit: BoxFit.cover,
               errorBuilder: (c, e, s) => Container(
-                color: Colors.white.withAlpha(12),
+                color: AppColors.surfaceAlt,
                 child: const Icon(Icons.broken_image,
-                    size: 20, color: Colors.white30),
+                    size: 20, color: AppColors.textTertiary),
               ),
             ),
             Positioned(
@@ -55,8 +56,7 @@ class PhotoTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Text(DateFormat('M/d').format(photo.date),
                     textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 9.5)),
+                    style: const TextStyle(color: Colors.white, fontSize: 9.5)),
               ),
             ),
             if (selecting)
@@ -74,7 +74,7 @@ class PhotoTile extends StatelessWidget {
                         ),
                         child: Text('$order',
                             style: const TextStyle(
-                                color: Colors.black,
+                                color: AppColors.onPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700)),
                       )

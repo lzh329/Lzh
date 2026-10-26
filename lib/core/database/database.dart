@@ -32,7 +32,8 @@ class Workouts extends Table {
 
 class WorkoutSets extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get workoutId => integer().references(Workouts, #id, onDelete: KeyAction.cascade)();
+  IntColumn get workoutId =>
+      integer().references(Workouts, #id, onDelete: KeyAction.cascade)();
   IntColumn get exerciseId => integer().references(Exercises, #id)();
   IntColumn get setNumber => integer()();
   IntColumn get reps => integer().nullable()();
@@ -65,7 +66,8 @@ class Plans extends Table {
 
 class PlanDays extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get planId => integer().references(Plans, #id, onDelete: KeyAction.cascade)();
+  IntColumn get planId =>
+      integer().references(Plans, #id, onDelete: KeyAction.cascade)();
   IntColumn get dayOfWeek => integer()(); // 0=周日, 6=周六
   IntColumn get exerciseId => integer().references(Exercises, #id)();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
@@ -103,18 +105,23 @@ class UserSettings extends Table {
   RealColumn get targetWeightKg => real().nullable()();
   DateTimeColumn get birthDate => dateTime().nullable()();
   TextColumn get gender => text().nullable()(); // male / female
-  TextColumn get activityLevel => text().nullable()(); // sedentary / light / moderate / active / very_active
+  TextColumn get activityLevel => text()
+      .nullable()(); // sedentary / light / moderate / active / very_active
   TextColumn get pinCode => text().nullable()();
   BoolColumn get lockEnabled => boolean().withDefault(const Constant(false))();
   RealColumn get speechRate => real().nullable()();
   RealColumn get speechPitch => real().nullable()();
   TextColumn get ttsVoice => text().nullable()();
-  BoolColumn get reminderEnabled => boolean().withDefault(const Constant(false))();
+  BoolColumn get reminderEnabled =>
+      boolean().withDefault(const Constant(false))();
   IntColumn get reminderHour => integer().nullable()();
   IntColumn get reminderMinute => integer().nullable()();
   TextColumn get themeMode => text().nullable()();
   IntColumn get defaultTrainingSec => integer().nullable()();
   IntColumn get defaultRestSec => integer().nullable()();
+  // 循环模式休息时长（动作间 / 轮间）—— 用户在训练设置里改过就记住
+  IntColumn get restShortSec => integer().nullable()();
+  IntColumn get restLongSec => integer().nullable()();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -129,7 +136,8 @@ class FoodLibrary extends Table {
   RealColumn get proteinPer100g => real().nullable()();
   RealColumn get fatPer100g => real().nullable()();
   RealColumn get carbsPer100g => real().nullable()();
-  TextColumn get category => text()(); // staple / meat / vegetable / fruit / snack / drink / other
+  TextColumn get category =>
+      text()(); // staple / meat / vegetable / fruit / snack / drink / other
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 }
 
@@ -197,71 +205,83 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 12; // v12: 训练模板（workout_templates + workout_template_exercises）
+  int get schemaVersion => 14; // v14: 循环模式休息时长（rest_short_sec / rest_long_sec）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-      await _seedExercises(this);
-      await _seedFoodLibrary(this);
-      await _seedWorkoutTemplates(this);
-    },
-    onUpgrade: (m, from, to) async {
-      // Baseline migration (consolidates v2→v9 into single block)
-      if (from < 10) {
-        if (from < 2) await m.createTable(userSettings);
-        if (from < 3) {
-          await m.addColumn(userSettings, userSettings.birthDate);
-          await m.addColumn(userSettings, userSettings.gender);
-          await m.addColumn(userSettings, userSettings.activityLevel);
-        }
-        if (from < 4) {
-          await m.createTable(foodLibrary);
-          await m.createTable(foodLog);
+        onCreate: (m) async {
+          await m.createAll();
+          await _seedExercises(this);
           await _seedFoodLibrary(this);
-        }
-        if (from < 5) await m.createTable(waterLog);
-        if (from < 6) {
-          await m.addColumn(userSettings, userSettings.pinCode);
-          await m.addColumn(userSettings, userSettings.lockEnabled);
-        }
-        if (from < 7) {
-          await m.addColumn(userSettings, userSettings.speechRate);
-          await m.addColumn(userSettings, userSettings.speechPitch);
-          await m.addColumn(userSettings, userSettings.ttsVoice);
-        }
-        if (from < 8) {
-          await m.addColumn(userSettings, userSettings.reminderEnabled);
-          await m.addColumn(userSettings, userSettings.reminderHour);
-          await m.addColumn(userSettings, userSettings.reminderMinute);
-        }
-        if (from < 9) {
-          await m.addColumn(exercises, exercises.defaultReps);
-          await m.addColumn(exercises, exercises.defaultWeightKg);
-          await m.addColumn(exercises, exercises.defaultDurationSec);
-          await m.addColumn(userSettings, userSettings.themeMode);
-          await m.addColumn(userSettings, userSettings.defaultTrainingSec);
-          await m.addColumn(userSettings, userSettings.defaultRestSec);
-        }
-      }
-      // v11: neck_cm + goal_category + diet targets
-      if (from < 11) {
-        await m.addColumn(bodyMetrics, bodyMetrics.neckCm);
-        await m.addColumn(goals, goals.category);
-        await m.addColumn(userSettings, userSettings.dailyCalorieTarget);
-        await m.addColumn(userSettings, userSettings.proteinTargetG);
-        await m.addColumn(userSettings, userSettings.carbsTargetG);
-        await m.addColumn(userSettings, userSettings.fatTargetG);
-      }
-      // v12: 训练模板
-      if (from < 12) {
-        await m.createTable(workoutTemplates);
-        await m.createTable(workoutTemplateExercises);
-        await _seedWorkoutTemplates(this);
-      }
-    },
-  );
+          await _seedWorkoutTemplates(this);
+        },
+        onUpgrade: (m, from, to) async {
+          // Baseline migration (consolidates v2→v9 into single block)
+          if (from < 10) {
+            if (from < 2) await m.createTable(userSettings);
+            if (from < 3) {
+              await m.addColumn(userSettings, userSettings.birthDate);
+              await m.addColumn(userSettings, userSettings.gender);
+              await m.addColumn(userSettings, userSettings.activityLevel);
+            }
+            if (from < 4) {
+              await m.createTable(foodLibrary);
+              await m.createTable(foodLog);
+              await _seedFoodLibrary(this);
+            }
+            if (from < 5) await m.createTable(waterLog);
+            if (from < 6) {
+              await m.addColumn(userSettings, userSettings.pinCode);
+              await m.addColumn(userSettings, userSettings.lockEnabled);
+            }
+            if (from < 7) {
+              await m.addColumn(userSettings, userSettings.speechRate);
+              await m.addColumn(userSettings, userSettings.speechPitch);
+              await m.addColumn(userSettings, userSettings.ttsVoice);
+            }
+            if (from < 8) {
+              await m.addColumn(userSettings, userSettings.reminderEnabled);
+              await m.addColumn(userSettings, userSettings.reminderHour);
+              await m.addColumn(userSettings, userSettings.reminderMinute);
+            }
+            if (from < 9) {
+              await m.addColumn(exercises, exercises.defaultReps);
+              await m.addColumn(exercises, exercises.defaultWeightKg);
+              await m.addColumn(exercises, exercises.defaultDurationSec);
+              await m.addColumn(userSettings, userSettings.themeMode);
+              await m.addColumn(userSettings, userSettings.defaultTrainingSec);
+              await m.addColumn(userSettings, userSettings.defaultRestSec);
+            }
+          }
+          // v11: neck_cm + goal_category + diet targets
+          if (from < 11) {
+            await m.addColumn(bodyMetrics, bodyMetrics.neckCm);
+            await m.addColumn(goals, goals.category);
+            await m.addColumn(userSettings, userSettings.dailyCalorieTarget);
+            await m.addColumn(userSettings, userSettings.proteinTargetG);
+            await m.addColumn(userSettings, userSettings.carbsTargetG);
+            await m.addColumn(userSettings, userSettings.fatTargetG);
+          }
+          // v12: 训练模板
+          if (from < 12) {
+            await m.createTable(workoutTemplates);
+            await m.createTable(workoutTemplateExercises);
+            await _seedWorkoutTemplates(this);
+          }
+          // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
+          if (from < 13) {
+            await customStatement(
+              'UPDATE exercises SET default_duration_sec = 30 '
+              "WHERE name = '平板支撑' AND default_duration_sec IS NULL",
+            );
+          }
+          // v14: 循环模式休息时长持久化（动作间 / 轮间）
+          if (from < 14) {
+            await m.addColumn(userSettings, userSettings.restShortSec);
+            await m.addColumn(userSettings, userSettings.restLongSec);
+          }
+        },
+      );
 }
 
 QueryExecutor _openConnection() {
@@ -315,12 +335,18 @@ Future<void> _seedExercises(AppDatabase db) async {
 
   for (final e in exercises) {
     await db.into(db.exercises).insert(ExercisesCompanion.insert(
-      name: e.$1,
-      category: e.$2,
-      muscleGroup: Value(e.$3),
-      isCustom: const Value(false),
-    ));
+          name: e.$1,
+          category: e.$2,
+          muscleGroup: Value(e.$3),
+          isCustom: const Value(false),
+        ));
   }
+
+  // 静力动作默认计时（平板支撑 30 秒），供模板编辑识别为"时长"类型
+  await db.customStatement(
+    'UPDATE exercises SET default_duration_sec = 30 '
+    "WHERE name = '平板支撑' AND default_duration_sec IS NULL",
+  );
 }
 
 /// 内置食物库种子数据（每100g热量kcal）
@@ -364,13 +390,13 @@ Future<void> _seedFoodLibrary(AppDatabase db) async {
 
   for (final f in foods) {
     await db.into(db.foodLibrary).insert(FoodLibraryCompanion.insert(
-      name: f.$1,
-      caloriesPer100g: f.$2.toDouble(),
-      proteinPer100g: Value(f.$3),
-      fatPer100g: Value(f.$4),
-      carbsPer100g: Value(f.$5),
-      category: f.$6,
-    ));
+          name: f.$1,
+          caloriesPer100g: f.$2.toDouble(),
+          proteinPer100g: Value(f.$3),
+          fatPer100g: Value(f.$4),
+          carbsPer100g: Value(f.$5),
+          category: f.$6,
+        ));
   }
 }
 

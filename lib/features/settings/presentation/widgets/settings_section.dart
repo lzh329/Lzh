@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 设置分组：小标题 + 圆角卡片容器
 class SettingsSection extends StatelessWidget {
   final String title;
@@ -13,7 +15,6 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -21,10 +22,10 @@ class SettingsSection extends StatelessWidget {
           padding: const EdgeInsets.only(left: 6, bottom: 8, top: 4),
           child: Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               letterSpacing: 0.8,
-              color: theme.colorScheme.outline,
+              color: AppColors.textTertiary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -36,11 +37,11 @@ class SettingsSection extends StatelessWidget {
               for (int i = 0; i < children.length; i++) ...[
                 children[i],
                 if (i < children.length - 1)
-                  Divider(
+                  const Divider(
                     height: 1,
                     indent: 62,
                     endIndent: 16,
-                    color: Colors.white.withAlpha(14),
+                    color: AppColors.border,
                   ),
               ],
             ],
@@ -89,15 +90,15 @@ class SettingsTile extends StatelessWidget {
           ? Text(
               subtitle!,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )
           : null,
       trailing: trailing ??
           (onTap != null
-              ? Icon(Icons.chevron_right,
-                  size: 18, color: theme.colorScheme.outline.withAlpha(150))
+              ? const Icon(Icons.chevron_right,
+                  size: 18, color: AppColors.textTertiary)
               : null),
       onTap: onTap,
     );

@@ -7,6 +7,8 @@ import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 class CustomWorkoutPage extends ConsumerStatefulWidget {
   const CustomWorkoutPage({super.key});
 
@@ -43,7 +45,8 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
         final ex = exMap[id];
         if (ex != null) {
           final setsForEx = last.sets.where((s) => s.exerciseId == id).length;
-          _selected.add(SelectedExercise(exercise: ex, targetSets: setsForEx.clamp(1, 10)));
+          _selected.add(SelectedExercise(
+              exercise: ex, targetSets: setsForEx.clamp(1, 10)));
         }
       }
       _copiedLast = true;
@@ -62,7 +65,10 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: () {
-                setState(() { _selected.clear(); _copiedLast = false; });
+                setState(() {
+                  _selected.clear();
+                  _copiedLast = false;
+                });
                 _tryCopyLastWorkout();
               },
               child: const Text('重新复制', style: TextStyle(fontSize: 13)),
@@ -72,111 +78,154 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
       body: Stack(
         children: [
           Column(
-        children: [
-          if (_selected.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: theme.colorScheme.primaryContainer.withAlpha(50),
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: _selected.map((se) => Chip(
-                  avatar: CircleAvatar(
-                    backgroundColor: (AppTheme.categoryColors[se.exercise.category] ?? Colors.grey).withAlpha(40),
-                    child: Icon(AppTheme.categoryIcons[se.exercise.category], size: 14,
-                      color: AppTheme.categoryColors[se.exercise.category]),
+            children: [
+              if (_selected.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  color: theme.colorScheme.primaryContainer.withAlpha(50),
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _selected
+                        .map((se) => Chip(
+                              avatar: CircleAvatar(
+                                backgroundColor: (AppTheme.categoryColors[
+                                            se.exercise.category] ??
+                                        AppColors.textTertiary)
+                                    .withAlpha(40),
+                                child: Icon(
+                                    AppTheme
+                                        .categoryIcons[se.exercise.category],
+                                    size: 14,
+                                    color: AppTheme
+                                        .categoryColors[se.exercise.category]),
+                              ),
+                              label: Text(
+                                  '${se.exercise.name} × ${se.targetSets}组',
+                                  style: const TextStyle(fontSize: 12)),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () =>
+                                  setState(() => _selected.remove(se)),
+                            ))
+                        .toList(),
                   ),
-                  label: Text('${se.exercise.name} × ${se.targetSets}组', style: const TextStyle(fontSize: 12)),
-                  deleteIcon: const Icon(Icons.close, size: 16),
-                  onDeleted: () => setState(() => _selected.remove(se)),
-                )).toList(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              decoration: const InputDecoration(hintText: '搜索动作...', prefixIcon: Icon(Icons.search), isDense: true),
-              onChanged: (v) => setState(() { _searchQuery = v; _cachedFuture = null; }),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              children: [
-                _CatChip(label: '全部', value: 'all', selected: _selectedCategory, onTap: (v) => setState(() { _selectedCategory = v; _cachedFuture = null; })),
-                ...AppTheme.categoryLabels.entries.map((e) =>
-                  _CatChip(label: e.value, value: e.key, selected: _selectedCategory, onTap: (v) => setState(() { _selectedCategory = v; _cachedFuture = null; })),
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: FutureBuilder<List<ExerciseEntity>>(
-              future: _cachedFuture ??= _getExercises(repo),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final exercises = snapshot.data ?? [];
-                if (exercises.isEmpty) {
-                  return const Center(child: Text('暂无匹配的动作'));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(top: 4),
-                  itemCount: exercises.length,
-                  itemBuilder: (context, index) {
-                    final ex = exercises[index];
-                    final isSelected = _selected.any((s) => s.exercise.id == ex.id);
-                    final catColor = AppTheme.categoryColors[ex.category] ?? Colors.grey;
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: TextField(
+                  decoration: const InputDecoration(
+                      hintText: '搜索动作...',
+                      prefixIcon: Icon(Icons.search),
+                      isDense: true),
+                  onChanged: (v) => setState(() {
+                    _searchQuery = v;
+                    _cachedFuture = null;
+                  }),
+                ),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Row(
+                  children: [
+                    _CatChip(
+                        label: '全部',
+                        value: 'all',
+                        selected: _selectedCategory,
+                        onTap: (v) => setState(() {
+                              _selectedCategory = v;
+                              _cachedFuture = null;
+                            })),
+                    ...AppTheme.categoryLabels.entries.map(
+                      (e) => _CatChip(
+                          label: e.value,
+                          value: e.key,
+                          selected: _selectedCategory,
+                          onTap: (v) => setState(() {
+                                _selectedCategory = v;
+                                _cachedFuture = null;
+                              })),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: FutureBuilder<List<ExerciseEntity>>(
+                  future: _cachedFuture ??= _getExercises(repo),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final exercises = snapshot.data ?? [];
+                    if (exercises.isEmpty) {
+                      return const Center(child: Text('暂无匹配的动作'));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(top: 4),
+                      itemCount: exercises.length,
+                      itemBuilder: (context, index) {
+                        final ex = exercises[index];
+                        final isSelected =
+                            _selected.any((s) => s.exercise.id == ex.id);
+                        final catColor = AppTheme.categoryColors[ex.category] ??
+                            AppColors.textTertiary;
 
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: catColor.withAlpha(40),
-                        child: Icon(AppTheme.categoryIcons[ex.category] ?? Icons.fitness_center, color: catColor, size: 20),
-                      ),
-                      title: Text(ex.name),
-                      subtitle: Text(
-                        '${AppTheme.categoryLabels[ex.category] ?? ex.category}${ex.muscleGroup != null ? ' · ${ex.muscleGroup}' : ''}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      trailing: isSelected
-                        ? IconButton(
-                            icon: const Icon(Icons.check_circle, color: Colors.green),
-                            onPressed: () => setState(() => _selected.removeWhere((s) => s.exercise.id == ex.id)),
-                          )
-                        : const Icon(Icons.add_circle_outline),
-                      onTap: () => _addExercise(context, ex),
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: catColor.withAlpha(40),
+                            child: Icon(
+                                AppTheme.categoryIcons[ex.category] ??
+                                    Icons.fitness_center,
+                                color: catColor,
+                                size: 20),
+                          ),
+                          title: Text(ex.name),
+                          subtitle: Text(
+                            '${AppTheme.categoryLabels[ex.category] ?? ex.category}${ex.muscleGroup != null ? ' · ${ex.muscleGroup}' : ''}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          trailing: isSelected
+                              ? IconButton(
+                                  icon: const Icon(Icons.check_circle,
+                                      color: AppColors.success),
+                                  onPressed: () => setState(() =>
+                                      _selected.removeWhere(
+                                          (s) => s.exercise.id == ex.id)),
+                                )
+                              : const Icon(Icons.add_circle_outline),
+                          onTap: () => _addExercise(context, ex),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
+          // 浮动开始按钮（屏幕 2/3 处）
+          if (_selected.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.of(context).size.height / 5,
+              child: Center(
+                child: FloatingActionButton.extended(
+                  onPressed: () => _startWorkout(context),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  elevation: 6,
+                  icon: const Icon(Icons.play_arrow, size: 24),
+                  label: Text('开始训练 (${_selected.length})',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
         ],
       ),
-      // 浮动开始按钮（屏幕 2/3 处）
-      if (_selected.isNotEmpty)
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: MediaQuery.of(context).size.height / 5,
-          child: Center(
-            child: FloatingActionButton.extended(
-              onPressed: () => _startWorkout(context),
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              elevation: 6,
-              icon: const Icon(Icons.play_arrow, size: 24),
-              label: Text('开始训练 (${_selected.length})',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ),
-          ],
-        ),
     );
   }
 
@@ -203,12 +252,15 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      onPressed: sets > 1 ? () => setDialogState(() => sets--) : null,
+                      onPressed:
+                          sets > 1 ? () => setDialogState(() => sets--) : null,
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
-                    Text('$sets', style: Theme.of(context).textTheme.headlineMedium),
+                    Text('$sets',
+                        style: Theme.of(context).textTheme.headlineMedium),
                     IconButton(
-                      onPressed: sets < 10 ? () => setDialogState(() => sets++) : null,
+                      onPressed:
+                          sets < 10 ? () => setDialogState(() => sets++) : null,
                       icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
@@ -216,10 +268,12 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
               FilledButton(
                 onPressed: () {
-                  setState(() => _selected.add(SelectedExercise(exercise: exercise, targetSets: sets)));
+                  setState(() => _selected.add(
+                      SelectedExercise(exercise: exercise, targetSets: sets)));
                   Navigator.pop(ctx);
                 },
                 child: const Text('添加'),
@@ -258,7 +312,11 @@ class _CatChip extends StatelessWidget {
   final String value;
   final String selected;
   final ValueChanged<String> onTap;
-  const _CatChip({required this.label, required this.value, required this.selected, required this.onTap});
+  const _CatChip(
+      {required this.label,
+      required this.value,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {

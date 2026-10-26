@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页工具行（横向滚动的紧凑胶囊按钮）。
 ///
 /// 承载原页面里的次级控制：上一组 / 计时训练 / 休息开关 / 训练与休息时长
@@ -112,8 +114,9 @@ class ActiveWorkoutToolRow extends StatelessWidget {
     VoidCallback onTap, {
     bool highlighted = false,
   }) {
-    final color =
-        highlighted ? ActiveWorkoutStyle.green : ActiveWorkoutStyle.textSecondary;
+    final color = highlighted
+        ? ActiveWorkoutStyle.green
+        : ActiveWorkoutStyle.textSecondary;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
@@ -122,8 +125,9 @@ class ActiveWorkoutToolRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: const Color(0x0DFFFFFF),
-            borderRadius: BorderRadius.circular(ActiveWorkoutStyle.controlRadius),
+            color: AppColors.surfaceAlt,
+            borderRadius:
+                BorderRadius.circular(ActiveWorkoutStyle.controlRadius),
             border: Border.all(
               color: highlighted
                   ? ActiveWorkoutStyle.green.withAlpha(90)

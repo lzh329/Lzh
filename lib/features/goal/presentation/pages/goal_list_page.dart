@@ -4,13 +4,12 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/widgets/shimmer.dart';
 import 'package:fittrack/features/goal/domain/entities/goal_entity.dart';
 
-final _goalListProvider = FutureProvider<List<GoalEntity>>(
-    (ref) => ref.watch(goalRepoProvider).getAll());
+import 'package:fittrack/core/theme/app_colors.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _blue = Color(0xFF38BDF8);
-const _purple = Color(0xFFC084FC);
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
+const _blue = AppColors.info;
+const _purple = AppColors.analysis;
 
 /// 目标管理页 —— v2 视觉统一
 class GoalListPage extends ConsumerStatefulWidget {
@@ -41,11 +40,11 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
       appBar: AppBar(title: const Text('目标管理')),
       floatingActionButton: FloatingActionButton(
         backgroundColor: _green,
-        foregroundColor: Colors.black,
+        foregroundColor: AppColors.onPrimary,
         onPressed: () => _showCreateDialog(context, repo),
         child: const Icon(Icons.add),
       ),
-      body: ref.watch(_goalListProvider).when(
+      body: ref.watch(goalListProvider).when(
             loading: () => const ShimmerList(),
             error: (_, __) => Center(
               child: Column(
@@ -54,7 +53,7 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
                   const Text('加载失败'),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => ref.invalidate(_goalListProvider),
+                    onPressed: () => ref.invalidate(goalListProvider),
                     child: const Text('重试'),
                   ),
                 ],
@@ -62,7 +61,8 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
             ),
             data: (goals) {
               if (goals.isEmpty) {
-                return _EmptyState(onCreate: () => _showCreateDialog(context, repo));
+                return _EmptyState(
+                    onCreate: () => _showCreateDialog(context, repo));
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
@@ -100,9 +100,15 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
             children: [
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'weight', label: Text('体重', style: TextStyle(fontSize: 12))),
-                  ButtonSegment(value: 'frequency', label: Text('频率', style: TextStyle(fontSize: 12))),
-                  ButtonSegment(value: 'custom', label: Text('自定义', style: TextStyle(fontSize: 12))),
+                  ButtonSegment(
+                      value: 'weight',
+                      label: Text('体重', style: TextStyle(fontSize: 12))),
+                  ButtonSegment(
+                      value: 'frequency',
+                      label: Text('频率', style: TextStyle(fontSize: 12))),
+                  ButtonSegment(
+                      value: 'custom',
+                      label: Text('自定义', style: TextStyle(fontSize: 12))),
                 ],
                 selected: {type},
                 onSelectionChanged: (v) => setDlgState(() => type = v.first),
@@ -111,7 +117,8 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: targetCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: '目标值',
                   hintText: type == 'weight' ? '例如: 120（斤）' : '例如: 20（次/周）',
@@ -121,14 +128,16 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             FilledButton(
               onPressed: () async {
                 final v = double.tryParse(targetCtrl.text);
                 if (v != null && v > 0) {
-                  await repo.create(type: type, targetValue: v, startDate: DateTime.now());
+                  await repo.create(
+                      type: type, targetValue: v, startDate: DateTime.now());
                   if (ctx.mounted) Navigator.pop(ctx);
-                  ref.invalidate(_goalListProvider);
+                  ref.invalidate(goalListProvider);
                 }
               },
               child: const Text('创建'),
@@ -147,9 +156,14 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
         title: const Text('删除目标'),
         content: const Text('确定要删除这个目标吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.surface,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('删除'),
           ),
@@ -158,7 +172,7 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
     );
     if (ok != true) return;
     await repo.delete(goal.id);
-    ref.invalidate(_goalListProvider);
+    ref.invalidate(goalListProvider);
   }
 }
 
@@ -217,14 +231,16 @@ class _GoalCard extends StatelessWidget {
                         typeLabel,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          decoration: goal.isCompleted ? TextDecoration.lineThrough : null,
+                          decoration: goal.isCompleted
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '${goal.currentValue.toStringAsFixed(digits)} / ${goal.targetValue.toStringAsFixed(digits)} $unit',
                         style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline),
+                            ?.copyWith(color: AppColors.textTertiary),
                       ),
                     ],
                   ),
@@ -235,27 +251,31 @@ class _GoalCard extends StatelessWidget {
                     Text(
                       '${pct.toStringAsFixed(0)}%',
                       style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w700, color: accent),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: accent),
                     ),
                     Text('完成度',
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline, fontSize: 10)),
+                            color: AppColors.textTertiary, fontSize: 10)),
                   ],
                 ),
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
-                  icon: Icon(Icons.more_vert,
-                      size: 20, color: theme.colorScheme.outline),
+                  icon: const Icon(Icons.more_vert,
+                      size: 20, color: AppColors.textTertiary),
                   onSelected: (action) {
                     if (action == 'complete') onComplete();
                     if (action == 'delete') onDelete();
                   },
                   itemBuilder: (_) => [
                     if (!goal.isCompleted)
-                      const PopupMenuItem(value: 'complete', child: Text('标记完成')),
+                      const PopupMenuItem(
+                          value: 'complete', child: Text('标记完成')),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('删除', style: TextStyle(color: Colors.red)),
+                      child:
+                          Text('删除', style: TextStyle(color: AppColors.danger)),
                     ),
                   ],
                 ),
@@ -267,7 +287,7 @@ class _GoalCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: pct / 100,
                 minHeight: 6,
-                backgroundColor: Colors.white.withAlpha(14),
+                backgroundColor: AppColors.surfaceMuted,
                 color: accent,
               ),
             ),
@@ -307,14 +327,14 @@ class _EmptyState extends StatelessWidget {
             Text(
               '设定目标，让每一次努力都有方向',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 22),
             FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: onCreate,
               icon: const Icon(Icons.add, size: 18),

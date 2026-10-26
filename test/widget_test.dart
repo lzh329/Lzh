@@ -12,18 +12,12 @@ void main() {
       expect(theme.colorScheme.brightness, Brightness.light);
     });
 
-    test('深色主题启用 Material 3 且亮度正确', () {
-      final theme = AppTheme.dark;
-      expect(theme.useMaterial3, isTrue);
-      expect(theme.brightness, Brightness.dark);
-      expect(theme.colorScheme.brightness, Brightness.dark);
-    });
-
     test('分类的颜色 / 标签 / 图标三者键集合一致', () {
       final colorKeys = AppTheme.categoryColors.keys.toSet();
       expect(AppTheme.categoryLabels.keys.toSet(), colorKeys);
       expect(AppTheme.categoryIcons.keys.toSet(), colorKeys);
-      expect(colorKeys, containsAll(['bodyweight', 'gym', 'cardio', 'stretch']));
+      expect(
+          colorKeys, containsAll(['bodyweight', 'gym', 'cardio', 'stretch']));
     });
   });
 

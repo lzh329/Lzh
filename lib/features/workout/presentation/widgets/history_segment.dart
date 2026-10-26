@@ -3,21 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 
-final _historyProvider = FutureProvider<List<WorkoutEntity>>(
-  (ref) => ref.watch(workoutRepoProvider).getAll(),
-);
+import 'package:fittrack/core/theme/app_colors.dart';
 
 /// 训练页「历史」分段 —— 最近训练记录
 class HistorySegment extends ConsumerWidget {
   const HistorySegment({super.key});
 
-  static const _orange = Color(0xFFFF8A00);
+  static const _orange = AppColors.primary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_historyProvider);
+    final async = ref.watch(workoutHistoryProvider);
     final theme = Theme.of(context);
 
     return async.when(
@@ -44,7 +41,7 @@ class HistorySegment extends ConsumerWidget {
                 Text(
                   '完成第一次训练后，记录会出现在这里',
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                      ?.copyWith(color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -83,11 +80,11 @@ class HistorySegment extends ConsumerWidget {
                 ),
                 subtitle: Text(
                   subtitle,
-                  style: TextStyle(
-                      fontSize: 10.5, color: theme.colorScheme.outline),
+                  style: const TextStyle(
+                      fontSize: 10.5, color: AppColors.textTertiary),
                 ),
-                trailing: Icon(Icons.chevron_right,
-                    size: 16, color: theme.colorScheme.outline),
+                trailing: const Icon(Icons.chevron_right,
+                    size: 16, color: AppColors.textTertiary),
                 onTap: () => context.push('/workout/${w.id}'),
               ),
             );

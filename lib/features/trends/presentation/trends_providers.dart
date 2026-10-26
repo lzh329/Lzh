@@ -45,8 +45,10 @@ class TrendsData {
 
   DateTime? get startDate => metrics.isNotEmpty ? metrics.first.date : null;
   DateTime? get latestDate => metrics.isNotEmpty ? metrics.last.date : null;
-  double? get startJin => metrics.isNotEmpty ? metrics.first.weightKg * 2 : null;
-  double? get currentJin => metrics.isNotEmpty ? metrics.last.weightKg * 2 : null;
+  double? get startJin =>
+      metrics.isNotEmpty ? metrics.first.weightKg * 2 : null;
+  double? get currentJin =>
+      metrics.isNotEmpty ? metrics.last.weightKg * 2 : null;
 
   /// 距目标还差多少斤（正 = 还差这么多）
   double? get remainingJin => (currentJin != null && targetJin != null)
@@ -78,8 +80,7 @@ final trendsDataProvider = FutureProvider<TrendsData>((ref) async {
   // 本周变化：本周第一条 → 最新
   final now = DateTime.now();
   final monday = DateTime(now.year, now.month, now.day - (now.weekday - 1));
-  final weekMetrics =
-      metrics.where((m) => !m.date.isBefore(monday)).toList();
+  final weekMetrics = metrics.where((m) => !m.date.isBefore(monday)).toList();
   double? weekChangeJin;
   if (weekMetrics.length >= 2) {
     weekChangeJin = (metrics.last.weightKg - weekMetrics.first.weightKg) * 2;
@@ -87,8 +88,7 @@ final trendsDataProvider = FutureProvider<TrendsData>((ref) async {
 
   final todayCalories = await dietRepo.getDailyCalories(now);
   final todayCups = await ref.watch(waterRepoProvider).getTodayCups();
-  final weekWorkouts =
-      workouts.where((w) => !w.date.isBefore(monday)).toList();
+  final weekWorkouts = workouts.where((w) => !w.date.isBefore(monday)).toList();
   final weekWorkoutDays = weekWorkouts
       .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
       .toSet()

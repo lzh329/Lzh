@@ -9,7 +9,8 @@ class DietRepositoryImpl implements DietRepository {
   DietRepositoryImpl(this._db);
 
   @override
-  Future<List<FoodLibraryEntity>> searchFoods({String? query, String? category}) async {
+  Future<List<FoodLibraryEntity>> searchFoods(
+      {String? query, String? category}) async {
     var stmt = _db.select(_db.foodLibrary);
     if (query != null && query.isNotEmpty) {
       stmt = stmt..where((t) => t.name.like('%$query%'));
@@ -19,21 +20,25 @@ class DietRepositoryImpl implements DietRepository {
     }
     stmt = stmt..orderBy([(t) => OrderingTerm(expression: t.name)]);
     final rows = await stmt.get();
-    return rows.map((r) => FoodLibraryEntity(
-      id: r.id,
-      name: r.name,
-      caloriesPer100g: r.caloriesPer100g,
-      proteinPer100g: r.proteinPer100g,
-      fatPer100g: r.fatPer100g,
-      carbsPer100g: r.carbsPer100g,
-      category: r.category,
-      isCustom: r.isCustom,
-    )).toList();
+    return rows
+        .map((r) => FoodLibraryEntity(
+              id: r.id,
+              name: r.name,
+              caloriesPer100g: r.caloriesPer100g,
+              proteinPer100g: r.proteinPer100g,
+              fatPer100g: r.fatPer100g,
+              carbsPer100g: r.carbsPer100g,
+              category: r.category,
+              isCustom: r.isCustom,
+            ))
+        .toList();
   }
 
   @override
   Future<FoodLibraryEntity?> getFoodById(int id) async {
-    final row = await (_db.select(_db.foodLibrary)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final row = await (_db.select(_db.foodLibrary)
+          ..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
     if (row == null) return null;
     return FoodLibraryEntity(
       id: row.id,
@@ -53,9 +58,11 @@ class DietRepositoryImpl implements DietRepository {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final query = _db.select(_db.foodLog).join([
-      innerJoin(_db.foodLibrary, _db.foodLibrary.id.equalsExp(_db.foodLog.foodId)),
+      innerJoin(
+          _db.foodLibrary, _db.foodLibrary.id.equalsExp(_db.foodLog.foodId)),
     ])
-      ..where(_db.foodLog.date.isBiggerOrEqualValue(startOfDay) & _db.foodLog.date.isSmallerThanValue(endOfDay))
+      ..where(_db.foodLog.date.isBiggerOrEqualValue(startOfDay) &
+          _db.foodLog.date.isSmallerThanValue(endOfDay))
       ..orderBy([OrderingTerm(expression: _db.foodLog.date)]);
 
     final rows = await query.get();
@@ -82,11 +89,11 @@ class DietRepositoryImpl implements DietRepository {
     required String mealType,
   }) async {
     await _db.into(_db.foodLog).insert(FoodLogCompanion(
-      date: Value(date),
-      foodId: Value(foodId),
-      grams: Value(grams),
-      mealType: Value(mealType),
-    ));
+          date: Value(date),
+          foodId: Value(foodId),
+          grams: Value(grams),
+          mealType: Value(mealType),
+        ));
   }
 
   @override

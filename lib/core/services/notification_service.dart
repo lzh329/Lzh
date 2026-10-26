@@ -7,7 +7,8 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   Future<void> init() async {
@@ -15,7 +16,8 @@ class NotificationService {
 
     tz_data.initializeTimeZones();
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -26,8 +28,10 @@ class NotificationService {
     );
 
     // Android 13+ 通知权限请求
-    await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
 
     _initialized = true;
   }
@@ -61,7 +65,8 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
@@ -76,7 +81,8 @@ class NotificationService {
     await _plugin.cancel(id);
 
     final now = tz.TZDateTime.now(tz.local);
-    var scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    var scheduledDate =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
@@ -84,7 +90,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       id,
       '⏰ 该称重了',
-      '打开简瘦记录今日体重，查看减脂进展 📉',
+      '打开减肥嘎记录今日体重，查看减脂进展 📉',
       scheduledDate,
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -96,7 +102,8 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
@@ -146,16 +153,20 @@ class NotificationService {
     await _plugin.cancelAll();
   }
 
-  tz.TZDateTime _nextWeekday(tz.TZDateTime from, int targetWeekday, int hour, int minute) {
+  tz.TZDateTime _nextWeekday(
+      tz.TZDateTime from, int targetWeekday, int hour, int minute) {
     // targetWeekday: 0=Sun, 1=Mon, ..., 6=Sat
-    int currentWeekday = from.weekday % 7; // DateTime.weekday: 1=Mon=1 ... 7=Sun=0, so %7 maps to 0=Sun
+    int currentWeekday = from.weekday %
+        7; // DateTime.weekday: 1=Mon=1 ... 7=Sun=0, so %7 maps to 0=Sun
     int daysUntil = (targetWeekday - currentWeekday + 7) % 7;
     if (daysUntil == 0) {
       // 如果是今天且时间已过，推到下周
-      final candidate = tz.TZDateTime(tz.local, from.year, from.month, from.day, hour, minute);
+      final candidate = tz.TZDateTime(
+          tz.local, from.year, from.month, from.day, hour, minute);
       if (candidate.isBefore(from)) daysUntil = 7;
     }
     final next = from.add(Duration(days: daysUntil));
-    return tz.TZDateTime(tz.local, next.year, next.month, next.day, hour, minute);
+    return tz.TZDateTime(
+        tz.local, next.year, next.month, next.day, hour, minute);
   }
 }

@@ -252,7 +252,8 @@ Future<void> restoreDatabase(BuildContext context) async {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('未找到备份文件，请先备份或放入 fittrack_backup_latest.sqlite 到应用目录'),
+            content:
+                Text('未找到备份文件，请先备份或放入 fittrack_backup_latest.sqlite 到应用目录'),
           ),
         );
       }

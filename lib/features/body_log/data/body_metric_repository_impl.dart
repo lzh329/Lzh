@@ -27,8 +27,8 @@ class BodyMetricRepositoryImpl implements BodyMetricRepository {
   @override
   Future<BodyMetricEntity?> getLatest() async {
     final row = await (_db.select(_db.bodyMetrics)
-      ..orderBy([(t) => OrderingTerm.desc(t.date)])
-      ..limit(1))
+          ..orderBy([(t) => OrderingTerm.desc(t.date)])
+          ..limit(1))
         .getSingleOrNull();
     return row != null ? _toEntity(row) : null;
   }
@@ -42,14 +42,15 @@ class BodyMetricRepositoryImpl implements BodyMetricRepository {
     double? chestCm,
     String? note,
   }) async {
-    final id = await _db.into(_db.bodyMetrics).insert(BodyMetricsCompanion.insert(
-      date: date,
-      weightKg: weightKg,
-      waistCm: Value(waistCm),
-      hipCm: Value(hipCm),
-      chestCm: Value(chestCm),
-      note: Value(note),
-    ));
+    final id =
+        await _db.into(_db.bodyMetrics).insert(BodyMetricsCompanion.insert(
+              date: date,
+              weightKg: weightKg,
+              waistCm: Value(waistCm),
+              hipCm: Value(hipCm),
+              chestCm: Value(chestCm),
+              note: Value(note),
+            ));
 
     return BodyMetricEntity(
       id: id,
@@ -89,12 +90,12 @@ class BodyMetricRepositoryImpl implements BodyMetricRepository {
   }
 
   BodyMetricEntity _toEntity(BodyMetric row) => BodyMetricEntity(
-    id: row.id,
-    date: row.date,
-    weightKg: row.weightKg,
-    waistCm: row.waistCm,
-    hipCm: row.hipCm,
-    chestCm: row.chestCm,
-    note: row.note,
-  );
+        id: row.id,
+        date: row.date,
+        weightKg: row.weightKg,
+        waistCm: row.waistCm,
+        hipCm: row.hipCm,
+        chestCm: row.chestCm,
+        note: row.note,
+      );
 }

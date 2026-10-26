@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 import 'active_workout_style.dart';
 
 /// 训练执行页顶部自定义头部（Keep 训练中风格）。
@@ -19,12 +21,20 @@ class ActiveWorkoutHeader extends StatelessWidget {
   /// 点击关闭（由页面弹出确认退出）
   final VoidCallback onClose;
 
+  /// 点击打开训练设置（计时 / 休息 / 节拍 / 语音）
+  final VoidCallback? onSettings;
+
+  /// 副标题（循环模式显示「第 X 轮 / 共 Y 轮 · 动作 3/4」）
+  final String? roundText;
+
   const ActiveWorkoutHeader({
     super.key,
     required this.currentIndex,
     required this.total,
     required this.progress,
     required this.onClose,
+    this.onSettings,
+    this.roundText,
   });
 
   @override
@@ -53,7 +63,7 @@ class ActiveWorkoutHeader extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: safeProgress,
                     minHeight: 3,
-                    backgroundColor: ActiveWorkoutStyle.border,
+                    backgroundColor: AppColors.surfaceMuted,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       ActiveWorkoutStyle.green,
                     ),
@@ -69,12 +79,21 @@ class ActiveWorkoutHeader extends StatelessWidget {
                   color: ActiveWorkoutStyle.textSecondary,
                 ),
               ),
+              if (onSettings != null)
+                IconButton(
+                  onPressed: onSettings,
+                  tooltip: '训练设置',
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                  color: ActiveWorkoutStyle.textTertiary,
+                  icon: const Icon(Icons.tune),
+                ),
             ],
           ),
           Padding(
             padding: const EdgeInsets.only(left: 48, top: 2),
             child: Text(
-              '第 ${safeIndex + 1} 个动作 · 共 $safeTotal 个',
+              roundText ?? '第 ${safeIndex + 1} 个动作 · 共 $safeTotal 个',
               style: const TextStyle(
                 fontSize: 11,
                 color: ActiveWorkoutStyle.textTertiary,

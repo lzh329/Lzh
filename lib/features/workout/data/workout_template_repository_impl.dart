@@ -122,11 +122,13 @@ class WorkoutTemplateRepositoryImpl implements WorkoutTemplateRepository {
       await (db.delete(db.workoutTemplateExercises)
             ..where((i) => i.templateId.equals(id)))
           .go();
-      await (db.delete(db.workoutTemplates)..where((t) => t.id.equals(id))).go();
+      await (db.delete(db.workoutTemplates)..where((t) => t.id.equals(id)))
+          .go();
     });
   }
 
-  Future<void> _insertItems(int templateId, List<TemplateItemInput> items) async {
+  Future<void> _insertItems(
+      int templateId, List<TemplateItemInput> items) async {
     var order = 0;
     for (final it in items) {
       await db.into(db.workoutTemplateExercises).insert(

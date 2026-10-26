@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
-
-/// 全部训练（训练页数据源）
-final _allWorkoutsProvider = FutureProvider<List<WorkoutEntity>>((ref) {
-  return ref.watch(workoutRepoProvider).getAll();
-});
 
 /// 称重日期标记
 final _weighDatesProvider = FutureProvider<Set<DateTime>>((ref) async {
@@ -24,9 +21,9 @@ final _exerciseNamesProvider = FutureProvider<Map<int, String>>((ref) async {
   return {for (final e in list) e.id: e.name};
 });
 
-const _green = Color(0xFFFF8A00);
-const _orange = Color(0xFFFF9800);
-const _blue = Color(0xFF38BDF8);
+const _green = AppColors.primary;
+const _orange = AppColors.warning;
+const _blue = AppColors.info;
 
 /// 训练记录页 —— 周视图 + 当天记录（v2）
 class WorkoutListPage extends ConsumerStatefulWidget {
@@ -60,7 +57,7 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final workoutsAsync = ref.watch(_allWorkoutsProvider);
+    final workoutsAsync = ref.watch(workoutHistoryProvider);
     final weighDates =
         ref.watch(_weighDatesProvider).valueOrNull ?? const <DateTime>{};
     final exerciseNames =
@@ -93,7 +90,7 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
               const Text('加载失败'),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => ref.invalidate(_allWorkoutsProvider),
+                onPressed: () => ref.invalidate(workoutHistoryProvider),
                 child: const Text('重试'),
               ),
             ],
@@ -126,12 +123,11 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
                     Text(
                       _sameDay(_selected, today)
                           ? '今天'
-                          : DateFormat('M月d日 EEEE', 'zh_CN')
-                              .format(_selected),
+                          : DateFormat('M月d日 EEEE', 'zh_CN').format(_selected),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: _green,
+                        color: AppColors.primaryText,
                       ),
                     ),
                     const Spacer(),
@@ -141,7 +137,7 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
                   ],
                 ),
               ),
-              Divider(height: 1, color: Colors.white.withAlpha(16)),
+              const Divider(height: 1, color: AppColors.border),
               Expanded(
                 child: dayWorkouts.isEmpty
                     ? _EmptyState(
@@ -162,7 +158,7 @@ class _WorkoutListPageState extends ConsumerState<WorkoutListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: _green,
-        foregroundColor: Colors.black,
+        foregroundColor: AppColors.onPrimary,
         onPressed: () => context.push('/workout/quick-start'),
         child: const Icon(Icons.add),
       ),
@@ -218,8 +214,8 @@ class _WeekStrip extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '选择日期查看当天训练',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary, fontSize: 11),
                     ),
                   ],
                 ),
@@ -293,7 +289,7 @@ class _DayCell extends StatelessWidget {
           color: selected ? _green.withAlpha(26) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? _green : Colors.transparent,
+            color: selected ? _green : AppColors.border,
             width: 1.5,
           ),
         ),
@@ -303,7 +299,7 @@ class _DayCell extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: selected ? _green : Colors.white54,
+                color: selected ? _green : AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 4),
@@ -312,7 +308,7 @@ class _DayCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: selected ? _green : Colors.white,
+                color: selected ? _green : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 5),
@@ -372,7 +368,7 @@ class _LegendDot extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+              ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
         ),
       ],
     );
@@ -391,18 +387,19 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.self_improvement, size: 64, color: Colors.white.withAlpha(40)),
+          const Icon(Icons.self_improvement,
+              size: 64, color: AppColors.textTertiary),
           const SizedBox(height: 16),
           Text(
             '暂无训练记录',
             style: theme.textTheme.bodyLarge
-                ?.copyWith(color: theme.colorScheme.outline),
+                ?.copyWith(color: AppColors.textTertiary),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: _green,
-              foregroundColor: Colors.black87,
+              foregroundColor: AppColors.onPrimary,
             ),
             onPressed: onStart,
             icon: const Icon(Icons.add, size: 20),
@@ -452,7 +449,8 @@ class _WorkoutCard extends StatelessWidget {
                   color: _green.withAlpha(30),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.fitness_center, size: 18, color: _green),
+                child:
+                    const Icon(Icons.fitness_center, size: 18, color: _green),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -471,13 +469,13 @@ class _WorkoutCard extends StatelessWidget {
                       '${durationInfo != null ? ' · $durationInfo' : ''}'
                       ' · ${DateFormat('HH:mm').format(workout.date)}',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline),
+                          ?.copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 20, color: theme.colorScheme.outline),
+              const Icon(Icons.chevron_right,
+                  size: 20, color: AppColors.textTertiary),
             ],
           ),
         ),

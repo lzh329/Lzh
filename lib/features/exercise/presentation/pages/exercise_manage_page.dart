@@ -6,6 +6,8 @@ import 'package:fittrack/core/theme/app_theme.dart';
 import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 拉伸动作指导（文字说明）
 const _stretchGuides = {
   '腿部拉伸': [
@@ -111,9 +113,17 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Row(
               children: [
-                _CategoryChip(label: '全部', value: 'all', selected: _selectedCategory, onTap: (v) => setState(() => _selectedCategory = v)),
-                ...AppTheme.categoryLabels.entries.map((e) =>
-                  _CategoryChip(label: e.value, value: e.key, selected: _selectedCategory, onTap: (v) => setState(() => _selectedCategory = v)),
+                _CategoryChip(
+                    label: '全部',
+                    value: 'all',
+                    selected: _selectedCategory,
+                    onTap: (v) => setState(() => _selectedCategory = v)),
+                ...AppTheme.categoryLabels.entries.map(
+                  (e) => _CategoryChip(
+                      label: e.value,
+                      value: e.key,
+                      selected: _selectedCategory,
+                      onTap: (v) => setState(() => _selectedCategory = v)),
                 ),
               ],
             ),
@@ -136,16 +146,16 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF8A00).withAlpha(22),
+                            color: AppColors.primary.withAlpha(22),
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: const Icon(Icons.fitness_center,
-                              size: 30, color: Color(0xFFFF8A00)),
+                              size: 30, color: AppColors.primary),
                         ),
                         const SizedBox(height: 14),
                         Text('暂无匹配动作',
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: theme.colorScheme.outline)),
+                                ?.copyWith(color: AppColors.textTertiary)),
                       ],
                     ),
                   );
@@ -155,10 +165,10 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                   itemCount: exercises.length,
                   itemBuilder: (context, index) {
                     final ex = exercises[index];
-                    final catColor = AppTheme.categoryColors[ex.category] ?? Colors.grey;
+                    final catColor = AppTheme.categoryColors[ex.category] ??
+                        AppColors.textTertiary;
                     return ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       leading: Container(
                         width: 36,
                         height: 36,
@@ -177,21 +187,32 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                       subtitle: Text(
                         '${AppTheme.categoryLabels[ex.category] ?? ex.category}${ex.muscleGroup != null ? ' · ${ex.muscleGroup}' : ''}',
                         style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline),
+                            ?.copyWith(color: AppColors.textTertiary),
                       ),
-                      onTap: ex.category == 'stretch' && _stretchGuides.containsKey(ex.name)
-                        ? () => _showStretchGuide(context, ex.name)
-                        : null,
-                      trailing: ex.isCustom ? PopupMenuButton<String>(
-                        onSelected: (action) {
-                          if (action == 'edit') _showEditDialog(context, exercise: ex);
-                          if (action == 'delete') _confirmDelete(context, ex);
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'edit', child: Text('编辑')),
-                          PopupMenuItem(value: 'delete', child: Text('删除', style: TextStyle(color: Colors.red))),
-                        ],
-                      ) : null,
+                      onTap: ex.category == 'stretch' &&
+                              _stretchGuides.containsKey(ex.name)
+                          ? () => _showStretchGuide(context, ex.name)
+                          : null,
+                      trailing: ex.isCustom
+                          ? PopupMenuButton<String>(
+                              onSelected: (action) {
+                                if (action == 'edit') {
+                                  _showEditDialog(context, exercise: ex);
+                                }
+                                if (action == 'delete') {
+                                  _confirmDelete(context, ex);
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: 'edit', child: Text('编辑')),
+                                PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('删除',
+                                        style: TextStyle(
+                                            color: AppColors.danger))),
+                              ],
+                            )
+                          : null,
                     );
                   },
                 );
@@ -222,35 +243,54 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '动作名称', isDense: true), autofocus: true),
+              TextField(
+                  controller: nameCtrl,
+                  decoration:
+                      const InputDecoration(labelText: '动作名称', isDense: true),
+                  autofocus: true),
               const SizedBox(height: 12),
-              TextField(controller: muscleCtrl, decoration: const InputDecoration(labelText: '目标肌群（可选）', isDense: true)),
+              TextField(
+                  controller: muscleCtrl,
+                  decoration: const InputDecoration(
+                      labelText: '目标肌群（可选）', isDense: true)),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: category,
-                decoration: const InputDecoration(labelText: '分类', isDense: true),
-                items: AppTheme.categoryLabels.entries.map((e) =>
-                  DropdownMenuItem(value: e.key, child: Text(e.value)),
-                ).toList(),
+                decoration:
+                    const InputDecoration(labelText: '分类', isDense: true),
+                items: AppTheme.categoryLabels.entries
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    )
+                    .toList(),
                 onChanged: (v) => setDialogState(() => category = v!),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             FilledButton(
               onPressed: () async {
                 final name = nameCtrl.text.trim();
                 if (name.isEmpty) return;
                 final repo = ref.read(exerciseRepoProvider);
                 if (exercise == null) {
-                  await repo.create(name, category, muscleCtrl.text.trim().isEmpty ? null : muscleCtrl.text.trim());
+                  await repo.create(
+                      name,
+                      category,
+                      muscleCtrl.text.trim().isEmpty
+                          ? null
+                          : muscleCtrl.text.trim());
                 } else {
                   await repo.update(ExerciseEntity(
                     id: exercise.id,
                     name: name,
                     category: category,
-                    muscleGroup: muscleCtrl.text.trim().isEmpty ? null : muscleCtrl.text.trim(),
+                    muscleGroup: muscleCtrl.text.trim().isEmpty
+                        ? null
+                        : muscleCtrl.text.trim(),
                     isCustom: exercise.isCustom,
                   ));
                 }
@@ -272,9 +312,13 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
         title: const Text('删除动作'),
         content: Text('确定要删除「${exercise.name}」吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.surface,
+            ),
             onPressed: () async {
               await ref.read(exerciseRepoProvider).delete(exercise.id);
               if (ctx.mounted) Navigator.pop(ctx);
@@ -304,9 +348,10 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.outline.withAlpha(80),
+                  color: AppColors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -315,18 +360,21 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
             Text('$name 指导', style: Theme.of(ctx).textTheme.titleMedium),
             const SizedBox(height: 12),
             ...steps.map((line) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(line.isEmpty ? ' ' : line,
-                style: TextStyle(
-                  fontSize: line.startsWith('🧘') ? 14 : 13,
-                  fontWeight: line.startsWith('🧘') ? FontWeight.w600 : FontWeight.normal,
-                  color: line.startsWith('🧘')
-                    ? Theme.of(ctx).colorScheme.primary
-                    : Theme.of(ctx).colorScheme.onSurface,
-                  height: 1.5,
-                ),
-              ),
-            )),
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    line.isEmpty ? ' ' : line,
+                    style: TextStyle(
+                      fontSize: line.startsWith('🧘') ? 14 : 13,
+                      fontWeight: line.startsWith('🧘')
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: line.startsWith('🧘')
+                          ? Theme.of(ctx).colorScheme.primary
+                          : Theme.of(ctx).colorScheme.onSurface,
+                      height: 1.5,
+                    ),
+                  ),
+                )),
             const SizedBox(height: 8),
           ],
         ),
@@ -340,7 +388,11 @@ class _CategoryChip extends StatelessWidget {
   final String value;
   final String selected;
   final ValueChanged<String> onTap;
-  const _CategoryChip({required this.label, required this.value, required this.selected, required this.onTap});
+  const _CategoryChip(
+      {required this.label,
+      required this.value,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {

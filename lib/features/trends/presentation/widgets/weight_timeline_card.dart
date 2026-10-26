@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
 /// 体重时间轴卡 —— 起点 → 现在 → 目标
@@ -8,8 +9,8 @@ class WeightTimelineCard extends StatelessWidget {
 
   const WeightTimelineCard({super.key, required this.data});
 
-  static const _green = Color(0xFFFF8A00);
-  static const _amber = Color(0xFFFFC53D);
+  static const _green = AppColors.primary;
+  static const _amber = AppColors.warning;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +31,7 @@ class WeightTimelineCard extends StatelessWidget {
             Text(
               '从起始记录到目标体重',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
             const SizedBox(height: 18),
 
@@ -41,7 +42,7 @@ class WeightTimelineCard extends StatelessWidget {
                 _Node(
                   date: fmt.format(data.startDate!),
                   value: data.startJin!.toStringAsFixed(1),
-                  color: Colors.white54,
+                  color: AppColors.textTertiary,
                   dotSize: 10,
                 ),
                 _Line(theme),
@@ -65,7 +66,7 @@ class WeightTimelineCard extends StatelessWidget {
             ),
 
             const SizedBox(height: 16),
-            Container(height: 1, color: Colors.white.withAlpha(16)),
+            Container(height: 1, color: AppColors.border),
             const SizedBox(height: 12),
 
             // ── 两栏摘要 ──
@@ -78,8 +79,8 @@ class WeightTimelineCard extends StatelessWidget {
                         : '—',
                     label: '距离起始',
                     color: (data.totalLossJin ?? 0) > 0.05
-                        ? _green
-                        : Colors.white70,
+                        ? AppColors.success
+                        : AppColors.textSecondary,
                   ),
                 ),
                 Expanded(
@@ -126,7 +127,7 @@ class _Node extends StatelessWidget {
             width: dotSize,
             height: dotSize,
             decoration: BoxDecoration(
-              color: highlight ? color : Colors.transparent,
+              color: highlight ? color : AppColors.surface,
               border: Border.all(color: color, width: 2),
               shape: BoxShape.circle,
             ),
@@ -137,14 +138,15 @@ class _Node extends StatelessWidget {
             style: TextStyle(
               fontSize: highlight ? 18 : 16,
               fontWeight: FontWeight.w600,
-              color: highlight ? Colors.white : Colors.white70,
+              color:
+                  highlight ? AppColors.textPrimary : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             date,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
           ),
         ],
       ),
@@ -161,7 +163,7 @@ class _Line extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(top: 6),
-        child: Container(height: 2, color: Colors.white.withAlpha(24)),
+        child: Container(height: 2, color: AppColors.borderStrong),
       ),
     );
   }
@@ -192,7 +194,7 @@ class _Summary extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+              ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
         ),
       ],
     );

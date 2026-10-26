@@ -5,6 +5,8 @@ import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
 import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 模板编辑页 —— 新建 / 编辑训练模板
 class TemplateEditPage extends ConsumerStatefulWidget {
   final int? templateId; // null = 新建
@@ -25,7 +27,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   bool _loading = false;
   bool _saving = false;
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
   static const _difficulties = ['入门', '中阶', '高阶'];
   static const _focuses = ['全身', '放松', '碎片'];
 
@@ -39,9 +41,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final t = await ref
-        .read(workoutTemplateRepoProvider)
-        .getById(widget.templateId!);
+    final t =
+        await ref.read(workoutTemplateRepoProvider).getById(widget.templateId!);
     if (!mounted) return;
     setState(() {
       if (t != null) {
@@ -130,7 +131,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
               child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: const Text('删除', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -154,7 +155,9 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       builder: (ctx) => _ExercisePickerSheet(
         exercises: exercises,
         onPick: (ex) {
-          final isTimed = ex.category == 'stretch' || ex.category == 'cardio';
+          final isTimed = ex.category == 'stretch' ||
+              ex.category == 'cardio' ||
+              ex.defaultDurationSec != null;
           setState(() {
             _items.add(_EditItem(
               exerciseId: ex.id,
@@ -162,8 +165,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
               category: ex.category,
               sets: 3,
               reps: isTimed ? null : (ex.defaultReps ?? 12),
-              durationSec:
-                  isTimed ? (ex.defaultDurationSec ?? 60) : null,
+              durationSec: isTimed ? (ex.defaultDurationSec ?? 60) : null,
             ));
           });
           Navigator.pop(ctx);
@@ -208,8 +210,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () {
               final sets = int.tryParse(setsCtrl.text) ?? item.sets;
@@ -314,7 +315,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
                   style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: _green)),
+                      color: AppColors.primaryText)),
             ],
           ),
           Slider(
@@ -337,8 +338,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Text('动作（${_items.length}）',
-                  style: theme.textTheme.titleSmall),
+              Text('动作（${_items.length}）', style: theme.textTheme.titleSmall),
               const Spacer(),
               TextButton.icon(
                 onPressed: _addExercise,
@@ -358,7 +358,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
                   child: Text(
                     '还没有动作，点击「添加动作」从动作库选择',
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               ),
@@ -374,11 +374,10 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
                 child: ListTile(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  title: Text(item.name,
-                      style: theme.textTheme.bodyMedium),
+                  title: Text(item.name, style: theme.textTheme.bodyMedium),
                   subtitle: Text(detail,
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -390,8 +389,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
                         tooltip: '移除',
-                        onPressed: () =>
-                            setState(() => _items.removeAt(e.key)),
+                        onPressed: () => setState(() => _items.removeAt(e.key)),
                       ),
                     ],
                   ),
@@ -404,7 +402,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
             child: FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: _saving ? null : _save,
               child: Text(_saving ? '保存中...' : '保存模板',
@@ -422,7 +420,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(text,
           style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.outline)),
+              ?.copyWith(color: AppColors.textTertiary)),
     );
   }
 }
@@ -485,7 +483,7 @@ class _ExercisePickerSheet extends StatelessWidget {
                   title: Text(ex.name, style: theme.textTheme.bodyMedium),
                   subtitle: Text(ex.muscleGroup ?? '',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                   trailing: const Icon(Icons.add_circle_outline, size: 20),
                   onTap: () => onPick(ex),
                 );

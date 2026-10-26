@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 final _plansProvider = FutureProvider<List<PlanEntity>>(
   (ref) => ref.watch(planRepoProvider).getAll(),
 );
@@ -12,7 +14,7 @@ final _plansProvider = FutureProvider<List<PlanEntity>>(
 class PlanSegment extends ConsumerWidget {
   const PlanSegment({super.key});
 
-  static const _orange = Color(0xFFFF8A00);
+  static const _orange = AppColors.primary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,8 +37,8 @@ class PlanSegment extends ConsumerWidget {
                     color: _orange.withAlpha(26),
                     borderRadius: BorderRadius.circular(26),
                   ),
-                  child:
-                      const Icon(Icons.calendar_month, size: 38, color: _orange),
+                  child: const Icon(Icons.calendar_month,
+                      size: 38, color: _orange),
                 ),
                 const SizedBox(height: 16),
                 Text('还没有训练计划', style: theme.textTheme.titleMedium),
@@ -44,13 +46,13 @@ class PlanSegment extends ConsumerWidget {
                 Text(
                   '把每周的训练排成计划，到点直接开练',
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                      ?.copyWith(color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: _orange,
-                    foregroundColor: Colors.black,
+                    foregroundColor: AppColors.onPrimary,
                   ),
                   onPressed: () => context.push('/plan/create'),
                   icon: const Icon(Icons.add, size: 18),
@@ -68,9 +70,8 @@ class PlanSegment extends ConsumerWidget {
           itemCount: plans.length,
           itemBuilder: (context, i) {
             final plan = plans[i];
-            final todayItems = plan.days
-                .where((d) => d.dayOfWeek == todayWeekday)
-                .toList();
+            final todayItems =
+                plan.days.where((d) => d.dayOfWeek == todayWeekday).toList();
             final dayCount = plan.days.map((d) => d.dayOfWeek).toSet().length;
 
             return Card(
@@ -109,9 +110,9 @@ class PlanSegment extends ConsumerWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   '$dayCount 天训练 · ${plan.days.length} 个动作',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                       fontSize: 10,
-                                      color: theme.colorScheme.outline),
+                                      color: AppColors.textTertiary),
                                 ),
                               ],
                             ),
@@ -129,12 +130,12 @@ class PlanSegment extends ConsumerWidget {
                                 style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w600,
-                                    color: _orange),
+                                    color: AppColors.primaryText),
                               ),
                             ),
                           const SizedBox(width: 2),
-                          Icon(Icons.chevron_right,
-                              size: 18, color: theme.colorScheme.outline),
+                          const Icon(Icons.chevron_right,
+                              size: 18, color: AppColors.textTertiary),
                         ],
                       ),
                       if (todayItems.isNotEmpty) ...[
@@ -148,26 +149,25 @@ class PlanSegment extends ConsumerWidget {
                                 '今天安排 ${todayItems.length} 个动作',
                                 style: const TextStyle(
                                     fontSize: 10.5,
-                                    color: _orange,
+                                    color: AppColors.primaryText,
                                     fontWeight: FontWeight.w500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             TextButton(
-                              onPressed: () => context
-                                  .push('/plan/${plan.id}/execute'),
+                              onPressed: () =>
+                                  context.push('/plan/${plan.id}/execute'),
                               style: TextButton.styleFrom(
-                                foregroundColor: _orange,
+                                foregroundColor: AppColors.primaryText,
                                 visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
                               ),
                               child: const Text(
                                 '开始',
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600),
+                                    fontSize: 12, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],

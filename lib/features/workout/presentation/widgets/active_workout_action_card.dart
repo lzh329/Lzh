@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页中部主区大卡片（Keep「训练中」风格）。
 ///
 /// 纯展示组件：动作名 / 目标 / 当前组状态大字 / 休息倒计时大字。
@@ -34,6 +36,9 @@ class ActiveWorkoutActionCard extends StatelessWidget {
   /// 大字区域待展示的秒数（休息剩余 / 训练剩余 / 动作目标时长）
   final int displaySeconds;
 
+  /// 本次休息总时长（用于休息态环形进度）
+  final int restTotalSec;
+
   /// 点击「跳过休息」
   final VoidCallback onSkipRest;
 
@@ -48,6 +53,7 @@ class ActiveWorkoutActionCard extends StatelessWidget {
     required this.isTimed,
     required this.targetReps,
     required this.displaySeconds,
+    this.restTotalSec = 0,
     required this.onSkipRest,
   });
 
@@ -61,6 +67,7 @@ class ActiveWorkoutActionCard extends StatelessWidget {
         borderRadius: BorderRadius.all(
           Radius.circular(ActiveWorkoutStyle.cardRadius),
         ),
+        side: BorderSide(color: ActiveWorkoutStyle.border),
       ),
       child: Center(
         child: SingleChildScrollView(
@@ -123,7 +130,7 @@ class ActiveWorkoutActionCard extends StatelessWidget {
     );
   }
 
-  /// 大字区域：休息剩余 / 计时倒计时 / 目标次数 / 已完成
+  /// 大字区域：休息（环形 + 跳动数字）/ 计时倒计时 / 目标次数 / 已完成
   Widget _buildMainValue() {
     if (isLastSet && !isResting && !isTraining) {
       return const Icon(
@@ -133,12 +140,58 @@ class ActiveWorkoutActionCard extends StatelessWidget {
       );
     }
 
+    // 休息态：环形进度 + 数字弹性跳动（不用纯数字计时器）
+    if (isResting) {
+      final total = restTotalSec > 0 ? restTotalSec : 1;
+      final value = (displaySeconds / total).clamp(0.0, 1.0);
+      return SizedBox(
+        width: 186,
+        height: 186,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 186,
+              height: 186,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: value),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                builder: (_, v, __) => CircularProgressIndicator(
+                  value: v,
+                  strokeWidth: 7,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: AppColors.surfaceMuted,
+                  color: ActiveWorkoutStyle.green,
+                ),
+              ),
+            ),
+            // 数字每次变化都从 1.16 弹回 1.0
+            TweenAnimationBuilder<double>(
+              key: ValueKey<int>(displaySeconds),
+              tween: Tween(begin: 1.16, end: 1.0),
+              duration: const Duration(milliseconds: 340),
+              curve: Curves.easeOutBack,
+              builder: (_, v, child) => Transform.scale(scale: v, child: child),
+              child: Text(
+                '$displaySeconds',
+                style: const TextStyle(
+                  fontSize: 62,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                  color: ActiveWorkoutStyle.orange,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final String value;
     final Color color;
-    if (isResting) {
-      value = _formatClock(displaySeconds);
-      color = ActiveWorkoutStyle.orange;
-    } else if (isTimed) {
+    if (isTimed) {
       value = _formatClock(displaySeconds);
       color = ActiveWorkoutStyle.green;
     } else {
@@ -149,7 +202,7 @@ class ActiveWorkoutActionCard extends StatelessWidget {
     return Text(
       value,
       style: TextStyle(
-        fontSize: isResting || isTimed ? 60 : 56,
+        fontSize: isTimed ? 60 : 56,
         fontWeight: FontWeight.w700,
         height: 1.05,
         color: color,

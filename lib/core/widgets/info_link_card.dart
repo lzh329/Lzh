@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 通用"信息入口卡" —— 图标 + 标题 + 摘要 + 箭头的一行式卡片
 class InfoLinkCard extends StatelessWidget {
   final IconData icon;
@@ -51,7 +53,7 @@ class InfoLinkCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline),
+                          ?.copyWith(color: AppColors.textTertiary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -63,8 +65,8 @@ class InfoLinkCard extends StatelessWidget {
                 trailing!,
               ],
               const SizedBox(width: 2),
-              Icon(Icons.chevron_right,
-                  size: 20, color: theme.colorScheme.outline),
+              const Icon(Icons.chevron_right,
+                  size: 20, color: AppColors.textTertiary),
             ],
           ),
         ),

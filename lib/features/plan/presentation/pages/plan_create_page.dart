@@ -8,8 +8,10 @@ import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 import 'package:fittrack/features/plan/domain/repositories/plan_repository.dart';
 
-const _green = Color(0xFFFF8A00);
-const _blue = Color(0xFF38BDF8);
+import 'package:fittrack/core/theme/app_colors.dart';
+
+const _green = AppColors.primary;
+const _blue = AppColors.info;
 
 class PlanCreatePage extends ConsumerStatefulWidget {
   const PlanCreatePage({super.key});
@@ -24,7 +26,13 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
 
   // dayOfWeek → list of (exerciseId, targetSets, targetReps, targetWeight, restSec)
   final Map<int, List<_DayExercise>> _schedule = {
-    1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 0: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+    0: [],
   };
 
   int _selectedDay = DateTime.now().weekday % 7;
@@ -139,19 +147,15 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                             onTap: () =>
                                 setState(() => _selectedDay = entry.key),
                             child: Container(
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 2),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? _green.withAlpha(26)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: isSelected
-                                      ? _green
-                                      : Colors.white.withAlpha(16),
+                                  color: isSelected ? _green : AppColors.border,
                                   width: isSelected ? 1.4 : 1,
                                 ),
                               ),
@@ -163,7 +167,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                                       fontSize: 11,
                                       color: isSelected
                                           ? _green
-                                          : Colors.white54,
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 3),
@@ -173,8 +177,8 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: count > 0
-                                          ? Colors.white
-                                          : Colors.white30,
+                                          ? AppColors.textPrimary
+                                          : AppColors.textTertiary,
                                     ),
                                   ),
                                 ],
@@ -194,7 +198,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                     child: Text(
                       '${PlanDayEntity.dayLabels[_selectedDay]}还没有动作，点击下方添加',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline),
+                          ?.copyWith(color: AppColors.textTertiary),
                     ),
                   ),
                 )
@@ -225,22 +229,21 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                         ),
                         Text('× ${de.targetSets} 组',
                             style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.outline,
-                                fontSize: 11)),
+                                color: AppColors.textTertiary, fontSize: 11)),
                         const SizedBox(width: 2),
                         IconButton(
                           icon: const Icon(Icons.tune, size: 18),
                           visualDensity: VisualDensity.compact,
                           tooltip: '调整组数',
-                          onPressed: () =>
-                              _editDayExercise(context, de, idx),
+                          onPressed: () => _editDayExercise(context, de, idx),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 18),
                           visualDensity: VisualDensity.compact,
                           tooltip: '移除',
                           onPressed: () {
-                            setState(() => _schedule[_selectedDay]?.removeAt(idx));
+                            setState(
+                                () => _schedule[_selectedDay]?.removeAt(idx));
                           },
                         ),
                       ],
@@ -256,7 +259,7 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                   icon: const Icon(Icons.add, size: 18),
                   label: Text('给${PlanDayEntity.dayLabels[_selectedDay]}添加动作'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _green,
+                    foregroundColor: AppColors.primaryText,
                     side: BorderSide(color: _green.withAlpha(80)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -272,13 +275,13 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
             child: FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: () => _save(),
               child: Text(
                 _isEditing ? '保存修改' : '创建计划',
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -345,9 +348,12 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
 
   void _editDayExercise(BuildContext context, _DayExercise de, int index) {
     int sets = de.targetSets;
-    final repsCtrl = TextEditingController(text: de.targetReps?.toString() ?? '');
-    final weightCtrl = TextEditingController(text: de.targetWeightKg?.toString() ?? '');
-    final durationCtrl = TextEditingController(text: de.targetDurationSec?.toString() ?? '');
+    final repsCtrl =
+        TextEditingController(text: de.targetReps?.toString() ?? '');
+    final weightCtrl =
+        TextEditingController(text: de.targetWeightKg?.toString() ?? '');
+    final durationCtrl =
+        TextEditingController(text: de.targetDurationSec?.toString() ?? '');
     int rest = de.restSec;
 
     showDialog(
@@ -364,12 +370,15 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                   children: [
                     const Text('目标组数：'),
                     IconButton(
-                      onPressed: sets > 1 ? () => setDialogState(() => sets--) : null,
+                      onPressed:
+                          sets > 1 ? () => setDialogState(() => sets--) : null,
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
-                    Text('$sets', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('$sets',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     IconButton(
-                      onPressed: sets < 10 ? () => setDialogState(() => sets++) : null,
+                      onPressed:
+                          sets < 10 ? () => setDialogState(() => sets++) : null,
                       icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
@@ -378,19 +387,23 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                 TextField(
                   controller: repsCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '目标次数（可选）', isDense: true),
+                  decoration: const InputDecoration(
+                      labelText: '目标次数（可选）', isDense: true),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: weightCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: '目标重量 kg（可选）', isDense: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                      labelText: '目标重量 kg（可选）', isDense: true),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: durationCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '目标时长 秒（可选）', isDense: true),
+                  decoration: const InputDecoration(
+                      labelText: '目标时长 秒（可选）', isDense: true),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -398,12 +411,16 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
                   children: [
                     const Text('组间休息：'),
                     IconButton(
-                      onPressed: rest > 15 ? () => setDialogState(() => rest -= 15) : null,
+                      onPressed: rest > 15
+                          ? () => setDialogState(() => rest -= 15)
+                          : null,
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
                     Text('${rest}s'),
                     IconButton(
-                      onPressed: rest < 300 ? () => setDialogState(() => rest += 15) : null,
+                      onPressed: rest < 300
+                          ? () => setDialogState(() => rest += 15)
+                          : null,
                       icon: const Icon(Icons.add_circle_outline),
                     ),
                   ],
@@ -412,7 +429,8 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             FilledButton(
               onPressed: () {
                 setState(() {
@@ -448,7 +466,8 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
 
     try {
       if (_isEditing && _editingPlanId != null) {
-        await repo.updateName(_editingPlanId!, name, note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim());
+        await repo.updateName(_editingPlanId!, name,
+            note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim());
 
         final days = <PlanDayInput>[];
         for (final entry in _schedule.entries) {
@@ -467,7 +486,8 @@ class _PlanCreatePageState extends ConsumerState<PlanCreatePage> {
         }
         await repo.saveDays(_editingPlanId!, days);
       } else {
-        final plan = await repo.create(name, note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim());
+        final plan = await repo.create(name,
+            note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim());
 
         final days = <PlanDayInput>[];
         for (final entry in _schedule.entries) {
@@ -556,12 +576,14 @@ class _ExercisePickerSheet extends ConsumerWidget {
                   itemCount: snapshot.data!.length,
                   itemBuilder: (context, index) {
                     final ex = snapshot.data![index];
-                    final catColor = AppTheme.categoryColors[ex.category] ?? Colors.grey;
+                    final catColor = AppTheme.categoryColors[ex.category] ??
+                        AppColors.textTertiary;
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: catColor.withAlpha(40),
                         child: Icon(
-                          AppTheme.categoryIcons[ex.category] ?? Icons.fitness_center,
+                          AppTheme.categoryIcons[ex.category] ??
+                              Icons.fitness_center,
                           color: catColor,
                           size: 20,
                         ),

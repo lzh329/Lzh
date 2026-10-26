@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 
 /// 照片按天归一的 key，用于关联同一天的体重记录
 String photoDayKey(DateTime date) =>
@@ -40,15 +41,18 @@ class PhotoComparePage extends StatelessWidget {
       child: Column(
         children: [
           Expanded(
-            child: InteractiveViewer(
-              minScale: 1,
-              maxScale: 4,
-              child: Image.file(
-                File(photo.filePath),
-                fit: BoxFit.contain,
-                errorBuilder: (c, e, s) => const Center(
-                  child: Icon(Icons.broken_image,
-                      size: 40, color: Colors.white24),
+            child: ColoredBox(
+              color: Colors.black,
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Image.file(
+                  File(photo.filePath),
+                  fit: BoxFit.contain,
+                  errorBuilder: (c, e, s) => const Center(
+                    child: Icon(Icons.broken_image,
+                        size: 40, color: Colors.white24),
+                  ),
                 ),
               ),
             ),
@@ -58,11 +62,12 @@ class PhotoComparePage extends StatelessWidget {
             child: Column(
               children: [
                 Text(label,
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 11)),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11)),
                 const SizedBox(height: 4),
                 Text(_caption(photo),
-                    style: const TextStyle(color: Colors.white, fontSize: 13)),
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 13)),
               ],
             ),
           ),
@@ -76,10 +81,7 @@ class PhotoComparePage extends StatelessWidget {
     final days = before.date.difference(after.date).inDays.abs();
 
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         centerTitle: false,
         title: const Text('照片对比'),
       ),
@@ -91,7 +93,7 @@ class PhotoComparePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _side(before, '之前'),
-                  Container(width: 1, color: Colors.white24),
+                  Container(width: 1, color: AppColors.border),
                   _side(after, '之后'),
                 ],
               ),
@@ -99,7 +101,8 @@ class PhotoComparePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: Text('$days 天的变化',
-                  style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13)),
             ),
           ],
         ),

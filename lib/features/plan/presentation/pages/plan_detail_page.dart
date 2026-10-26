@@ -7,7 +7,9 @@ import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 
-const _green = Color(0xFFFF8A00);
+import 'package:fittrack/core/theme/app_colors.dart';
+
+const _green = AppColors.primary;
 
 class PlanDetailPage extends ConsumerWidget {
   final int planId;
@@ -89,7 +91,7 @@ class PlanDetailPage extends ConsumerWidget {
                             style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: _green),
+                                color: AppColors.primaryText),
                           ),
                         ],
                       ),
@@ -98,14 +100,14 @@ class PlanDetailPage extends ConsumerWidget {
                         Text(
                           plan.note!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white54, height: 1.5),
+                              color: AppColors.textSecondary, height: 1.5),
                         ),
                       ],
                       const SizedBox(height: 8),
                       Text(
                         '共 ${plan.days.length} 个动作',
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline, fontSize: 10),
+                            color: AppColors.textTertiary, fontSize: 10),
                       ),
                     ],
                   ),
@@ -146,7 +148,7 @@ class PlanDetailPage extends ConsumerWidget {
                               label,
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: isToday ? _green : null,
+                                color: isToday ? AppColors.primaryText : null,
                               ),
                             ),
                             if (isToday)
@@ -154,19 +156,20 @@ class PlanDetailPage extends ConsumerWidget {
                                 padding: EdgeInsets.only(left: 6),
                                 child: Text(
                                   '今天',
-                                  style:
-                                      TextStyle(fontSize: 10, color: _green),
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.primaryText),
                                 ),
                               ),
                             const Spacer(),
                             TextButton.icon(
-                              onPressed: () => context.push(
-                                  '/plan/$planId/execute', extra: day),
+                              onPressed: () => context
+                                  .push('/plan/$planId/execute', extra: day),
                               icon: const Icon(Icons.play_arrow, size: 16),
                               label: const Text('开始',
                                   style: TextStyle(fontSize: 12)),
                               style: TextButton.styleFrom(
-                                foregroundColor: _green,
+                                foregroundColor: AppColors.primaryText,
                                 visualDensity: VisualDensity.compact,
                               ),
                             ),
@@ -174,51 +177,69 @@ class PlanDetailPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         ...exercises.map((de) => FutureBuilder<ExerciseEntity?>(
-                          future: ref.read(exerciseRepoProvider).getById(de.exerciseId),
-                          builder: (context, snap) {
-                            final ex = snap.data;
-                            final catColor =
-                                AppTheme.categoryColors[ex?.category] ?? Colors.grey;
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 5),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: catColor.withAlpha(26),
-                                    ),
-                                    child: Icon(
-                                      AppTheme.categoryIcons[ex?.category] ??
-                                          Icons.fitness_center,
-                                      size: 16,
-                                      color: catColor,
-                                    ),
+                              future: ref
+                                  .read(exerciseRepoProvider)
+                                  .getById(de.exerciseId),
+                              builder: (context, snap) {
+                                final ex = snap.data;
+                                final catColor =
+                                    AppTheme.categoryColors[ex?.category] ??
+                                        AppColors.textTertiary;
+                                return Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 5),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          color: catColor.withAlpha(26),
+                                        ),
+                                        child: Icon(
+                                          AppTheme.categoryIcons[
+                                                  ex?.category] ??
+                                              Icons.fitness_center,
+                                          size: 16,
+                                          color: catColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                                ex?.name ??
+                                                    '动作 #${de.exerciseId}',
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600)),
+                                            Text(_formatTarget(de),
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                        color: AppColors
+                                                            .textTertiary,
+                                                        fontSize: 11)),
+                                          ],
+                                        ),
+                                      ),
+                                      Text('休息 ${de.restSec}s',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                  color: AppColors.textTertiary,
+                                                  fontSize: 10)),
+                                      const SizedBox(width: 8),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(ex?.name ?? '动作 #${de.exerciseId}',
-                                          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                                        Text(_formatTarget(de),
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                              color: theme.colorScheme.outline, fontSize: 11)),
-                                      ],
-                                    ),
-                                  ),
-                                  Text('休息 ${de.restSec}s',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.outline, fontSize: 10)),
-                                  const SizedBox(width: 8),
-                                ],
-                              ),
-                            );
-                          },
-                        )),
+                                );
+                              },
+                            )),
                       ],
                     ),
                   ),
@@ -235,7 +256,9 @@ class PlanDetailPage extends ConsumerWidget {
     final parts = <String>[];
     parts.add('${de.targetSets} 组');
     if (de.targetReps != null) parts.add('${de.targetReps} 次');
-    if (de.targetWeightKg != null) parts.add('${de.targetWeightKg!.toStringAsFixed(1)} kg');
+    if (de.targetWeightKg != null) {
+      parts.add('${de.targetWeightKg!.toStringAsFixed(1)} kg');
+    }
     if (de.targetDurationSec != null) {
       final m = de.targetDurationSec! ~/ 60;
       final s = de.targetDurationSec! % 60;

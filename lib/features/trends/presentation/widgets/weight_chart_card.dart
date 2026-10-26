@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 
 /// 体重趋势曲线卡（近 30 条记录）
@@ -9,14 +10,13 @@ class WeightChartCard extends StatelessWidget {
 
   const WeightChartCard({super.key, required this.metrics});
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final recent = metrics.length > 30
-        ? metrics.sublist(metrics.length - 30)
-        : metrics;
+    final recent =
+        metrics.length > 30 ? metrics.sublist(metrics.length - 30) : metrics;
     final fmt = DateFormat('M/d');
 
     return Card(
@@ -34,7 +34,7 @@ class WeightChartCard extends StatelessWidget {
                   Text(
                     '${fmt.format(recent.first.date)} - ${fmt.format(recent.last.date)}',
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
               ],
             ),
@@ -46,7 +46,7 @@ class WeightChartCard extends StatelessWidget {
                   child: Text(
                     '记录 2 条以上体重后显示曲线',
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               )
@@ -74,8 +74,8 @@ class WeightChartCard extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: interval,
-          getDrawingHorizontalLine: (v) => FlLine(
-            color: Colors.white.withAlpha(12),
+          getDrawingHorizontalLine: (v) => const FlLine(
+            color: AppColors.border,
             strokeWidth: 1,
           ),
         ),
@@ -92,7 +92,8 @@ class WeightChartCard extends StatelessWidget {
               interval: interval,
               getTitlesWidget: (v, meta) => Text(
                 v.toStringAsFixed(1),
-                style: const TextStyle(fontSize: 10, color: Colors.white38),
+                style: const TextStyle(
+                    fontSize: 10, color: AppColors.textTertiary),
               ),
             ),
           ),
@@ -111,8 +112,8 @@ class WeightChartCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     '${recent[i].date.month}/${recent[i].date.day}',
-                    style:
-                        const TextStyle(fontSize: 10, color: Colors.white38),
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.textTertiary),
                   ),
                 );
               },

@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _orange = Color(0xFFFF7043);
-const _blue = Color(0xFF38BDF8);
-const _red = Color(0xFFEF5350);
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
+const _orange = AppColors.warning;
+const _blue = AppColors.info;
+const _red = AppColors.danger;
 
 class WeeklyReportPage extends ConsumerWidget {
   const WeeklyReportPage({super.key});
@@ -30,7 +31,8 @@ class WeeklyReportPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${DateFormat('M月d日').format(monday)} - ${DateFormat('M月d日').format(sunday)} 周报'),
+        title: Text(
+            '${DateFormat('M月d日').format(monday)} - ${DateFormat('M月d日').format(sunday)} 周报'),
       ),
       body: FutureBuilder<_WeeklyReportData>(
         future: _loadData(bodyRepo, workoutRepo, dietRepo, monday, sunday),
@@ -62,11 +64,16 @@ class WeeklyReportPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_graph, size: 64, color: theme.colorScheme.outline),
+                  const Icon(Icons.auto_graph,
+                      size: 64, color: AppColors.textTertiary),
                   const SizedBox(height: 16),
-                  Text('本周还没有数据', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
+                  Text('本周还没有数据',
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(color: AppColors.textTertiary)),
                   const SizedBox(height: 4),
-                  Text('记录体重和训练后，周报自动生成', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                  Text('记录体重和训练后，周报自动生成',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: AppColors.textTertiary)),
                 ],
               ),
             );
@@ -85,17 +92,19 @@ class WeeklyReportPage extends ConsumerWidget {
                         : '—',
                     unit: '斤',
                     color: weekDelta == null
-                        ? Colors.white54
+                        ? AppColors.textTertiary
                         : (weekDelta < -0.05
-                            ? _green
-                            : (weekDelta > 0.05 ? _red : Colors.white70)),
+                            ? AppColors.success
+                            : (weekDelta > 0.05
+                                ? _red
+                                : AppColors.textSecondary)),
                   ),
                   const SizedBox(width: 8),
                   _TriCell(
                     label: '训练天数',
                     value: '$workoutDayCount',
                     unit: '/7 天',
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                   ),
                   const SizedBox(width: 8),
                   _TriCell(
@@ -125,7 +134,8 @@ class WeeklyReportPage extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── 训练-体重关联 ──
-              if (data.weekWorkouts.isNotEmpty && data.weekMetrics.isNotEmpty) ...[
+              if (data.weekWorkouts.isNotEmpty &&
+                  data.weekMetrics.isNotEmpty) ...[
                 const _SectionTitle(
                     icon: Icons.insights, title: '训练-体重关联', color: _blue),
                 const SizedBox(height: 8),
@@ -141,7 +151,8 @@ class WeeklyReportPage extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── 本周点评 ──
-              _buildReviewCard(theme, data, us, weekDelta, workoutDayCount, avgCal),
+              _buildReviewCard(
+                  theme, data, us, weekDelta, workoutDayCount, avgCal),
               const SizedBox(height: 14),
 
               // ── 分享 ──
@@ -154,10 +165,9 @@ class WeeklyReportPage extends ConsumerWidget {
                     );
                   },
                   icon: const Icon(Icons.ios_share, size: 16),
-                  label: const Text('分享本周战报',
-                      style: TextStyle(fontSize: 12)),
+                  label: const Text('分享本周战报', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _green,
+                    foregroundColor: AppColors.primaryText,
                     side: BorderSide(color: _green.withAlpha(90)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -172,7 +182,8 @@ class WeeklyReportPage extends ConsumerWidget {
     );
   }
 
-  Future<_WeeklyReportData> _loadData(repos, workoutRepo, dietRepo, monday, sunday) async {
+  Future<_WeeklyReportData> _loadData(
+      repos, workoutRepo, dietRepo, monday, sunday) async {
     final weekMetrics = await repos.getAll(from: monday, to: sunday);
     final weekWorkouts = await workoutRepo.getAll(from: monday, to: sunday);
 
@@ -181,7 +192,8 @@ class WeeklyReportPage extends ConsumerWidget {
     for (int i = 0; i < 7; i++) {
       final day = monday.add(Duration(days: i));
       if (day.isAfter(DateTime.now())) break;
-      dailyCals[DateTime(day.year, day.month, day.day)] = await dietRepo.getDailyCalories(day);
+      dailyCals[DateTime(day.year, day.month, day.day)] =
+          await dietRepo.getDailyCalories(day);
     }
 
     return _WeeklyReportData(
@@ -191,14 +203,23 @@ class WeeklyReportPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeightCard(ThemeData theme, _WeeklyReportData data, UserSettingsEntity? us) {
+  Widget _buildWeightCard(
+      ThemeData theme, _WeeklyReportData data, UserSettingsEntity? us) {
     final first = data.weekMetrics.first;
     final last = data.weekMetrics.last;
     final delta = (last.weightKg - first.weightKg) * 2;
     final isDown = delta < -0.05;
     final isUp = delta > 0.05;
-    final arrow = isDown ? '↓' : isUp ? '↑' : '→';
-    final deltaColor = isDown ? Colors.green : isUp ? Colors.red : theme.colorScheme.outline;
+    final arrow = isDown
+        ? '↓'
+        : isUp
+            ? '↑'
+            : '→';
+    final deltaColor = isDown
+        ? AppColors.success
+        : isUp
+            ? AppColors.danger
+            : AppColors.textTertiary;
 
     // 减脂速度
     final daysDiff = last.date.difference(first.date).inDays.clamp(1, 7);
@@ -212,9 +233,15 @@ class WeeklyReportPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _ReportStat(label: '周初', value: '${(first.weightKg * 2).toStringAsFixed(1)} 斤', theme: theme),
+                _ReportStat(
+                    label: '周初',
+                    value: '${(first.weightKg * 2).toStringAsFixed(1)} 斤',
+                    theme: theme),
                 Icon(Icons.arrow_forward, color: deltaColor, size: 20),
-                _ReportStat(label: '周末', value: '${(last.weightKg * 2).toStringAsFixed(1)} 斤', theme: theme),
+                _ReportStat(
+                    label: '周末',
+                    value: '${(last.weightKg * 2).toStringAsFixed(1)} 斤',
+                    theme: theme),
                 const SizedBox(width: 8),
                 _ReportStat(
                   label: '变化',
@@ -229,21 +256,31 @@ class WeeklyReportPage extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text('减脂速度: ${weeklyRate.abs().toStringAsFixed(1)} 斤/周',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary)),
                 if (weeklyRate.abs() >= 0.5 && weeklyRate.abs() <= 2.0) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.green.withAlpha(25), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('✓ 健康区间', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.w600)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: AppColors.success.withAlpha(25),
+                        borderRadius: BorderRadius.circular(4)),
+                    child: const Text('✓ 健康区间',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ],
               ],
             ),
             if (us?.targetWeightKg != null) ...[
               const SizedBox(height: 8),
-              Text('距目标 ${(us!.targetWeightKg! * 2).toStringAsFixed(1)} 斤 · 还差 ${((last.weightKg - us.targetWeightKg!) * 2).toStringAsFixed(1)} 斤',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
+              Text(
+                  '距目标 ${(us!.targetWeightKg! * 2).toStringAsFixed(1)} 斤 · 还差 ${((last.weightKg - us.targetWeightKg!) * 2).toStringAsFixed(1)} 斤',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.primaryText)),
             ],
           ],
         ),
@@ -255,8 +292,11 @@ class WeeklyReportPage extends ConsumerWidget {
     final workoutDays = data.weekWorkouts
         .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
         .toSet();
-    final totalSets = data.weekWorkouts.fold<int>(0, (sum, w) => sum + w.totalSets);
-    final totalDurationMin = data.weekWorkouts.fold<int>(0, (sum, w) => sum + (w.durationSec ?? 0)) ~/ 60;
+    final totalSets =
+        data.weekWorkouts.fold<int>(0, (sum, w) => sum + w.totalSets);
+    final totalDurationMin = data.weekWorkouts
+            .fold<int>(0, (sum, w) => sum + (w.durationSec ?? 0)) ~/
+        60;
 
     return Card(
       child: Padding(
@@ -266,16 +306,24 @@ class WeeklyReportPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _ReportStat(label: '训练天数', value: '${workoutDays.length} / 7 天', theme: theme),
+                _ReportStat(
+                    label: '训练天数',
+                    value: '${workoutDays.length} / 7 天',
+                    theme: theme),
                 _ReportStat(label: '完成组数', value: '$totalSets 组', theme: theme),
                 if (totalDurationMin > 0)
-                  _ReportStat(label: '训练时长', value: '$totalDurationMin 分钟', theme: theme),
+                  _ReportStat(
+                      label: '训练时长',
+                      value: '$totalDurationMin 分钟',
+                      theme: theme),
               ],
             ),
             if (data.weekWorkouts.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('本周没有训练记录', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                child: Text('本周没有训练记录',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary)),
               ),
           ],
         ),
@@ -299,7 +347,9 @@ class WeeklyReportPage extends ConsumerWidget {
         .where((d) => d >= 0 && d < 7)
         .toSet();
 
-    if (weightByDay.length < 2 && workoutDays.isEmpty) return const SizedBox.shrink();
+    if (weightByDay.length < 2 && workoutDays.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     // 体重范围（用于归一化显示）
     final weights = weightByDay.values.toList();
@@ -315,17 +365,31 @@ class WeeklyReportPage extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+                Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                        color: AppColors.info, shape: BoxShape.circle)),
                 const SizedBox(width: 4),
-                Text('体重', style: theme.textTheme.bodySmall?.copyWith(color: Colors.blue)),
+                Text('体重',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.info)),
                 const SizedBox(width: 16),
-                Container(width: 8, height: 8, decoration: BoxDecoration(
-                  color: theme.colorScheme.primary, shape: BoxShape.circle)),
+                Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle)),
                 const SizedBox(width: 4),
-                Text('训练日', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
+                Text('训练日',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.primaryText)),
                 const Spacer(),
-                Text('${minW.toStringAsFixed(1)} - ${maxW.toStringAsFixed(1)} kg',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                Text(
+                    '${minW.toStringAsFixed(1)} - ${maxW.toStringAsFixed(1)} kg',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary)),
               ],
             ),
             const SizedBox(height: 12),
@@ -337,7 +401,8 @@ class WeeklyReportPage extends ConsumerWidget {
                   final hasWeight = weightByDay.containsKey(i);
                   final hasWorkout = workoutDays.contains(i);
                   final w = weightByDay[i];
-                  final normalized = hasWeight ? ((w! - minW) / wRange).clamp(0.0, 1.0) : 0.0;
+                  final normalized =
+                      hasWeight ? ((w! - minW) / wRange).clamp(0.0, 1.0) : 0.0;
 
                   return Expanded(
                     child: Padding(
@@ -351,8 +416,9 @@ class WeeklyReportPage extends ConsumerWidget {
                               height: (normalized * 60).clamp(4.0, 60.0),
                               width: 6,
                               decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
+                                color: AppColors.info,
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(3)),
                               ),
                             ),
                           const Spacer(),
@@ -367,12 +433,16 @@ class WeeklyReportPage extends ConsumerWidget {
                               ),
                             ),
                           const SizedBox(height: 6),
-                          Text(dayLabels[i],
+                          Text(
+                            dayLabels[i],
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: DateTime.now().weekday == (i + 1) % 7 + 1
-                                  ? theme.colorScheme.primary : theme.colorScheme.outline,
-                              fontWeight: i == 6 - (7 - DateTime.now().weekday) // today
-                                  ? FontWeight.bold : FontWeight.normal,
+                                  ? AppColors.primaryText
+                                  : AppColors.textTertiary,
+                              fontWeight:
+                                  i == 6 - (7 - DateTime.now().weekday) // today
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -386,9 +456,10 @@ class WeeklyReportPage extends ConsumerWidget {
             Center(
               child: Text(
                 workoutDays.length >= 2
-                  ? '本周训练 $workoutDays 天 → 同步查看训练频率与体重趋势'
-                  : '继续坚持训练，积累足够数据后可看到训练-体重关联趋势',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                    ? '本周训练 $workoutDays 天 → 同步查看训练频率与体重趋势'
+                    : '继续坚持训练，积累足够数据后可看到训练-体重关联趋势',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textTertiary),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -398,20 +469,25 @@ class WeeklyReportPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDietCard(ThemeData theme, _WeeklyReportData data, UserSettingsEntity? us) {
-    final entries = data.dailyCalories.entries.where((e) => e.value > 0).toList();
+  Widget _buildDietCard(
+      ThemeData theme, _WeeklyReportData data, UserSettingsEntity? us) {
+    final entries =
+        data.dailyCalories.entries.where((e) => e.value > 0).toList();
     if (entries.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Center(
-            child: Text('本周没有饮食记录', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline)),
+            child: Text('本周没有饮食记录',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textTertiary)),
           ),
         ),
       );
     }
 
-    final avgCal = entries.fold<double>(0, (s, e) => s + e.value) / entries.length;
+    final avgCal =
+        entries.fold<double>(0, (s, e) => s + e.value) / entries.length;
     final tdee = us?.tdee();
     final avgDeficit = tdee != null ? tdee - avgCal : null;
 
@@ -423,13 +499,18 @@ class WeeklyReportPage extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _ReportStat(label: '记录天数', value: '${entries.length} 天', theme: theme),
-                _ReportStat(label: '日均摄入', value: '${avgCal.toInt()} kcal', theme: theme),
+                _ReportStat(
+                    label: '记录天数', value: '${entries.length} 天', theme: theme),
+                _ReportStat(
+                    label: '日均摄入',
+                    value: '${avgCal.toInt()} kcal',
+                    theme: theme),
                 if (avgDeficit != null)
                   _ReportStat(
                     label: avgDeficit > 0 ? '日均缺口' : '日均超标',
                     value: '${avgDeficit.abs().toInt()} kcal',
-                    color: avgDeficit > 0 ? Colors.green : Colors.red,
+                    color:
+                        avgDeficit > 0 ? AppColors.success : AppColors.danger,
                     theme: theme,
                   ),
               ],
@@ -503,7 +584,7 @@ class WeeklyReportPage extends ConsumerWidget {
                 child: Text(
                   l,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white70,
+                    color: AppColors.textSecondary,
                     height: 1.6,
                   ),
                 ),
@@ -543,7 +624,7 @@ class _TriCell extends StatelessWidget {
               Text(
                 label,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
               const SizedBox(height: 4),
               Row(
@@ -564,8 +645,8 @@ class _TriCell extends StatelessWidget {
                   ),
                   Text(
                     ' $unit',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline, fontSize: 9),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary, fontSize: 9),
                   ),
                 ],
               ),
@@ -596,7 +677,7 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.icon,
     required this.title,
-    this.color = const Color(0xFFFF8A00),
+    this.color = AppColors.primary,
   });
 
   @override
@@ -627,19 +708,25 @@ class _ReportStat extends StatelessWidget {
   final String value;
   final Color? color;
   final ThemeData theme;
-  const _ReportStat({required this.label, required this.value, this.color, required this.theme});
+  const _ReportStat(
+      {required this.label,
+      required this.value,
+      this.color,
+      required this.theme});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Text(value,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: color ?? theme.colorScheme.onSurface,
-          )),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color ?? theme.colorScheme.onSurface,
+            )),
         const SizedBox(height: 2),
-        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+        Text(label,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: AppColors.textTertiary)),
       ],
     );
   }

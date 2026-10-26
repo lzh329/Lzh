@@ -11,7 +11,8 @@ class PhotoRepositoryImpl implements PhotoRepository {
 
   @override
   Future<List<Photo>> getAll({DateTime? from, DateTime? to}) async {
-    var query = _db.select(_db.photos)..orderBy([(t) => OrderingTerm.desc(t.date)]);
+    var query = _db.select(_db.photos)
+      ..orderBy([(t) => OrderingTerm.desc(t.date)]);
 
     if (from != null) {
       query = query..where((t) => t.date.isBiggerOrEqualValue(from));
@@ -25,7 +26,8 @@ class PhotoRepositoryImpl implements PhotoRepository {
   }
 
   @override
-  Future<Photo> addPhoto({required DateTime date, required File imageFile, String? note}) async {
+  Future<Photo> addPhoto(
+      {required DateTime date, required File imageFile, String? note}) async {
     // 复制到应用内部存储
     final appDir = await getApplicationDocumentsDirectory();
     final photosDir = Directory(p.join(appDir.path, 'photos'));
@@ -34,15 +36,16 @@ class PhotoRepositoryImpl implements PhotoRepository {
     }
 
     final ext = p.extension(imageFile.path);
-    final fileName = '${date.toIso8601String()}_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final fileName =
+        '${date.toIso8601String()}_${DateTime.now().millisecondsSinceEpoch}$ext';
     final destPath = p.join(photosDir.path, fileName);
     await imageFile.copy(destPath);
 
     final id = await _db.into(_db.photos).insert(PhotosCompanion.insert(
-      date: date,
-      filePath: destPath,
-      note: Value(note),
-    ));
+          date: date,
+          filePath: destPath,
+          note: Value(note),
+        ));
 
     return Photo(
       id: id,
@@ -54,7 +57,8 @@ class PhotoRepositoryImpl implements PhotoRepository {
 
   @override
   Future<void> delete(int id) async {
-    final photo = await (_db.select(_db.photos)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final photo = await (_db.select(_db.photos)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
     if (photo != null) {
       final file = File(photo.filePath);
       if (await file.exists()) {

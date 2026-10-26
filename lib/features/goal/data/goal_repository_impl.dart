@@ -11,14 +11,19 @@ class GoalRepositoryImpl implements GoalRepository {
   @override
   Future<List<GoalEntity>> getAll() async {
     final rows = await (_db.select(_db.goals)
-      ..orderBy([(t) => OrderingTerm(expression: t.isCompleted), (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
-      .get();
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.isCompleted),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
     return rows.map(_toEntity).toList();
   }
 
   @override
   Future<GoalEntity?> getById(int id) async {
-    final row = await (_db.select(_db.goals)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final row = await (_db.select(_db.goals)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
     return row != null ? _toEntity(row) : null;
   }
 
@@ -31,28 +36,32 @@ class GoalRepositoryImpl implements GoalRepository {
     DateTime? endDate,
   }) async {
     final id = await _db.into(_db.goals).insert(GoalsCompanion(
-      type: Value(type),
-      category: Value.absentIfNull(category),
-      targetValue: Value(targetValue),
-      startDate: Value(startDate),
-      endDate: Value.absentIfNull(endDate),
-    ));
+          type: Value(type),
+          category: Value.absentIfNull(category),
+          targetValue: Value(targetValue),
+          startDate: Value(startDate),
+          endDate: Value.absentIfNull(endDate),
+        ));
     return (await getById(id))!;
   }
 
   @override
   Future<void> updateProgress(int id, double currentValue) async {
-    await (_db.update(_db.goals)..where((t) => t.id.equals(id))).write(GoalsCompanion(currentValue: Value(currentValue)));
+    await (_db.update(_db.goals)..where((t) => t.id.equals(id)))
+        .write(GoalsCompanion(currentValue: Value(currentValue)));
     // Auto-complete if target reached
     final goal = await getById(id);
-    if (goal != null && goal.currentValue >= goal.targetValue && !goal.isCompleted) {
+    if (goal != null &&
+        goal.currentValue >= goal.targetValue &&
+        !goal.isCompleted) {
       await complete(id);
     }
   }
 
   @override
   Future<void> complete(int id) async {
-    await (_db.update(_db.goals)..where((t) => t.id.equals(id))).write(const GoalsCompanion(isCompleted: Value(true)));
+    await (_db.update(_db.goals)..where((t) => t.id.equals(id)))
+        .write(const GoalsCompanion(isCompleted: Value(true)));
   }
 
   @override
@@ -61,14 +70,14 @@ class GoalRepositoryImpl implements GoalRepository {
   }
 
   GoalEntity _toEntity(Goal row) => GoalEntity(
-    id: row.id,
-    type: row.type,
-    category: row.category,
-    targetValue: row.targetValue,
-    currentValue: row.currentValue,
-    startDate: row.startDate,
-    endDate: row.endDate,
-    isCompleted: row.isCompleted,
-    createdAt: row.createdAt,
-  );
+        id: row.id,
+        type: row.type,
+        category: row.category,
+        targetValue: row.targetValue,
+        currentValue: row.currentValue,
+        startDate: row.startDate,
+        endDate: row.endDate,
+        isCompleted: row.isCompleted,
+        createdAt: row.createdAt,
+      );
 }

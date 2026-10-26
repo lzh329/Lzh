@@ -64,9 +64,8 @@ class WeightAnalysis {
 
     final start = startJin;
     if (start == null || start <= targetJin) {
-      final span = (currentJin - targetJin) > 20.0
-          ? (currentJin - targetJin)
-          : 20.0;
+      final span =
+          (currentJin - targetJin) > 20.0 ? (currentJin - targetJin) : 20.0;
       return ((span - (currentJin - targetJin)) / span).clamp(0.0, 1.0);
     }
     return ((start - currentJin) / (start - targetJin)).clamp(0.0, 1.0);

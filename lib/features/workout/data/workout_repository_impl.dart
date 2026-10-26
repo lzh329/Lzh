@@ -40,8 +40,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<WorkoutEntity?> getById(int id) async {
-    final row = await (_db.select(_db.workouts)
-      ..where((t) => t.id.equals(id)))
+    final row = await (_db.select(_db.workouts)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
     if (row == null) return null;
 
@@ -68,23 +67,23 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }) async {
     final workoutId = await _db.transaction(() async {
       final id = await _db.into(_db.workouts).insert(WorkoutsCompanion.insert(
-        date: date,
-        type: type,
-        planId: Value(planId),
-        note: Value(note),
-        durationSec: Value(durationSec),
-      ));
+            date: date,
+            type: type,
+            planId: Value(planId),
+            note: Value(note),
+            durationSec: Value(durationSec),
+          ));
 
       for (final set in sets) {
         await _db.into(_db.workoutSets).insert(WorkoutSetsCompanion.insert(
-          workoutId: id,
-          exerciseId: set.exerciseId,
-          setNumber: set.setNumber,
-          reps: Value(set.reps),
-          weightKg: Value(set.weightKg),
-          durationSec: Value(set.durationSec),
-          isWarmup: Value(set.isWarmup),
-        ));
+              workoutId: id,
+              exerciseId: set.exerciseId,
+              setNumber: set.setNumber,
+              reps: Value(set.reps),
+              weightKg: Value(set.weightKg),
+              durationSec: Value(set.durationSec),
+              isWarmup: Value(set.isWarmup),
+            ));
       }
       return id;
     });
@@ -102,21 +101,22 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       // 更新备注
       if (note != null) {
         await (_db.update(_db.workouts)..where((t) => t.id.equals(id)))
-          .write(WorkoutsCompanion(note: Value(note)));
+            .write(WorkoutsCompanion(note: Value(note)));
       }
       // 删除旧组
-      await (_db.delete(_db.workoutSets)..where((t) => t.workoutId.equals(id))).go();
+      await (_db.delete(_db.workoutSets)..where((t) => t.workoutId.equals(id)))
+          .go();
       // 插入新组
       for (final s in sets) {
         await _db.into(_db.workoutSets).insert(WorkoutSetsCompanion(
-          workoutId: Value(id),
-          exerciseId: Value(s.exerciseId),
-          setNumber: Value(s.setNumber),
-          reps: Value.absentIfNull(s.reps),
-          weightKg: Value.absentIfNull(s.weightKg),
-          durationSec: Value.absentIfNull(s.durationSec),
-          isWarmup: Value(s.isWarmup),
-        ));
+              workoutId: Value(id),
+              exerciseId: Value(s.exerciseId),
+              setNumber: Value(s.setNumber),
+              reps: Value.absentIfNull(s.reps),
+              weightKg: Value.absentIfNull(s.weightKg),
+              durationSec: Value.absentIfNull(s.durationSec),
+              isWarmup: Value(s.isWarmup),
+            ));
       }
     });
   }
@@ -128,20 +128,22 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   Future<List<WorkoutSetEntity>> _getSets(int workoutId) async {
     final rows = await (_db.select(_db.workoutSets)
-      ..where((t) => t.workoutId.equals(workoutId))
-      ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
+          ..where((t) => t.workoutId.equals(workoutId))
+          ..orderBy([(t) => OrderingTerm.asc(t.setNumber)]))
         .get();
 
-    return rows.map((r) => WorkoutSetEntity(
-      id: r.id,
-      workoutId: r.workoutId,
-      exerciseId: r.exerciseId,
-      setNumber: r.setNumber,
-      reps: r.reps,
-      weightKg: r.weightKg,
-      durationSec: r.durationSec,
-      isWarmup: r.isWarmup,
-      isCompleted: r.isCompleted,
-    )).toList();
+    return rows
+        .map((r) => WorkoutSetEntity(
+              id: r.id,
+              workoutId: r.workoutId,
+              exerciseId: r.exerciseId,
+              setNumber: r.setNumber,
+              reps: r.reps,
+              weightKg: r.weightKg,
+              durationSec: r.durationSec,
+              isWarmup: r.isWarmup,
+              isCompleted: r.isCompleted,
+            ))
+        .toList();
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fittrack/core/services/guga_level.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 
 /// 我的咕嘎卡 —— 趋势页顶部
 ///
@@ -10,7 +11,7 @@ class CompanionCard extends StatelessWidget {
 
   const CompanionCard({super.key, this.totalLossJin, this.onTap});
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +69,7 @@ class CompanionCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: _green,
+                              color: AppColors.primaryText,
                             ),
                           ),
                         ),
@@ -78,7 +79,7 @@ class CompanionCard extends StatelessWidget {
                     Text(
                       status.stage.tagline,
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Colors.white54),
+                          ?.copyWith(color: AppColors.textSecondary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -88,7 +89,7 @@ class CompanionCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: status.progress,
                         minHeight: 5,
-                        backgroundColor: Colors.white.withAlpha(18),
+                        backgroundColor: AppColors.surfaceMuted,
                         color: _green,
                       ),
                     ),
@@ -98,7 +99,7 @@ class CompanionCard extends StatelessWidget {
                           ? '已解锁全部形态，你就是行走的答案'
                           : '再减 ${status.remainToNext!.toStringAsFixed(1)} 斤解锁「${status.next!.name}」',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.white70,
+                        color: AppColors.textSecondary,
                         height: 1.4,
                       ),
                     ),
@@ -106,7 +107,7 @@ class CompanionCard extends StatelessWidget {
                     Text(
                       '累计减重 ${status.totalLossJin.toStringAsFixed(1)} 斤 · 进度 ${(status.progress * 100).round()}%',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
+                        color: AppColors.textTertiary,
                         fontSize: 10,
                       ),
                     ),
@@ -120,7 +121,7 @@ class CompanionCard extends StatelessWidget {
                 height: 118,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white,
+                  color: AppColors.surfaceAlt,
                   border: Border.all(
                     color: _green.withAlpha(90),
                     width: 2,

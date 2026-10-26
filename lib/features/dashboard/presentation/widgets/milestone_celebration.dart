@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 里程碑庆祝弹窗 —— 记录体重累计减重跨过 5 的倍数时触发
 Future<void> showMilestoneCelebration(
   BuildContext context,
@@ -30,7 +32,7 @@ class _MilestoneView extends StatelessWidget {
 
   const _MilestoneView({required this.milestoneJin});
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +69,8 @@ class _MilestoneView extends StatelessWidget {
                   ),
                   // 数字滚入
                   TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: milestoneJin.toDouble()),
+                    tween:
+                        Tween<double>(begin: 0, end: milestoneJin.toDouble()),
                     duration: const Duration(milliseconds: 900),
                     curve: Curves.easeOutCubic,
                     builder: (context, v, _) => Column(
@@ -103,6 +106,7 @@ class _MilestoneView extends StatelessWidget {
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
@@ -118,7 +122,7 @@ class _MilestoneView extends StatelessWidget {
             Text(
               '每一斤，都是你亲自拿下的',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white54,
+                color: Colors.white70,
                 letterSpacing: 0.5,
               ),
             ),
@@ -129,7 +133,7 @@ class _MilestoneView extends StatelessWidget {
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: _green,
-                  foregroundColor: Colors.black87,
+                  foregroundColor: AppColors.onPrimary,
                 ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
@@ -151,7 +155,7 @@ class _Glow extends StatelessWidget {
 
   const _Glow({required this.size, required this.alpha});
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {

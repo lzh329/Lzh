@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,11 +11,11 @@ import 'package:flutter/rendering.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _orange = Color(0xFFFF7043);
-const _purple = Color(0xFFC084FC);
-const _red = Color(0xFFEF5350);
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
+const _orange = AppColors.warning;
+const _purple = AppColors.analysis;
+const _red = AppColors.danger;
 
 class MonthlyComparePage extends ConsumerWidget {
   const MonthlyComparePage({super.key});
@@ -29,12 +31,14 @@ class MonthlyComparePage extends ConsumerWidget {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
     final lastMonthStart = DateTime(now.year, now.month - 1, 1);
-    final lastMonthEnd = DateTime(now.year, now.month, 0); // last day of prev month
+    final lastMonthEnd =
+        DateTime(now.year, now.month, 0); // last day of prev month
 
     return Scaffold(
       appBar: AppBar(title: const Text('月度对比')),
       body: FutureBuilder<_MonthCompareData>(
-        future: _loadData(bodyRepo, workoutRepo, dietRepo, lastMonthStart, lastMonthEnd, monthStart, now),
+        future: _loadData(bodyRepo, workoutRepo, dietRepo, lastMonthStart,
+            lastMonthEnd, monthStart, now),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -42,16 +46,23 @@ class MonthlyComparePage extends ConsumerWidget {
           final data = snapshot.data ?? const _MonthCompareData();
           final us = userSettingsAsync.valueOrNull;
 
-          if (data.thisMonthAvg == null && data.lastMonthAvg == null && data.thisMonthWorkoutDays == 0) {
+          if (data.thisMonthAvg == null &&
+              data.lastMonthAvg == null &&
+              data.thisMonthWorkoutDays == 0) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_graph, size: 64, color: theme.colorScheme.outline),
+                  const Icon(Icons.auto_graph,
+                      size: 64, color: AppColors.textTertiary),
                   const SizedBox(height: 16),
-                  Text('数据不足以生成月度对比', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.outline)),
+                  Text('数据不足以生成月度对比',
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(color: AppColors.textTertiary)),
                   const SizedBox(height: 4),
-                  Text('至少需要两个月的体重数据', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                  Text('至少需要两个月的体重数据',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: AppColors.textTertiary)),
                 ],
               ),
             );
@@ -89,33 +100,36 @@ class MonthlyComparePage extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('月度报告',
-                                    style: theme.textTheme.titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w600)),
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${DateFormat('M月').format(lastMonthStart)} vs ${DateFormat('M月').format(monthStart)}',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.outline,
+                                      color: AppColors.textTertiary,
                                       fontSize: 10),
                                 ),
                               ],
                             ),
                             const Spacer(),
-                            const Text('简瘦',
+                            const Text('减肥嘎',
                                 style: TextStyle(
-                                    fontSize: 10, color: Colors.white38)),
+                                    fontSize: 10,
+                                    color: AppColors.textTertiary)),
                           ],
                         ),
                         const SizedBox(height: 14),
-                        Container(height: 1, color: Colors.white.withAlpha(14)),
+                        Container(height: 1, color: AppColors.border),
                         const SizedBox(height: 8),
-                        if (data.lastMonthAvg != null && data.thisMonthAvg != null) ...[
+                        if (data.lastMonthAvg != null &&
+                            data.thisMonthAvg != null) ...[
                           _buildWeightCompare(theme, data),
-                          Container(height: 1, color: Colors.white.withAlpha(10)),
+                          Container(height: 1, color: AppColors.border),
                         ],
                         _buildTrainingCompare(theme, data),
-                        if (data.lastMonthAvgCal != null && data.thisMonthAvgCal != null) ...[
-                          Container(height: 1, color: Colors.white.withAlpha(10)),
+                        if (data.lastMonthAvgCal != null &&
+                            data.thisMonthAvgCal != null) ...[
+                          Container(height: 1, color: AppColors.border),
                           _buildDietCompare(theme, data, us),
                         ],
                       ],
@@ -130,8 +144,7 @@ class MonthlyComparePage extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => _shareCard(context, cardKey),
                   icon: const Icon(Icons.ios_share, size: 16),
-                  label: const Text('分享月度报告',
-                      style: TextStyle(fontSize: 12)),
+                  label: const Text('分享月度报告', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _purple,
                     side: BorderSide(color: _purple.withAlpha(90)),
@@ -160,8 +173,8 @@ class MonthlyComparePage extends ConsumerWidget {
           ? '持平'
           : '${delta < 0 ? '↓' : '↑'} ${delta.abs().toStringAsFixed(1)} 斤',
       deltaColor: delta.abs() < 0.05
-          ? Colors.white54
-          : (delta < 0 ? _green : _red),
+          ? AppColors.textTertiary
+          : (delta < 0 ? AppColors.success : _red),
     );
   }
 
@@ -174,8 +187,9 @@ class MonthlyComparePage extends ConsumerWidget {
       lastValue: '${data.lastMonthWorkoutDays} 天',
       thisValue: '${data.thisMonthWorkoutDays} 天',
       deltaText: delta == 0 ? '持平' : '${delta > 0 ? '+' : ''}$delta 天',
-      deltaColor:
-          delta == 0 ? Colors.white54 : (delta > 0 ? _green : _red),
+      deltaColor: delta == 0
+          ? AppColors.textTertiary
+          : (delta > 0 ? AppColors.success : _red),
     );
   }
 
@@ -200,12 +214,12 @@ class MonthlyComparePage extends ConsumerWidget {
           : (delta.abs() < 1
               ? '缺口持平'
               : '缺口 ${delta > 0 ? '+' : ''}${delta.toInt()}'),
-      deltaColor:
-          delta == null ? null : (delta > 0 ? _green : _red),
+      deltaColor: delta == null ? null : (delta > 0 ? AppColors.success : _red),
     );
   }
 
-  Future<_MonthCompareData> _loadData(repos, workoutRepo, dietRepo, lastStart, lastEnd, thisStart, thisEnd) async {
+  Future<_MonthCompareData> _loadData(repos, workoutRepo, dietRepo, lastStart,
+      lastEnd, thisStart, thisEnd) async {
     final lastMetrics = await repos.getAll(from: lastStart, to: lastEnd);
     final thisMetrics = await repos.getAll(from: thisStart, to: thisEnd);
     final lastWorkouts = await workoutRepo.getAll(from: lastStart, to: lastEnd);
@@ -213,13 +227,25 @@ class MonthlyComparePage extends ConsumerWidget {
 
     // 月均体重
     double? lastAvg;
-    if (lastMetrics.isNotEmpty) lastAvg = lastMetrics.map((m) => m.weightKg).reduce((a, b) => a + b) / lastMetrics.length;
+    if (lastMetrics.isNotEmpty) {
+      lastAvg = lastMetrics.map((m) => m.weightKg).reduce((a, b) => a + b) /
+          lastMetrics.length;
+    }
     double? thisAvg;
-    if (thisMetrics.isNotEmpty) thisAvg = thisMetrics.map((m) => m.weightKg).reduce((a, b) => a + b) / thisMetrics.length;
+    if (thisMetrics.isNotEmpty) {
+      thisAvg = thisMetrics.map((m) => m.weightKg).reduce((a, b) => a + b) /
+          thisMetrics.length;
+    }
 
     // 训练天数
-    final lastWorkoutDays = lastWorkouts.map((w) => DateTime(w.date.year, w.date.month, w.date.day)).toSet().length;
-    final thisWorkoutDays = thisWorkouts.map((w) => DateTime(w.date.year, w.date.month, w.date.day)).toSet().length;
+    final lastWorkoutDays = lastWorkouts
+        .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+        .toSet()
+        .length;
+    final thisWorkoutDays = thisWorkouts
+        .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+        .toSet()
+        .length;
 
     // 月均热量
     double? lastAvgCal, thisAvgCal;
@@ -228,14 +254,21 @@ class MonthlyComparePage extends ConsumerWidget {
     double lastTotal = 0, thisTotal = 0;
     int lastCount = 0, thisCount = 0;
     for (int i = 0; i < lastDays; i++) {
-      final cal = await dietRepo.getDailyCalories(lastStart.add(Duration(days: i)));
-      if (cal > 0) { lastTotal += cal; lastCount++; }
+      final cal =
+          await dietRepo.getDailyCalories(lastStart.add(Duration(days: i)));
+      if (cal > 0) {
+        lastTotal += cal;
+        lastCount++;
+      }
     }
     for (int i = 0; i < thisDays; i++) {
       final day = thisStart.add(Duration(days: i));
       if (day.isAfter(DateTime.now())) break;
       final cal = await dietRepo.getDailyCalories(day);
-      if (cal > 0) { thisTotal += cal; thisCount++; }
+      if (cal > 0) {
+        thisTotal += cal;
+        thisCount++;
+      }
     }
     if (lastCount > 0) lastAvgCal = lastTotal / lastCount;
     if (thisCount > 0) thisAvgCal = thisTotal / thisCount;
@@ -252,19 +285,22 @@ class MonthlyComparePage extends ConsumerWidget {
 
   Future<void> _shareCard(BuildContext context, GlobalKey cardKey) async {
     try {
-      final boundary = cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return;
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/monthly_report_${DateFormat('yyyyMM').format(DateTime.now())}.png');
+      final file = File(
+          '${dir.path}/monthly_report_${DateFormat('yyyyMM').format(DateTime.now())}.png');
       await file.writeAsBytes(byteData.buffer.asUint8List());
-      await Share.shareXFiles([XFile(file.path)], text: '简瘦 · 月度减脂报告');
+      await Share.shareXFiles([XFile(file.path)], text: '减肥嘎 · 月度减脂报告');
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('分享失败: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败: $e')));
       }
     }
   }
@@ -330,7 +366,7 @@ class _CompareRow extends StatelessWidget {
               children: [
                 Text(label,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline, fontSize: 10)),
+                        color: AppColors.textTertiary, fontSize: 10)),
                 const SizedBox(height: 3),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -338,19 +374,19 @@ class _CompareRow extends StatelessWidget {
                   children: [
                     Text(lastValue,
                         style: const TextStyle(
-                            fontSize: 12, color: Colors.white54)),
+                            fontSize: 12, color: AppColors.textTertiary)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 5),
                       child: Text('→',
-                          style:
-                              TextStyle(fontSize: 10, color: Colors.white38)),
+                          style: TextStyle(
+                              fontSize: 10, color: AppColors.textTertiary)),
                     ),
                     Flexible(
                       child: Text(thisValue,
                           style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white),
+                              color: AppColors.textPrimary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -363,7 +399,7 @@ class _CompareRow extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (deltaColor ?? Colors.white54).withAlpha(28),
+                color: (deltaColor ?? AppColors.textTertiary).withAlpha(28),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -371,7 +407,7 @@ class _CompareRow extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: deltaColor ?? Colors.white54),
+                    color: deltaColor ?? AppColors.textTertiary),
               ),
             ),
         ],

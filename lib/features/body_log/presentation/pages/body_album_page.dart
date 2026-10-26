@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fittrack/core/providers.dart';
@@ -8,7 +10,7 @@ import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_pa
 import 'package:fittrack/features/body_log/presentation/widgets/photo_preview_dialog.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_tile.dart';
 
-const _green = Color(0xFFFF8A00);
+const _green = AppColors.primary;
 
 /// 身体相册 —— 集中查看 / 拍照补充 / 删除 / 前后对比身体照片
 class BodyAlbumPage extends ConsumerStatefulWidget {
@@ -40,7 +42,8 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
       final photos = await ref.read(photoRepoProvider).getAll();
       final metrics = await ref.read(bodyMetricRepoProvider).getAll();
       // 仓储已按日期倒序返回，此处再排序一次保证顺序确定
-      final sorted = List<Photo>.from(photos)..sort((a, b) => b.date.compareTo(a.date));
+      final sorted = List<Photo>.from(photos)
+        ..sort((a, b) => b.date.compareTo(a.date));
       if (!mounted) return;
       setState(() {
         _photos = sorted;
@@ -65,10 +68,12 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final file = await _picker.pickImage(source: source, maxWidth: 1440, imageQuality: 88);
+      final file = await _picker.pickImage(
+          source: source, maxWidth: 2000, imageQuality: 92);
       if (file == null) return;
-      await ref.read(photoRepoProvider).addPhoto(
-          date: DateTime.now(), imageFile: File(file.path));
+      await ref
+          .read(photoRepoProvider)
+          .addPhoto(date: DateTime.now(), imageFile: File(file.path));
       await _load();
       if (mounted) _snack('已添加到相册');
     } catch (_) {
@@ -133,21 +138,21 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
   Widget _buildCompareBar(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.white.withAlpha(16))),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text('已选 ${_picked.length}/2',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline)),
+                    ?.copyWith(color: AppColors.textTertiary)),
           ),
           FilledButton.icon(
             onPressed: _picked.length == 2 ? _openCompare : null,
             style: FilledButton.styleFrom(
               backgroundColor: _green,
-              foregroundColor: Colors.black,
+              foregroundColor: AppColors.onPrimary,
               minimumSize: const Size(0, 44),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -196,9 +201,12 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
                   padding: const EdgeInsets.fromLTRB(18, 2, 18, 10),
                   child: Text('共 ${_photos.length} 张',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                 ),
-                Expanded(child: _photos.isEmpty ? _buildEmptyState(theme) : _buildGrid()),
+                Expanded(
+                    child: _photos.isEmpty
+                        ? _buildEmptyState(theme)
+                        : _buildGrid()),
                 if (_comparing) _buildCompareBar(theme),
               ],
             ),
@@ -228,7 +236,7 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
               '记录变化，看得见自己的进步',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
           ],
         ),

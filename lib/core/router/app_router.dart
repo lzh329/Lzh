@@ -7,6 +7,7 @@ import 'package:fittrack/features/workout/presentation/pages/workout_active_page
 import 'package:fittrack/features/workout/presentation/pages/workout_detail_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_metric_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_album_page.dart';
+import 'package:fittrack/features/body_log/presentation/pages/body_compare_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/settings_page.dart';
 import 'package:fittrack/features/exercise/presentation/pages/exercise_manage_page.dart';
 import 'package:fittrack/features/goal/presentation/pages/goal_list_page.dart';
@@ -22,6 +23,8 @@ import 'package:fittrack/features/diet/presentation/pages/diet_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/weekly_report_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/monthly_compare_page.dart';
 import 'package:fittrack/features/water/presentation/water_page.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/trends/presentation/pages/trends_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/custom_workout_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/template_edit_page.dart';
@@ -64,11 +67,13 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          pageBuilder: (context, state) => _tabPage(const DashboardPage(), state),
+          pageBuilder: (context, state) =>
+              _tabPage(const DashboardPage(), state),
         ),
         GoRoute(
           path: '/workout',
-          pageBuilder: (context, state) => _tabPage(const WorkoutListPage(), state),
+          pageBuilder: (context, state) =>
+              _tabPage(const WorkoutListPage(), state),
         ),
         GoRoute(
           path: '/trends',
@@ -76,17 +81,20 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: '/profile',
-          pageBuilder: (context, state) => _tabPage(const SettingsPage(), state),
+          pageBuilder: (context, state) =>
+              _tabPage(const SettingsPage(), state),
         ),
       ],
     ),
     GoRoute(
       path: '/workout/quick-start',
-      pageBuilder: (context, state) => _subPageTransition(const QuickStartPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const QuickStartPage(), state),
     ),
     GoRoute(
       path: '/workout/custom',
-      pageBuilder: (context, state) => _subPageTransition(const CustomWorkoutPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const CustomWorkoutPage(), state),
     ),
     GoRoute(
       path: '/workout/template-edit',
@@ -109,83 +117,110 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/workout/stats',
-      pageBuilder: (context, state) => _subPageTransition(const WorkoutStatsPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const WorkoutStatsPage(), state),
     ),
     GoRoute(
       path: '/workout/:id',
       pageBuilder: (context, state) {
         final id = int.tryParse(state.pathParameters['id'] ?? '');
-        if (id == null) return _subPageTransition(const PlaceholderPage(title: '无效的训练ID'), state);
+        if (id == null) {
+          return _subPageTransition(
+              const PlaceholderPage(title: '无效的训练ID'), state);
+        }
         return _subPageTransition(WorkoutDetailPage(workoutId: id), state);
       },
     ),
     GoRoute(
       path: '/plan/create',
-      pageBuilder: (context, state) => _subPageTransition(const PlanCreatePage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const PlanCreatePage(), state),
     ),
     GoRoute(
       path: '/plan/:id',
       pageBuilder: (context, state) {
         final id = int.tryParse(state.pathParameters['id'] ?? '');
-        if (id == null) return _subPageTransition(const PlaceholderPage(title: '无效的计划ID'), state);
+        if (id == null) {
+          return _subPageTransition(
+              const PlaceholderPage(title: '无效的计划ID'), state);
+        }
         return _subPageTransition(PlanDetailPage(planId: id), state);
       },
     ),
     GoRoute(
       path: '/plan/:id/execute',
-      pageBuilder: (context, state) => _subPageTransition(const WorkoutActivePage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const WorkoutActivePage(), state),
     ),
     GoRoute(
       path: '/settings/exercises',
-      pageBuilder: (context, state) => _subPageTransition(const ExerciseManagePage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const ExerciseManagePage(), state),
     ),
     GoRoute(
       path: '/settings/body-info',
-      pageBuilder: (context, state) => _subPageTransition(const BodyInfoPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const BodyInfoPage(), state),
     ),
     GoRoute(
       path: '/settings/voice',
-      pageBuilder: (context, state) => _subPageTransition(const VoiceSettingsPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const VoiceSettingsPage(), state),
     ),
     GoRoute(
       path: '/settings/data',
-      pageBuilder: (context, state) => _subPageTransition(const DataManagementPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const DataManagementPage(), state),
     ),
     GoRoute(
       path: '/plan',
-      pageBuilder: (context, state) => _subPageTransition(const PlanListPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const PlanListPage(), state),
     ),
     GoRoute(
       path: '/goals',
-      pageBuilder: (context, state) => _subPageTransition(const GoalListPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const GoalListPage(), state),
     ),
     GoRoute(
       path: '/analysis/weekly',
-      pageBuilder: (context, state) => _subPageTransition(const WeeklyReportPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const WeeklyReportPage(), state),
     ),
     GoRoute(
       path: '/analysis/monthly',
-      pageBuilder: (context, state) => _subPageTransition(const MonthlyComparePage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const MonthlyComparePage(), state),
     ),
     GoRoute(
       path: '/water',
-      pageBuilder: (context, state) => _subPageTransition(const WaterPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const WaterPage(), state),
     ),
     GoRoute(
       path: '/body',
-      pageBuilder: (context, state) => _subPageTransition(const BodyMetricPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const BodyMetricPage(), state),
+    ),
+    GoRoute(
+      path: '/body/compare',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const BodyComparePage(), state),
     ),
     GoRoute(
       path: '/body/album',
-      pageBuilder: (context, state) => _subPageTransition(const BodyAlbumPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const BodyAlbumPage(), state),
     ),
     GoRoute(
       path: '/diet',
-      pageBuilder: (context, state) => _subPageTransition(const DietPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const DietPage(), state),
     ),
     GoRoute(
       path: '/settings',
-      pageBuilder: (context, state) => _subPageTransition(const SettingsPage(), state),
+      pageBuilder: (context, state) =>
+          _subPageTransition(const SettingsPage(), state),
     ),
   ],
 );
@@ -235,10 +270,22 @@ class ScaffoldWithNav extends StatelessWidget {
           }
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: '主控'),
-          NavigationDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center), label: '训练'),
-          NavigationDestination(icon: Icon(Icons.show_chart), selectedIcon: Icon(Icons.trending_up), label: '趋势'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '我的'),
+          NavigationDestination(
+              icon: Icon(Icons.grid_view_outlined),
+              selectedIcon: Icon(Icons.grid_view),
+              label: '主控'),
+          NavigationDestination(
+              icon: Icon(Icons.fitness_center_outlined),
+              selectedIcon: Icon(Icons.fitness_center),
+              label: '训练'),
+          NavigationDestination(
+              icon: Icon(Icons.show_chart),
+              selectedIcon: Icon(Icons.trending_up),
+              label: '趋势'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: '我的'),
         ],
       ),
     );
@@ -257,7 +304,8 @@ class PlaceholderPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.construction, size: 64, color: Theme.of(context).colorScheme.outline),
+            const Icon(Icons.construction,
+                size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
             Text('即将上线', style: Theme.of(context).textTheme.titleMedium),
           ],

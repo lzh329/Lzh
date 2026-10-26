@@ -4,18 +4,25 @@ class UserSettingsEntity {
   final double? targetWeightKg;
   final DateTime? birthDate;
   final String? gender; // male / female
-  final String? activityLevel; // sedentary / light / moderate / active / very_active
+  final String?
+      activityLevel; // sedentary / light / moderate / active / very_active
   final String? pinCode; // 4位数字PIN
   final bool lockEnabled;
-  final double? speechRate;   // 0.0 ~ 1.0
-  final double? speechPitch;  // 0.5 ~ 2.0
-  final String? ttsVoice;     // 系统 TTS 音色标识
+  final double? speechRate; // 0.0 ~ 1.0
+  final double? speechPitch; // 0.5 ~ 2.0
+  final String? ttsVoice; // 系统 TTS 音色标识
   final bool reminderEnabled;
   final int? reminderHour;
   final int? reminderMinute;
   final String? themeMode;
   final int? defaultTrainingSec;
   final int? defaultRestSec;
+
+  /// 循环模式：动作间休息（秒）
+  final int? restShortSec;
+
+  /// 循环模式：轮间休息（秒）
+  final int? restLongSec;
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -40,6 +47,8 @@ class UserSettingsEntity {
     this.themeMode,
     this.defaultTrainingSec,
     this.defaultRestSec,
+    this.restShortSec,
+    this.restLongSec,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,
@@ -66,7 +75,12 @@ class UserSettingsEntity {
 
   /// BMR 基础代谢率 (Mifflin-St Jeor)
   double? bmr() {
-    if (heightCm == null || heightCm! <= 0 || birthDate == null || gender == null) return null;
+    if (heightCm == null ||
+        heightCm! <= 0 ||
+        birthDate == null ||
+        gender == null) {
+      return null;
+    }
     final a = age;
     if (a == null) return null;
     if (gender == 'male') {
@@ -80,12 +94,18 @@ class UserSettingsEntity {
     final b = bmr();
     if (b == null) return null;
     switch (activityLevel) {
-      case 'sedentary': return b * 1.2;
-      case 'light': return b * 1.375;
-      case 'moderate': return b * 1.55;
-      case 'active': return b * 1.725;
-      case 'very_active': return b * 1.9;
-      default: return b * 1.2;
+      case 'sedentary':
+        return b * 1.2;
+      case 'light':
+        return b * 1.375;
+      case 'moderate':
+        return b * 1.55;
+      case 'active':
+        return b * 1.725;
+      case 'very_active':
+        return b * 1.9;
+      default:
+        return b * 1.2;
     }
   }
 

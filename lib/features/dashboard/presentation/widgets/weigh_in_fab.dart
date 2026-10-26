@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/milestone_celebration.dart';
 
@@ -12,7 +13,8 @@ class WeighInFab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final todayMetric = ref.watch(dashboardDataProvider).valueOrNull?.todayMetric;
+    final todayMetric =
+        ref.watch(dashboardDataProvider).valueOrNull?.todayMetric;
     final hasRecorded = todayMetric != null;
 
     return FloatingActionButton.extended(
@@ -20,7 +22,8 @@ class WeighInFab extends ConsumerWidget {
         HapticFeedback.mediumImpact();
         _showQuickWeightInput(context, ref, todayMetric);
       },
-      backgroundColor: hasRecorded ? const Color(0xFFFF8A00) : null,
+      backgroundColor: hasRecorded ? AppColors.primary : null,
+      foregroundColor: AppColors.onPrimary,
       icon: Icon(hasRecorded ? Icons.check_circle : Icons.monitor_weight),
       label: Text(
         hasRecorded
@@ -50,7 +53,10 @@ class WeighInFab extends ConsumerWidget {
         final theme = Theme.of(ctx);
         return Padding(
           padding: EdgeInsets.fromLTRB(
-            24, 20, 24, 24 + MediaQuery.of(ctx).viewInsets.bottom,
+            24,
+            20,
+            24,
+            24 + MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -61,7 +67,7 @@ class WeighInFab extends ConsumerWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.outline.withAlpha(80),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -76,7 +82,7 @@ class WeighInFab extends ConsumerWidget {
               Text(
                 DateFormat('M月d日 EEEE', 'zh_CN').format(DateTime.now()),
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: AppColors.textTertiary),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -85,13 +91,12 @@ class WeighInFab extends ConsumerWidget {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: theme.textTheme.headlineMedium,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '体重',
                   suffixText: '斤',
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                   filled: true,
-                  fillColor:
-                      theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+                  fillColor: AppColors.surfaceAlt,
                 ),
                 onSubmitted: (_) => _doSave(context, ctx, ref, weightCtrl),
               ),

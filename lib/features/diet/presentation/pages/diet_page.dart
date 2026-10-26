@@ -6,11 +6,13 @@ import 'package:fittrack/features/settings/domain/entities/user_settings_entity.
 import 'package:fittrack/features/diet/domain/entities/diet_entity.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
 
-const _orange = Color(0xFFFF7043);
-const _amber = Color(0xFFFFC53D);
-const _green = Color(0xFFFF8A00);
-const _purple = Color(0xFFC084FC);
-const _blue = Color(0xFF38BDF8);
+import 'package:fittrack/core/theme/app_colors.dart';
+
+const _orange = AppColors.warning;
+const _amber = AppColors.warning;
+const _green = AppColors.primary;
+const _purple = AppColors.analysis;
+const _blue = AppColors.info;
 
 class DietPage extends ConsumerStatefulWidget {
   const DietPage({super.key});
@@ -50,7 +52,8 @@ class _DietPageState extends ConsumerState<DietPage> {
       body: FutureBuilder<_DietDayData>(
         future: _loadDay(dietRepo, _selectedDate),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data ?? const _DietDayData();
@@ -64,7 +67,8 @@ class _DietPageState extends ConsumerState<DietPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
-                    onPressed: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 1))),
+                    onPressed: () => setState(() => _selectedDate =
+                        _selectedDate.subtract(const Duration(days: 1))),
                   ),
                   Text(
                     DateFormat('M月d日 EEEE', 'zh_CN').format(_selectedDate),
@@ -73,8 +77,9 @@ class _DietPageState extends ConsumerState<DietPage> {
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
                     onPressed: _selectedDate.day == DateTime.now().day
-                      ? null
-                      : () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 1))),
+                        ? null
+                        : () => setState(() => _selectedDate =
+                            _selectedDate.add(const Duration(days: 1))),
                   ),
                 ],
               ),
@@ -86,13 +91,17 @@ class _DietPageState extends ConsumerState<DietPage> {
                 protein: data.totalProtein,
                 carbs: data.totalCarbs,
                 fat: data.totalFat,
-                targetCal:
-                    ref.watch(userSettingsProvider).valueOrNull?.dailyCalorieTarget,
+                targetCal: ref
+                    .watch(userSettingsProvider)
+                    .valueOrNull
+                    ?.dailyCalorieTarget,
               ),
               const SizedBox(height: 12),
 
               // ── 本周热量缺口趋势 ──
-              _WeeklyDeficitChart(dietRepo: ref.watch(dietRepoProvider), userSettingsAsync: ref.watch(userSettingsProvider)),
+              _WeeklyDeficitChart(
+                  dietRepo: ref.watch(dietRepoProvider),
+                  userSettingsAsync: ref.watch(userSettingsProvider)),
 
               const SizedBox(height: 16),
 
@@ -101,8 +110,8 @@ class _DietPageState extends ConsumerState<DietPage> {
                 height: 46,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: _orange,
-                    foregroundColor: Colors.black87,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                   ),
                   onPressed: () => _showAddFoodDialog(context, ref),
                   icon: const Icon(Icons.add, size: 18),
@@ -118,7 +127,8 @@ class _DietPageState extends ConsumerState<DietPage> {
                 child: Row(
                   children: [
                     _mealChip('全部', 'all'),
-                    ...FoodLogEntity.mealTypeLabels.entries.map((e) => _mealChip(e.value, e.key)),
+                    ...FoodLogEntity.mealTypeLabels.entries
+                        .map((e) => _mealChip(e.value, e.key)),
                   ],
                 ),
               ),
@@ -182,11 +192,9 @@ class _DietPageState extends ConsumerState<DietPage> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: Colors.white.withAlpha(26), width: 0.8),
+                border: Border.all(color: AppColors.borderStrong, width: 0.8),
               ),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
               child: Row(
                 children: [
                   Container(
@@ -202,7 +210,7 @@ class _DietPageState extends ConsumerState<DietPage> {
                   Text(
                     '$label · 待记录',
                     style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
                   const Spacer(),
                   Text(
@@ -219,8 +227,7 @@ class _DietPageState extends ConsumerState<DietPage> {
         );
       }
 
-      final mealCal =
-          logs.fold(0.0, (sum, l) => sum + l.totalCalories);
+      final mealCal = logs.fold(0.0, (sum, l) => sum + l.totalCalories);
       return Card(
         margin: const EdgeInsets.only(bottom: 10),
         child: Padding(
@@ -277,7 +284,7 @@ class _DietPageState extends ConsumerState<DietPage> {
                         style: theme.textTheme.bodyMedium),
                     subtitle: Text('${l.grams.toInt()} g',
                         style: theme.textTheme.bodySmall
-                            ?.copyWith(color: theme.colorScheme.outline)),
+                            ?.copyWith(color: AppColors.textTertiary)),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline, size: 18),
                       onPressed: () async {
@@ -328,7 +335,9 @@ class _DietPageState extends ConsumerState<DietPage> {
       totalFat: fat,
       totalCarbs: carbs,
       allLogs: logs,
-      filteredLogs: _mealFilter == 'all' ? logs : logs.where((l) => l.mealType == _mealFilter).toList(),
+      filteredLogs: _mealFilter == 'all'
+          ? logs
+          : logs.where((l) => l.mealType == _mealFilter).toList(),
     );
   }
 
@@ -357,9 +366,10 @@ class _DietPageState extends ConsumerState<DietPage> {
                     children: [
                       Center(
                         child: Container(
-                          width: 40, height: 4,
+                          width: 40,
+                          height: 4,
                           decoration: BoxDecoration(
-                            color: Theme.of(ctx).colorScheme.outline.withAlpha(80),
+                            color: AppColors.border,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -385,13 +395,16 @@ class _DietPageState extends ConsumerState<DietPage> {
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: FoodLogEntity.mealTypeLabels.entries.map((e) {
+                          children:
+                              FoodLogEntity.mealTypeLabels.entries.map((e) {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
-                                label: Text(e.value, style: const TextStyle(fontSize: 12)),
+                                label: Text(e.value,
+                                    style: const TextStyle(fontSize: 12)),
                                 selected: mealType == e.key,
-                                onSelected: (_) => setSheetState(() => mealType = e.key),
+                                onSelected: (_) =>
+                                    setSheetState(() => mealType = e.key),
                                 visualDensity: VisualDensity.compact,
                               ),
                             );
@@ -404,13 +417,18 @@ class _DietPageState extends ConsumerState<DietPage> {
                       Expanded(
                         child: FutureBuilder<List<FoodLibraryEntity>>(
                           future: ref.read(dietRepoProvider).searchFoods(
-                            query: searchCtrl.text.isEmpty ? null : searchCtrl.text,
-                          ),
+                                query: searchCtrl.text.isEmpty
+                                    ? null
+                                    : searchCtrl.text,
+                              ),
                           builder: (_, snap) {
                             final foods = snap.data ?? [];
-                            final categories = <String, List<FoodLibraryEntity>>{};
+                            final categories =
+                                <String, List<FoodLibraryEntity>>{};
                             for (final f in foods) {
-                              categories.putIfAbsent(f.category, () => []).add(f);
+                              categories
+                                  .putIfAbsent(f.category, () => [])
+                                  .add(f);
                             }
 
                             return ListView(
@@ -418,31 +436,52 @@ class _DietPageState extends ConsumerState<DietPage> {
                               children: categories.entries.expand((entry) {
                                 return [
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 4),
                                     child: Text(
-                                      FoodLibraryEntity.categoryLabels[entry.key] ?? entry.key,
-                                      style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-                                        color: Theme.of(ctx).colorScheme.primary),
+                                      FoodLibraryEntity
+                                              .categoryLabels[entry.key] ??
+                                          entry.key,
+                                      style: Theme.of(ctx)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                              color: Theme.of(ctx)
+                                                  .colorScheme
+                                                  .primary),
                                     ),
                                   ),
                                   ...entry.value.map((food) => ListTile(
-                                    dense: true,
-                                    leading: CircleAvatar(
-                                      radius: 16,
-                                      backgroundColor: Theme.of(ctx).colorScheme.secondaryContainer,
-                                      child: Text('${food.caloriesPer100g.toInt()}',
-                                        style: TextStyle(fontSize: 10,
-                                          color: Theme.of(ctx).colorScheme.onSecondaryContainer)),
-                                    ),
-                                    title: Text(food.name, style: Theme.of(ctx).textTheme.bodyMedium),
-                                    subtitle: Text('${food.caloriesPer100g.toInt()} kcal/100g${food.proteinPer100g != null ? ' · 蛋白${food.proteinPer100g!.toStringAsFixed(1)}g' : ''}',
-                                      style: Theme.of(ctx).textTheme.bodySmall),
-                                    onTap: () {
-                                      // 选食物 → 输入克数
-                                      Navigator.pop(ctx);
-                                      _showGramsInput(context, ref, food, mealType);
-                                    },
-                                  )),
+                                        dense: true,
+                                        leading: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: Theme.of(ctx)
+                                              .colorScheme
+                                              .secondaryContainer,
+                                          child: Text(
+                                              '${food.caloriesPer100g.toInt()}',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Theme.of(ctx)
+                                                      .colorScheme
+                                                      .onSecondaryContainer)),
+                                        ),
+                                        title: Text(food.name,
+                                            style: Theme.of(ctx)
+                                                .textTheme
+                                                .bodyMedium),
+                                        subtitle: Text(
+                                            '${food.caloriesPer100g.toInt()} kcal/100g${food.proteinPer100g != null ? ' · 蛋白${food.proteinPer100g!.toStringAsFixed(1)}g' : ''}',
+                                            style: Theme.of(ctx)
+                                                .textTheme
+                                                .bodySmall),
+                                        onTap: () {
+                                          // 选食物 → 输入克数
+                                          Navigator.pop(ctx);
+                                          _showGramsInput(
+                                              context, ref, food, mealType);
+                                        },
+                                      )),
                                 ];
                               }).toList(),
                             );
@@ -460,7 +499,8 @@ class _DietPageState extends ConsumerState<DietPage> {
     );
   }
 
-  void _showGramsInput(BuildContext context, WidgetRef ref, FoodLibraryEntity food, String mealType) {
+  void _showGramsInput(BuildContext context, WidgetRef ref,
+      FoodLibraryEntity food, String mealType) {
     final gramsCtrl = TextEditingController(text: '100');
     showDialog(
       context: context,
@@ -470,34 +510,39 @@ class _DietPageState extends ConsumerState<DietPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('${food.caloriesPer100g.toInt()} kcal / 100g',
-              style: Theme.of(ctx).textTheme.bodySmall),
+                style: Theme.of(ctx).textTheme.bodySmall),
             const SizedBox(height: 12),
             TextField(
               controller: gramsCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: '克数', suffixText: 'g',
+                labelText: '克数',
+                suffixText: 'g',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
-            Text('≈ ${(food.caloriesPer100g * (double.tryParse(gramsCtrl.text) ?? 100) / 100).toInt()} kcal',
-              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                color: Theme.of(ctx).colorScheme.primary)),
+            Text(
+                '≈ ${(food.caloriesPer100g * (double.tryParse(gramsCtrl.text) ?? 100) / 100).toInt()} kcal',
+                style: Theme.of(ctx)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Theme.of(ctx).colorScheme.primary)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
               final grams = double.tryParse(gramsCtrl.text);
               if (grams == null || grams <= 0) return;
               await ref.read(dietRepoProvider).addLog(
-                date: _selectedDate,
-                foodId: food.id,
-                grams: grams,
-                mealType: mealType,
-              );
+                    date: _selectedDate,
+                    foodId: food.id,
+                    grams: grams,
+                    mealType: mealType,
+                  );
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
               if (mounted) setState(() {});
@@ -549,8 +594,7 @@ class _CalorieSummaryCard extends StatelessWidget {
                     color: _orange.withAlpha(32),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child:
-                      const Icon(Icons.restaurant, size: 16, color: _orange),
+                  child: const Icon(Icons.restaurant, size: 16, color: _orange),
                 ),
                 const SizedBox(width: 10),
                 Text('今日摄入', style: theme.textTheme.titleSmall),
@@ -579,7 +623,7 @@ class _CalorieSummaryCard extends StatelessWidget {
                 Text(
                   hasTarget ? '/ $target kcal' : 'kcal',
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                      ?.copyWith(color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -590,15 +634,19 @@ class _CalorieSummaryCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 5,
-                  backgroundColor: Colors.white.withAlpha(16),
-                  color: totalCal > target ? Colors.red : _orange,
+                  backgroundColor: AppColors.surfaceMuted,
+                  color: totalCal > target ? AppColors.danger : _orange,
                 ),
               ),
             ],
             const SizedBox(height: 14),
             Row(
               children: [
-                _Nutrient(label: '蛋白', value: protein, color: _green),
+                _Nutrient(
+                  label: '蛋白',
+                  value: protein,
+                  color: AppColors.primaryText,
+                ),
                 _Nutrient(label: '碳水', value: carbs, color: _amber),
                 _Nutrient(label: '脂肪', value: fat, color: _orange),
               ],
@@ -631,7 +679,7 @@ class _Nutrient extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
           ),
           const SizedBox(height: 2),
           Row(
@@ -646,7 +694,7 @@ class _Nutrient extends StatelessWidget {
               Text(
                 'g',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
             ],
           ),
@@ -661,7 +709,8 @@ class _WeeklyDeficitChart extends StatelessWidget {
   final dynamic dietRepo;
   final AsyncValue<UserSettingsEntity?> userSettingsAsync;
 
-  const _WeeklyDeficitChart({required this.dietRepo, required this.userSettingsAsync});
+  const _WeeklyDeficitChart(
+      {required this.dietRepo, required this.userSettingsAsync});
 
   @override
   Widget build(BuildContext context) {
@@ -689,8 +738,12 @@ class _WeeklyDeficitChart extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: data.map((d) {
-                      final maxDef = data.map((x) => x.deficit.abs()).reduce((a, b) => a > b ? a : b).clamp(100, double.infinity);
-                      final height = (d.deficit.abs() / maxDef * 80).clamp(8.0, 80.0);
+                      final maxDef = data
+                          .map((x) => x.deficit.abs())
+                          .reduce((a, b) => a > b ? a : b)
+                          .clamp(100, double.infinity);
+                      final height =
+                          (d.deficit.abs() / maxDef * 80).clamp(8.0, 80.0);
                       final isDeficit = d.deficit > 0;
                       return Expanded(
                         child: Padding(
@@ -698,17 +751,29 @@ class _WeeklyDeficitChart extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Text('${d.deficit.abs().toInt()}', style: TextStyle(fontSize: 9, color: isDeficit ? Colors.green : Colors.red)),
+                              Text('${d.deficit.abs().toInt()}',
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: isDeficit
+                                          ? AppColors.success
+                                          : AppColors.danger)),
                               const SizedBox(height: 2),
                               Container(
                                 height: height,
                                 decoration: BoxDecoration(
-                                  color: (isDeficit ? Colors.green : Colors.red).withAlpha(isDeficit ? 180 : 150),
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                                  color: (isDeficit
+                                          ? AppColors.success
+                                          : AppColors.danger)
+                                      .withAlpha(isDeficit ? 180 : 150),
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(3)),
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(d.label, style: TextStyle(fontSize: 9, color: theme.colorScheme.outline)),
+                              Text(d.label,
+                                  style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.textTertiary)),
                             ],
                           ),
                         ),

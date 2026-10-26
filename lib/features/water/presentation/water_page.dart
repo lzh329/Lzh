@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/features/water/data/water_repository_impl.dart' show WaterLogEntry;
+import 'package:fittrack/features/water/data/water_repository_impl.dart'
+    show WaterLogEntry;
 
-final _waterHistoryProvider = FutureProvider<List<WaterLogEntry>>((ref) =>
-    ref.watch(waterRepoProvider).getHistory());
+import 'package:fittrack/core/theme/app_colors.dart';
+
+final _waterHistoryProvider = FutureProvider<List<WaterLogEntry>>(
+    (ref) => ref.watch(waterRepoProvider).getHistory());
 
 final _todayCupsProvider = FutureProvider<int>((ref) {
   return ref.watch(waterRepoProvider).getTodayCups();
 });
 
-const _blue = Color(0xFF38BDF8);
+const _blue = AppColors.info;
 
 /// 饮水页 —— v2 视觉：杯子网格打卡 + 历史记录
 class WaterPage extends ConsumerWidget {
@@ -92,7 +95,7 @@ class WaterPage extends ConsumerWidget {
                       Text(
                         '/ $_targetCups 杯',
                         style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.outline),
+                            ?.copyWith(color: AppColors.textTertiary),
                       ),
                     ],
                   ),
@@ -111,7 +114,7 @@ class WaterPage extends ConsumerWidget {
                         ? '今日饮水目标已完成，保持得很好'
                         : '还差 ${_targetCups - todayCups} 杯 · 约 ${((_targetCups - todayCups) * 0.2).toStringAsFixed(1)} L',
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -126,9 +129,9 @@ class WaterPage extends ConsumerWidget {
                             icon: const Icon(Icons.remove, size: 18),
                             label: const Text('−1 杯'),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                  color: Colors.white.withAlpha(28)),
-                              foregroundColor: Colors.white70,
+                              side: const BorderSide(
+                                  color: AppColors.borderStrong),
+                              foregroundColor: AppColors.textSecondary,
                             ),
                           ),
                         ),
@@ -140,14 +143,13 @@ class WaterPage extends ConsumerWidget {
                           height: 44,
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
-                              backgroundColor: _blue,
-                              foregroundColor: Colors.black87,
+                              backgroundColor: AppColors.infoStrong,
+                              foregroundColor: AppColors.surface,
                             ),
                             onPressed: () => _adjustCup(ref, true),
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('＋1 杯',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600)),
+                                style: TextStyle(fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ),
@@ -178,7 +180,7 @@ class WaterPage extends ConsumerWidget {
                 child: Center(
                   child: Text('加载失败',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                 ),
               ),
             ),
@@ -191,14 +193,14 @@ class WaterPage extends ConsumerWidget {
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(Icons.water_drop_outlined,
-                              size: 34, color: theme.colorScheme.outline),
+                          const Icon(Icons.water_drop_outlined,
+                              size: 34, color: AppColors.textTertiary),
                           const SizedBox(height: 8),
                           Text(
                             '还没有饮水记录\n点击上方「＋1 杯」开始打卡',
                             textAlign: TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.outline),
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: AppColors.textTertiary),
                           ),
                         ],
                       ),
@@ -213,11 +215,11 @@ class WaterPage extends ConsumerWidget {
                     for (int i = 0; i < history.length; i++) ...[
                       _HistoryTile(entry: history[i]),
                       if (i < history.length - 1)
-                        Divider(
+                        const Divider(
                           height: 1,
                           indent: 62,
                           endIndent: 16,
-                          color: Colors.white.withAlpha(14),
+                          color: AppColors.border,
                         ),
                     ],
                   ],
@@ -254,10 +256,10 @@ class _CupIcon extends StatelessWidget {
       width: 26,
       height: 32,
       decoration: BoxDecoration(
-        color: filled ? _blue : Colors.white.withAlpha(10),
+        color: filled ? _blue : AppColors.surfaceAlt,
         borderRadius: BorderRadius.circular(5),
         border: Border.all(
-          color: filled ? _blue : Colors.white.withAlpha(30),
+          color: filled ? _blue : AppColors.borderStrong,
           width: 0.8,
         ),
       ),
@@ -294,20 +296,18 @@ class _HistoryTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: reached ? _blue : Colors.white70,
+            color: reached ? _blue : AppColors.textSecondary,
           ),
         ),
       ),
       title: Text(
-        isToday
-            ? '今天'
-            : DateFormat('M月d日 EEEE', 'zh_CN').format(entry.date),
+        isToday ? '今天' : DateFormat('M月d日 EEEE', 'zh_CN').format(entry.date),
         style: theme.textTheme.bodyLarge,
       ),
       subtitle: Text(
         '${entry.cups} 杯 · ${entry.cups * 200} ml',
-        style: theme.textTheme.bodySmall
-            ?.copyWith(color: theme.colorScheme.outline),
+        style:
+            theme.textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
       ),
       trailing: reached
           ? const Icon(Icons.check_circle, color: _blue, size: 20)

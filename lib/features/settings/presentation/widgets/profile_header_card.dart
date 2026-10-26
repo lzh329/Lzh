@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
 /// "我的"页顶部个人资料卡
@@ -16,7 +17,7 @@ class ProfileHeaderCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -24,15 +25,17 @@ class ProfileHeaderCard extends StatelessWidget {
     final heightCm = settings?.heightCm;
     final targetJin =
         settings?.targetWeightKg != null ? settings!.targetWeightKg! * 2 : null;
-    final currentJin =
-        currentWeightKg != null ? currentWeightKg! * 2 : null;
+    final currentJin = currentWeightKg != null ? currentWeightKg! * 2 : null;
     final bmi = (currentWeightKg != null && settings != null)
         ? settings!.bmi(currentWeightKg!)
         : null;
 
     return Material(
-      color: const Color(0xFF121A13),
-      borderRadius: BorderRadius.circular(18),
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -80,7 +83,7 @@ class ProfileHeaderCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '简瘦用户',
+                              '减肥嘎用户',
                               style: theme.textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
@@ -90,15 +93,15 @@ class ProfileHeaderCard extends StatelessWidget {
                                   ? '身高 ${heightCm.toStringAsFixed(0)} cm · 完善资料让建议更准'
                                   : '完善身体信息，获得更准的减脂建议',
                               style: theme.textTheme.bodySmall
-                                  ?.copyWith(color: Colors.white54),
+                                  ?.copyWith(color: AppColors.textSecondary),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
                       ),
-                      Icon(Icons.chevron_right,
-                          size: 20, color: theme.colorScheme.outline),
+                      const Icon(Icons.chevron_right,
+                          size: 20, color: AppColors.textTertiary),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -111,22 +114,23 @@ class ProfileHeaderCard extends StatelessWidget {
                             : '—',
                         unit: '斤',
                         label: '当前体重',
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                       ),
                       _vDivider(),
                       _Metric(
-                        value:
-                            targetJin != null ? targetJin.toStringAsFixed(1) : '—',
+                        value: targetJin != null
+                            ? targetJin.toStringAsFixed(1)
+                            : '—',
                         unit: '斤',
                         label: '目标体重',
-                        color: _green,
+                        color: AppColors.primaryText,
                       ),
                       _vDivider(),
                       _Metric(
                         value: bmi != null ? bmi.toStringAsFixed(1) : '—',
                         unit: '',
                         label: 'BMI',
-                        color: Colors.white70,
+                        color: AppColors.textSecondary,
                       ),
                     ],
                   ),
@@ -177,7 +181,7 @@ class _Metric extends StatelessWidget {
                 Text(
                   unit,
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                      ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
                 ),
               ],
             ],
@@ -186,7 +190,7 @@ class _Metric extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
           ),
         ],
       ),

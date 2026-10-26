@@ -7,15 +7,16 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/core/theme/app_theme.dart';
 import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
+import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _purple = Color(0xFFC084FC);
+const _amber = AppColors.warning;
+const _purple = AppColors.analysis;
 
 class WorkoutDetailPage extends ConsumerWidget {
   final int workoutId;
@@ -33,7 +34,8 @@ class WorkoutDetailPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () => _shareWorkout(context, ref, workoutRepo, exerciseRepo, workoutId),
+            onPressed: () => _shareWorkout(
+                context, ref, workoutRepo, exerciseRepo, workoutId),
           ),
           IconButton(
             icon: const Icon(Icons.edit),
@@ -103,10 +105,11 @@ class WorkoutDetailPage extends ConsumerWidget {
                         children: [
                           _Badge(
                               text: '完成 ${workout.completedSets} 组',
-                              color: _green),
+                              color: AppColors.primaryText),
                           if (workout.durationSec != null)
                             _Badge(
-                                text: _fmt(workout.durationSec!), color: _amber),
+                                text: _fmt(workout.durationSec!),
+                                color: _amber),
                         ],
                       ),
                       if (workout.note != null && workout.note!.isNotEmpty) ...[
@@ -114,7 +117,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                         Text(
                           '备注：${workout.note}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white54,
+                              color: AppColors.textSecondary,
                               fontStyle: FontStyle.italic),
                         ),
                       ],
@@ -149,7 +152,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                                   height: 30,
                                   decoration: BoxDecoration(
                                     color: (AppTheme.categoryColors[category] ??
-                                            Colors.grey)
+                                            AppColors.textTertiary)
                                         .withAlpha(30),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -158,7 +161,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                                         Icons.fitness_center,
                                     size: 15,
                                     color: AppTheme.categoryColors[category] ??
-                                        Colors.grey,
+                                        AppColors.textTertiary,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -171,16 +174,15 @@ class WorkoutDetailPage extends ConsumerWidget {
                                       Text(exerciseName,
                                           style: theme.textTheme.titleSmall
                                               ?.copyWith(
-                                                  fontWeight:
-                                                      FontWeight.w600)),
+                                                  fontWeight: FontWeight.w600)),
                                       if (exercise?.muscleGroup != null)
                                         Flexible(
                                           child: Text(
                                             ' · ${exercise!.muscleGroup}',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                    color: theme.colorScheme
-                                                        .outline),
+                                                    color: theme
+                                                        .colorScheme.outline),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -191,63 +193,99 @@ class WorkoutDetailPage extends ConsumerWidget {
                                 Text(
                                   '${entry.value.length} 组',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.outline,
+                                      color: AppColors.textTertiary,
                                       fontSize: 10),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
                             ...entry.value.map((set) {
-                              final isWeightPR = set.weightKg != null && set.weightKg! > 0 && set.weightKg! >= bestWeight && bestWeight > 0;
-                              final isRepsPR = set.reps != null && set.reps! > 0 && set.reps! >= bestReps && bestReps > 0;
+                              final isWeightPR = set.weightKg != null &&
+                                  set.weightKg! > 0 &&
+                                  set.weightKg! >= bestWeight &&
+                                  bestWeight > 0;
+                              final isRepsPR = set.reps != null &&
+                                  set.reps! > 0 &&
+                                  set.reps! >= bestReps &&
+                                  bestReps > 0;
                               final isPR = isWeightPR || isRepsPR;
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 3),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 3),
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 28, height: 28,
+                                      width: 28,
+                                      height: 28,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: set.isWarmup
-                                          ? Colors.orange.withAlpha(40)
-                                          : theme.colorScheme.primaryContainer,
+                                            ? AppColors.warning.withAlpha(40)
+                                            : theme
+                                                .colorScheme.primaryContainer,
                                       ),
                                       child: Center(
                                         child: Text('${set.setNumber}',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                                            color: set.isWarmup ? Colors.orange : theme.colorScheme.onPrimaryContainer)),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: set.isWarmup
+                                                    ? AppColors.warning
+                                                    : theme.colorScheme
+                                                        .onPrimaryContainer)),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    if (set.reps != null) ...[
-                                      Text('${set.reps} 次',
-                                        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    if (set.weightKg != null && set.weightKg! > 0) ...[
-                                      Text('${set.weightKg!.toStringAsFixed(1)} kg',
-                                        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                                      const SizedBox(width: 8),
-                                    ],
+                                    // 计时动作显示时长；力量动作显示次数
                                     if (set.durationSec != null) ...[
                                       Text(_fmt(set.durationSec!),
-                                        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w600)),
+                                      const SizedBox(width: 8),
+                                    ] else if (set.reps != null) ...[
+                                      Text('${set.reps} 次',
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w600)),
+                                      const SizedBox(width: 8),
                                     ],
+                                    if (set.weightKg != null &&
+                                        set.weightKg! > 0) ...[
+                                      Text(
+                                          '${set.weightKg!.toStringAsFixed(1)} kg',
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w600)),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    if (set.reps == null &&
+                                        set.durationSec == null)
+                                      Text('未记录',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                  color:
+                                                      AppColors.textTertiary)),
                                     if (set.isWarmup)
-                                      Chip(label: const Text('热身', style: TextStyle(fontSize: 10)),
-                                        visualDensity: VisualDensity.compact,
-                                        padding: EdgeInsets.zero,
-                                        backgroundColor: Colors.orange.withAlpha(30)),
+                                      Chip(
+                                          label: const Text('热身',
+                                              style: TextStyle(fontSize: 10)),
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          backgroundColor:
+                                              AppColors.warning.withAlpha(30)),
                                     if (isPR)
                                       const Padding(
                                         padding: EdgeInsets.only(left: 6),
                                         child: Chip(
-                                          label: Text('PR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                          label: Text('PR',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold)),
                                           visualDensity: VisualDensity.compact,
                                           padding: EdgeInsets.zero,
-                                          backgroundColor: Colors.amber,
+                                          backgroundColor: AppColors.warning,
                                         ),
                                       ),
                                   ],
@@ -293,7 +331,8 @@ class WorkoutDetailPage extends ConsumerWidget {
     return _DetailData(workout: workout, prs: prs);
   }
 
-  Map<int, List<WorkoutSetEntity>> _groupSetsByExercise(List<WorkoutSetEntity> sets) {
+  Map<int, List<WorkoutSetEntity>> _groupSetsByExercise(
+      List<WorkoutSetEntity> sets) {
     final map = <int, List<WorkoutSetEntity>>{};
     for (final set in sets) {
       map.putIfAbsent(set.exerciseId, () => []).add(set);
@@ -307,7 +346,8 @@ class WorkoutDetailPage extends ConsumerWidget {
     return m > 0 ? '$m 分 $sec 秒' : '$sec 秒';
   }
 
-  void _editWorkout(BuildContext context, WidgetRef ref, WorkoutRepository repo) async {
+  void _editWorkout(
+      BuildContext context, WidgetRef ref, WorkoutRepository repo) async {
     final workout = await repo.getById(workoutId);
     if (workout == null || !context.mounted) return;
 
@@ -361,14 +401,16 @@ class WorkoutDetailPage extends ConsumerWidget {
                   children: [
                     SizedBox(
                       width: 32,
-                      child: Text('${s.setNumber}', style: Theme.of(context).textTheme.titleMedium),
+                      child: Text('${s.setNumber}',
+                          style: Theme.of(context).textTheme.titleMedium),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: ctrl.reps,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: '次数', isDense: true),
+                        decoration: const InputDecoration(
+                            labelText: '次数', isDense: true),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -376,8 +418,10 @@ class WorkoutDetailPage extends ConsumerWidget {
                       width: 80,
                       child: TextField(
                         controller: ctrl.weight,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: '重量 kg', isDense: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: '重量 kg', isDense: true),
                       ),
                     ),
                   ],
@@ -390,19 +434,27 @@ class WorkoutDetailPage extends ConsumerWidget {
     ));
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, WorkoutRepository repo) {
+  void _confirmDelete(
+      BuildContext context, WidgetRef ref, WorkoutRepository repo) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除训练记录'),
         content: const Text('确定要删除这条训练记录吗？此操作不可恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              foregroundColor: AppColors.surface,
+            ),
             onPressed: () async {
               await repo.delete(workoutId);
+              // 删除后让训练历史 / 首页 / 趋势立即刷新
+              ref.invalidate(workoutHistoryProvider);
               ref.invalidate(dashboardDataProvider);
+              ref.invalidate(trendsDataProvider);
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) Navigator.pop(context);
             },
@@ -430,8 +482,8 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style:
+            TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
@@ -457,10 +509,10 @@ Future<void> _shareWorkout(BuildContext context, WidgetRef ref,
   final exercises = await exerciseRepo.getAll();
   final nameMap = {for (final e in exercises) e.id: e.name};
   final exerciseNames = workout.sets
-    .map((s) => nameMap[s.exerciseId] ?? '')
-    .where((n) => n.isNotEmpty)
-    .toSet()
-    .cast<String>();
+      .map((s) => nameMap[s.exerciseId] ?? '')
+      .where((n) => n.isNotEmpty)
+      .toSet()
+      .cast<String>();
 
   final userSettings = ref.read(userSettingsProvider).valueOrNull;
   String? bmiInfo;
@@ -470,7 +522,8 @@ Future<void> _shareWorkout(BuildContext context, WidgetRef ref,
   if (latestMetric != null && userSettings?.heightCm != null) {
     final bmi = userSettings!.bmi(latestMetric.weightKg);
     if (bmi != null) {
-      bmiInfo = 'BMI ${bmi.toStringAsFixed(1)} · ${UserSettingsEntity.bmiLevelLabels[UserSettingsEntity.bmiLevel(bmi)]}';
+      bmiInfo =
+          'BMI ${bmi.toStringAsFixed(1)} · ${UserSettingsEntity.bmiLevelLabels[UserSettingsEntity.bmiLevel(bmi)]}';
     }
   }
 
@@ -489,12 +542,25 @@ Future<void> shareWorkoutCard(BuildContext context, WorkoutEntity workout,
     canvas.drawRect(const Rect.fromLTWH(0, 0, 400, 200), bgPaint);
 
     _drawText(canvas, '🔥 FitTrack 训练记录', 20, 30, 22, Colors.white, bold: true);
-    _drawText(canvas, DateFormat('yyyy年M月d日 HH:mm').format(workout.date), 20, 56, 13, Colors.white70);
-    canvas.drawLine(const Offset(20, 68), const Offset(380, 68),
-      Paint()..color = Colors.white24..strokeWidth = 0.5);
-    _drawText(canvas, '完成 ${exerciseNames.length} 个动作 · ${workout.totalSets} 组', 20, 90, 15, Colors.white, bold: true);
+    _drawText(canvas, DateFormat('yyyy年M月d日 HH:mm').format(workout.date), 20,
+        56, 13, Colors.white70);
+    canvas.drawLine(
+        const Offset(20, 68),
+        const Offset(380, 68),
+        Paint()
+          ..color = Colors.white24
+          ..strokeWidth = 0.5);
+    _drawText(canvas, '完成 ${exerciseNames.length} 个动作 · ${workout.totalSets} 组',
+        20, 90, 15, Colors.white,
+        bold: true);
     if (workout.durationSec != null) {
-      _drawText(canvas, '训练时长: ${workout.durationSec! ~/ 60} 分 ${workout.durationSec! % 60} 秒', 20, 112, 13, Colors.white70);
+      _drawText(
+          canvas,
+          '训练时长: ${workout.durationSec! ~/ 60} 分 ${workout.durationSec! % 60} 秒',
+          20,
+          112,
+          13,
+          Colors.white70);
     }
     if (bmiInfo != null) {
       _drawText(canvas, bmiInfo, 20, 130, 13, Colors.cyanAccent);
@@ -507,7 +573,8 @@ Future<void> shareWorkoutCard(BuildContext context, WorkoutEntity workout,
     final pngBytes = byteData!.buffer.asUint8List();
 
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/fittrack_share_${DateTime.now().millisecondsSinceEpoch}.png');
+    final file = File(
+        '${dir.path}/fittrack_share_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(pngBytes);
 
     await Share.shareXFiles([XFile(file.path)], text: '我的 FitTrack 训练记录 💪');
@@ -516,7 +583,9 @@ Future<void> shareWorkoutCard(BuildContext context, WorkoutEntity workout,
   }
 }
 
-void _drawText(Canvas canvas, String text, double x, double y, double fontSize, Color color, {bool bold = false}) {
+void _drawText(Canvas canvas, String text, double x, double y, double fontSize,
+    Color color,
+    {bool bold = false}) {
   final builder = ui.ParagraphBuilder(ui.ParagraphStyle(
     textAlign: TextAlign.left,
     fontSize: fontSize,
@@ -527,6 +596,7 @@ void _drawText(Canvas canvas, String text, double x, double y, double fontSize, 
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
     ))
     ..addText(text);
-  final paragraph = builder.build()..layout(const ui.ParagraphConstraints(width: 360));
+  final paragraph = builder.build()
+    ..layout(const ui.ParagraphConstraints(width: 360));
   canvas.drawParagraph(paragraph, Offset(x, y));
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/widgets/info_link_card.dart';
@@ -66,21 +68,21 @@ class TrendsPage extends ConsumerWidget {
               ),
               InfoLinkCard(
                 icon: Icons.summarize_outlined,
-                iconColor: const Color(0xFFFF8A00),
+                iconColor: AppColors.primary,
                 title: '周报',
                 subtitle: '本周训练天数 · 饮食总结',
                 onTap: () => context.push('/analysis/weekly'),
               ),
               InfoLinkCard(
                 icon: Icons.calendar_view_month,
-                iconColor: const Color(0xFFC084FC),
+                iconColor: AppColors.analysis,
                 title: '月度对比',
                 subtitle: '月度体重 · 训练 · 饮食变化对比',
                 onTap: () => context.push('/analysis/monthly'),
               ),
               InfoLinkCard(
                 icon: Icons.ios_share,
-                iconColor: const Color(0xFFFFC53D),
+                iconColor: AppColors.warning,
                 title: '减脂战报',
                 subtitle: '生成包含体重变化和照片的分享卡片',
                 onTap: () {

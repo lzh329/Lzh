@@ -4,10 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _blue = Color(0xFF38BDF8);
-const _purple = Color(0xFFC084FC);
+import 'package:fittrack/core/theme/app_colors.dart';
+
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
+const _blue = AppColors.info;
+const _purple = AppColors.analysis;
 
 /// 身体信息页 —— v2 视觉统一（分组卡 + 彩色图标 + 大数字计算卡）
 class BodyInfoPage extends ConsumerStatefulWidget {
@@ -143,8 +145,7 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                 selected: _gender != null ? {_gender!} : {},
                 emptySelectionAllowed: true,
                 onSelectionChanged: (v) => setState(() => _gender = v.first),
-                style:
-                    const ButtonStyle(visualDensity: VisualDensity.compact),
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
               ),
             ],
           ),
@@ -171,12 +172,12 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                       if (settings?.age != null)
                         Text(
                           '  ·  ${settings!.age} 岁',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline),
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textTertiary),
                         ),
                       const Spacer(),
-                      Icon(Icons.chevron_right,
-                          size: 18, color: theme.colorScheme.outline),
+                      const Icon(Icons.chevron_right,
+                          size: 18, color: AppColors.textTertiary),
                     ],
                   ),
                 ),
@@ -204,8 +205,7 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                             dense: true,
                             visualDensity: VisualDensity.compact,
                             contentPadding: EdgeInsets.zero,
-                            onTap: () =>
-                                setState(() => _activityLevel = e.key),
+                            onTap: () => setState(() => _activityLevel = e.key),
                           ))
                       .toList(),
                 ),
@@ -231,8 +231,8 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                             color: _green.withAlpha(32),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.bolt,
-                              size: 16, color: _green),
+                          child:
+                              const Icon(Icons.bolt, size: 16, color: _green),
                         ),
                         const SizedBox(width: 10),
                         Text('代谢与消耗', style: theme.textTheme.titleSmall),
@@ -246,7 +246,7 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                             label: '基础代谢',
                             value: '${bmr.toInt()}',
                             unit: 'kcal/天',
-                            color: _green,
+                            color: AppColors.primaryText,
                           ),
                         ),
                         Expanded(
@@ -260,13 +260,14 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Container(height: 1, color: Colors.white.withAlpha(14)),
+                    Container(height: 1, color: AppColors.border),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Text(
                           '减脂建议 ${(tdee * 0.8).toInt()} kcal/天',
-                          style: const TextStyle(fontSize: 11, color: _green),
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.primaryText),
                         ),
                         const Spacer(),
                         Text(
@@ -288,7 +289,7 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
                     '填写身高、出生日期、性别后\n可计算基础代谢率和每日消耗',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                        ?.copyWith(color: AppColors.textTertiary),
                   ),
                 ),
               ),
@@ -300,12 +301,11 @@ class _BodyInfoPageState extends ConsumerState<BodyInfoPage> {
             child: FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: _save,
               child: const Text('保存',
-                  style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -372,7 +372,7 @@ class _CalcStat extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.outline, fontSize: 11),
+              ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
         ),
         const SizedBox(height: 4),
         Row(
@@ -388,7 +388,7 @@ class _CalcStat extends StatelessWidget {
             Text(
               unit,
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                  ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
             ),
           ],
         ),

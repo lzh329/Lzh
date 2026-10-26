@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页完成态视图（保留原有庆祝动画与保存入口，
-/// 外层统一为深色背景 + 居中布局）。
+/// 外层统一为浅色背景 + 居中布局）。
 class ActiveWorkoutCompleteView extends StatelessWidget {
   /// 动作总数
   final int exerciseCount;
@@ -90,7 +92,7 @@ class ActiveWorkoutCompleteView extends StatelessWidget {
                           onPressed: onSave,
                           style: FilledButton.styleFrom(
                             backgroundColor: ActiveWorkoutStyle.green,
-                            foregroundColor: Colors.black,
+                            foregroundColor: AppColors.onPrimary,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             shape: const RoundedRectangleBorder(

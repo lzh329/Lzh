@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -14,10 +16,10 @@ import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart'
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 
-const _green = Color(0xFFFF8A00);
-const _amber = Color(0xFFFFC53D);
-const _blue = Color(0xFF38BDF8);
-const _red = Color(0xFFEF5350);
+const _green = AppColors.primary;
+const _amber = AppColors.warning;
+const _blue = AppColors.info;
+const _red = AppColors.danger;
 
 class BodyMetricPage extends ConsumerStatefulWidget {
   const BodyMetricPage({super.key});
@@ -141,8 +143,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                   color: _green.withAlpha(32),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.photo_library,
-                    size: 16, color: _green),
+                child: const Icon(Icons.photo_library, size: 16, color: _green),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -154,13 +155,13 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                     Text(
                       '$photoCount 张照片',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline),
+                          ?.copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  size: 18, color: theme.colorScheme.outline),
+              const Icon(Icons.chevron_right,
+                  size: 18, color: AppColors.textTertiary),
             ],
           ),
         ),
@@ -192,9 +193,9 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
         ? UserSettingsEntity.bmiLevelLabels[UserSettingsEntity.bmiLevel(bmi)]
         : null;
     final bmiColor = bmi == null
-        ? Colors.white54
+        ? AppColors.textTertiary
         : switch (UserSettingsEntity.bmiLevel(bmi)) {
-            'normal' => _green,
+            'normal' => AppColors.success,
             'overweight' => _amber,
             'obese' => _red,
             _ => _blue,
@@ -224,12 +225,11 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
             const SizedBox(width: 5),
             Text('斤',
                 style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.outline)),
+                    ?.copyWith(color: AppColors.textTertiary)),
             if (bmi != null) ...[
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: bmiColor.withAlpha(30),
                   borderRadius: BorderRadius.circular(6),
@@ -248,7 +248,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
               Text(
                 '目标 ${targetJin.toStringAsFixed(1)} 斤',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: AppColors.textTertiary),
               ),
           ],
         ),
@@ -258,23 +258,25 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
             _MiniStatCard(
               label: '最新',
               value: currentJin.toStringAsFixed(1),
-              color: Colors.white,
+              color: AppColors.textPrimary,
             ),
             const SizedBox(width: 8),
             _MiniStatCard(
               label: '本周',
               value: weekChange != null ? signed(weekChange) : '—',
               color: weekChange == null
-                  ? Colors.white54
+                  ? AppColors.textTertiary
                   : (weekChange < -0.05
-                      ? _green
-                      : (weekChange > 0.05 ? _red : Colors.white70)),
+                      ? AppColors.success
+                      : (weekChange > 0.05 ? _red : AppColors.textSecondary)),
             ),
             const SizedBox(width: 8),
             _MiniStatCard(
               label: '累计',
               value: totalLoss != null ? totalLoss.toStringAsFixed(1) : '—',
-              color: (totalLoss ?? 0) > 0.05 ? _green : Colors.white54,
+              color: (totalLoss ?? 0) > 0.05
+                  ? AppColors.success
+                  : AppColors.textTertiary,
             ),
           ],
         ),
@@ -316,15 +318,15 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                                     ? FontWeight.w600
                                     : FontWeight.w400,
                                 color: selected
-                                    ? Colors.black
-                                    : theme.colorScheme.outline,
+                                    ? AppColors.onPrimary
+                                    : AppColors.textTertiary,
                               ),
                             ),
                             selected: selected,
                             showCheckmark: false,
                             selectedColor: _green,
-                            backgroundColor: Colors.white.withAlpha(12),
-                            side: BorderSide(color: Colors.white.withAlpha(20)),
+                            backgroundColor: AppColors.surfaceAlt,
+                            side: const BorderSide(color: AppColors.border),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             labelPadding:
@@ -369,7 +371,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                 child: Center(
                   child: Text('暂无数据',
                       style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: Colors.grey)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                 ),
               )
             else
@@ -394,10 +396,11 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     );
   }
 
-  Widget _buildPredictionText(
-      List<BodyMetricEntity> metrics, ThemeData theme) {
+  Widget _buildPredictionText(List<BodyMetricEntity> metrics, ThemeData theme) {
     final validMetrics = metrics.where((m) => true).toList();
-    final spots = validMetrics.asMap().entries
+    final spots = validMetrics
+        .asMap()
+        .entries
         .map((e) => FlSpot(e.key.toDouble(), e.value.weightKg))
         .toList();
     if (spots.length < 3) return const SizedBox.shrink();
@@ -415,7 +418,9 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
 
     final userSettingsAsync = ref.read(userSettingsProvider);
     final us = userSettingsAsync.valueOrNull;
-    if (us?.targetWeightKg == null || slope == 0) return const SizedBox.shrink();
+    if (us?.targetWeightKg == null || slope == 0) {
+      return const SizedBox.shrink();
+    }
 
     final targetJin = us!.targetWeightKg! * 2;
     final lastX = spots.last.x;
@@ -430,7 +435,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
       child: Text(
         '📈 按当前趋势（每周$direction $weeklyChange斤），预计 $days 天后达到目标体重',
         style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.primary,
+          color: AppColors.primaryText,
           fontWeight: FontWeight.w500,
         ),
         textAlign: TextAlign.center,
@@ -456,7 +461,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
       return Center(
           child: Text('至少需要 2 条数据',
               style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.outline)));
+                  ?.copyWith(color: AppColors.textTertiary)));
     }
 
     double getValue(BodyMetricEntity m) {
@@ -473,7 +478,9 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
     }
 
     final suffix = _metricType == 'weight' ? ' 斤' : ' cm';
-    final spots = validMetrics.asMap().entries
+    final spots = validMetrics
+        .asMap()
+        .entries
         .map((e) => FlSpot(e.key.toDouble(), getValue(e.value)))
         .toList();
 
@@ -514,11 +521,9 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
         dotData: FlDotData(
             show: validMetrics.length <= 60,
             getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-                radius: 3,
-                color: theme.colorScheme.primary,
-                strokeWidth: 0)),
-        belowBarData:
-            BarAreaData(show: true, color: theme.colorScheme.primary.withAlpha(30)),
+                radius: 3, color: theme.colorScheme.primary, strokeWidth: 0)),
+        belowBarData: BarAreaData(
+            show: true, color: theme.colorScheme.primary.withAlpha(30)),
       ),
     ];
 
@@ -540,8 +545,8 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
       gridData: FlGridData(
           show: true,
           horizontalInterval: 1,
-          getDrawingHorizontalLine: (v) => FlLine(
-              color: theme.colorScheme.outline.withAlpha(40), strokeWidth: 0.5),
+          getDrawingHorizontalLine: (v) =>
+              const FlLine(color: AppColors.border, strokeWidth: 0.5),
           drawVerticalLine: false),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(
@@ -549,9 +554,8 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                 showTitles: true,
                 reservedSize: 36,
                 getTitlesWidget: (value, meta) => Text('${value.toInt()}',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: theme.colorScheme.outline)))),
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.textTertiary)))),
         bottomTitles: AxisTitles(
             sideTitles: SideTitles(
                 showTitles: true,
@@ -568,12 +572,10 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                       angle: -0.7,
                       child: Text(
                           DateFormat('M/dd').format(validMetrics[i].date),
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: theme.colorScheme.outline)));
+                          style: const TextStyle(
+                              fontSize: 9, color: AppColors.textTertiary)));
                 })),
-        topTitles:
-            const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles:
             const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
@@ -618,7 +620,7 @@ class _MiniStatCard extends StatelessWidget {
               Text(
                 label,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
               const SizedBox(height: 4),
               Row(
@@ -635,8 +637,8 @@ class _MiniStatCard extends StatelessWidget {
                   ),
                   Text(
                     ' 斤',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline, fontSize: 9),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary, fontSize: 9),
                   ),
                 ],
               ),
@@ -671,7 +673,7 @@ class _HistoryRow extends StatelessWidget {
                 child: Text(
                   DateFormat('MM/dd').format(metric.date),
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
+                      ?.copyWith(color: AppColors.textTertiary),
                 ),
               ),
               Text(
@@ -682,13 +684,13 @@ class _HistoryRow extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 '斤',
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.outline, fontSize: 10),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: theme.colorScheme.outline,
+                color: AppColors.textTertiary,
                 onPressed: () => onDelete(),
               ),
             ],
@@ -816,7 +818,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
           );
         },
         child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
             child: Column(
@@ -834,18 +837,18 @@ class _AddMetricFormState extends State<_AddMetricForm> {
                   '$totalLossJin 斤',
                   style: theme.textTheme.displaySmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                    color: AppColors.primaryText,
                   ),
                 ),
                 const SizedBox(height: 20),
-                Divider(color: theme.colorScheme.outline.withAlpha(50)),
+                const Divider(color: AppColors.border),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('$firstWeightJin 斤',
                         style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.outline)),
+                            ?.copyWith(color: AppColors.textTertiary)),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Icon(Icons.arrow_forward, size: 18),
@@ -858,7 +861,7 @@ class _AddMetricFormState extends State<_AddMetricForm> {
                 const SizedBox(height: 4),
                 Text('用时 $days 天',
                     style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline)),
+                        ?.copyWith(color: AppColors.textTertiary)),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -927,12 +930,12 @@ class _AddMetricFormState extends State<_AddMetricForm> {
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(bottom: 4),
             dense: true,
-            iconColor: theme.colorScheme.outline,
-            collapsedIconColor: theme.colorScheme.outline,
+            iconColor: AppColors.textTertiary,
+            collapsedIconColor: AppColors.textTertiary,
             title: Text(
               '更多数据（围度 / 备注 / 拍照）',
               style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
             children: [
               Row(children: [
@@ -986,8 +989,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white),
-                      style: IconButton.styleFrom(
-                          backgroundColor: Colors.black45),
+                      style:
+                          IconButton.styleFrom(backgroundColor: Colors.black45),
                       onPressed: _removePhoto,
                     ),
                   ],
@@ -1018,13 +1021,13 @@ class _AddMetricFormState extends State<_AddMetricForm> {
             onPressed: _save,
             style: FilledButton.styleFrom(
               backgroundColor: _green,
-              foregroundColor: Colors.black,
+              foregroundColor: AppColors.onPrimary,
               minimumSize: const Size.fromHeight(44),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('保存',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            child:
+                const Text('保存', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ),
       ],
@@ -1075,7 +1078,8 @@ class _AddMetricFormState extends State<_AddMetricForm> {
 
       // 自动更新体重目标进度
       final goals = await widget.goalRepo.getAll();
-      for (final g in goals.where((g) => g.type == 'weight' && !g.isCompleted)) {
+      for (final g
+          in goals.where((g) => g.type == 'weight' && !g.isCompleted)) {
         await widget.goalRepo.updateProgress(g.id, weight);
       }
 

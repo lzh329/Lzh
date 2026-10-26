@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'active_workout_style.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页下部紧凑输入区（Keep「训练中」风格）。
 ///
 /// 横向一排名为「次数 / 重量 / 时长」的 dense 输入框，圆角 10，
@@ -41,8 +43,8 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
   final TextEditingController weightController;
   final TextEditingController durationController;
 
-  /// 工具行（由页面注入 [ActiveWorkoutToolRow]）
-  final Widget toolRow;
+  /// 工具行（可选；重构后移至训练设置弹层，传入时为内嵌模式）
+  final Widget? toolRow;
 
   const ActiveWorkoutEntryPanel({
     super.key,
@@ -59,7 +61,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
     required this.repsController,
     required this.weightController,
     required this.durationController,
-    required this.toolRow,
+    this.toolRow,
   });
 
   @override
@@ -89,7 +91,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
           _buildInputRow(),
           const SizedBox(height: 8),
         ],
-        toolRow,
+        if (toolRow != null) toolRow!,
       ],
     );
   }
@@ -190,7 +192,7 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
               hintText: hint,
               hintStyle: const TextStyle(
                 fontSize: 14,
-                color: Color(0x40FFFFFF),
+                color: AppColors.textTertiary,
               ),
               suffixText: suffix,
               suffixStyle: const TextStyle(
@@ -222,6 +224,8 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
   String _numberHint(String? last, double? target) {
     if (last != null && last.isNotEmpty) return last;
     if (target == null) return '60';
-    return target % 1 == 0 ? target.toStringAsFixed(0) : target.toStringAsFixed(1);
+    return target % 1 == 0
+        ? target.toStringAsFixed(0)
+        : target.toStringAsFixed(1);
   }
 }

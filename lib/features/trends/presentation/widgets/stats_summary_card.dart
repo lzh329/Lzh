@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 趋势页「行为统计」卡 —— 今日热量 / 今日饮水 / 本周训练
 ///
 /// 首页只保留任务，数值统计统一放这里。
@@ -17,10 +19,10 @@ class StatsSummaryCard extends StatelessWidget {
     this.weekWorkoutMinutes = 0,
   });
 
-  static const _purple = Color(0xFFC084FC);
-  static const _yellow = Color(0xFFFFC53D);
-  static const _blue = Color(0xFF38BDF8);
-  static const _orange = Color(0xFFFF8A00);
+  static const _purple = AppColors.analysis;
+  static const _yellow = AppColors.warning;
+  static const _blue = AppColors.info;
+  static const _orange = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -42,8 +44,7 @@ class StatsSummaryCard extends StatelessWidget {
                     color: _purple.withAlpha(32),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.bar_chart,
-                      size: 15, color: _purple),
+                  child: const Icon(Icons.bar_chart, size: 15, color: _purple),
                 ),
                 const SizedBox(width: 10),
                 Text('行为统计', style: theme.textTheme.titleSmall),
@@ -51,7 +52,7 @@ class StatsSummaryCard extends StatelessWidget {
                 Text(
                   '今日 · 本周',
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                      ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
                 ),
               ],
             ),
@@ -60,9 +61,8 @@ class StatsSummaryCard extends StatelessWidget {
               children: [
                 _Cell(
                   label: '今日热量',
-                  value: todayCalories != null
-                      ? '${todayCalories!.round()}'
-                      : '—',
+                  value:
+                      todayCalories != null ? '${todayCalories!.round()}' : '—',
                   unit: 'kcal',
                   color: _yellow,
                 ),
@@ -77,7 +77,9 @@ class StatsSummaryCard extends StatelessWidget {
                 _Cell(
                   label: '本周训练',
                   value: '$weekWorkoutCount',
-                  unit: weekWorkoutMinutes > 0 ? '次 · $weekWorkoutMinutes 分' : '次',
+                  unit: weekWorkoutMinutes > 0
+                      ? '次 · $weekWorkoutMinutes 分'
+                      : '次',
                   color: _orange,
                 ),
               ],
@@ -112,7 +114,7 @@ class _Cell extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall
-                ?.copyWith(fontSize: 10, color: theme.colorScheme.outline),
+                ?.copyWith(fontSize: 10, color: AppColors.textTertiary),
           ),
           const SizedBox(height: 5),
           Row(
@@ -132,8 +134,8 @@ class _Cell extends StatelessWidget {
               Flexible(
                 child: Text(
                   unit,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                      fontSize: 9.5, color: theme.colorScheme.outline),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(fontSize: 9.5, color: AppColors.textTertiary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -155,7 +157,7 @@ class _Divider extends StatelessWidget {
       width: 1,
       height: 32,
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      color: Colors.white.withAlpha(14),
+      color: AppColors.border,
     );
   }
 }

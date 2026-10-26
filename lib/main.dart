@@ -10,7 +10,8 @@ void main() async {
 
   // 从数据库加载提醒和主题设置
   final db = AppDatabase();
-  final settings = await (db.select(db.userSettings)..limit(1)).getSingleOrNull();
+  final settings =
+      await (db.select(db.userSettings)..limit(1)).getSingleOrNull();
 
   runApp(
     ProviderScope(

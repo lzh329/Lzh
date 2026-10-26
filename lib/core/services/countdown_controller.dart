@@ -8,7 +8,8 @@ class CountdownController {
   bool isActive = false;
 
   /// 开始倒计时，每秒 onTick；归零时调用 onComplete 并自动停止
-  void start(int totalSeconds, {
+  void start(
+    int totalSeconds, {
     required VoidCallback onComplete,
     VoidCallback? onTick,
   }) {

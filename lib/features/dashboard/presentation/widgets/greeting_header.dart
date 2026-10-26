@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 首页问候区 —— 咕嘎头像 + 时间段问候 + 日期 + 连续打卡徽章（非卡片，直接排版）
 class GreetingHeader extends StatelessWidget {
   final int streakDays;
@@ -21,7 +23,7 @@ class GreetingHeader extends StatelessWidget {
     this.upgradeHint,
   });
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -50,7 +52,7 @@ class GreetingHeader extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: AppColors.surface,
               border: Border.all(color: _green.withAlpha(90), width: 1.5),
             ),
             clipBehavior: Clip.antiAlias,
@@ -77,11 +79,9 @@ class GreetingHeader extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                upgradeHint != null
-                    ? '$dateLabel · $upgradeHint'
-                    : dateLabel,
+                upgradeHint != null ? '$dateLabel · $upgradeHint' : dateLabel,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: AppColors.textTertiary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -107,7 +107,7 @@ class GreetingHeader extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: _green,
+                    color: AppColors.primaryText,
                   ),
                 ),
               ],

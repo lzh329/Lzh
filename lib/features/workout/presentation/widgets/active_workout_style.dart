@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 训练执行页（Keep 训练中风格）统一视觉常量。
 ///
 /// 仅承载颜色 / 圆角 / 字号等视觉 token，不含任何业务逻辑，
@@ -8,35 +10,35 @@ import 'package:flutter/material.dart';
 class ActiveWorkoutStyle {
   const ActiveWorkoutStyle._();
 
-  /// 页面底色：近黑
-  static const Color background = Color(0xFF0F0D0C);
+  /// 页面底色：暖白
+  static const Color background = AppColors.background;
 
   /// 卡片底色
-  static const Color surface = Color(0xFF1B1713);
+  static const Color surface = AppColors.surface;
 
   /// 主色（按钮 / 计时数字 / 进度条）
-  static const Color green = Color(0xFFFF8A00);
+  static const Color green = AppColors.primary;
 
   /// 休息态强调色
-  static const Color orange = Color(0xFFFFC53D);
+  static const Color orange = AppColors.warning;
 
   /// 结束 / 放弃 类操作
-  static const Color danger = Color(0xFFEF5350);
+  static const Color danger = AppColors.danger;
 
   /// 主要文字
-  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textPrimary = AppColors.textPrimary;
 
   /// 辅助文字（12px 级别）
-  static const Color textSecondary = Color(0x99FFFFFF);
+  static const Color textSecondary = AppColors.textSecondary;
 
   /// 更弱的辅助文字（10-11px 级别）
-  static const Color textTertiary = Color(0x61FFFFFF);
+  static const Color textTertiary = AppColors.textTertiary;
 
   /// 细描边
-  static const Color border = Color(0x1FFFFFFF);
+  static const Color border = AppColors.border;
 
   /// 输入框底色
-  static const Color inputFill = Color(0xFF141414);
+  static const Color inputFill = AppColors.surfaceAlt;
 
   /// 主区大卡片圆角
   static const double cardRadius = 20;

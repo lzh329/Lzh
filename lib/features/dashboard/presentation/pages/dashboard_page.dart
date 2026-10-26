@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/guga_puppet.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/photo_compare_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
@@ -43,13 +47,13 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-class _DashboardBody extends StatelessWidget {
+class _DashboardBody extends ConsumerWidget {
   final DashboardData data;
 
   const _DashboardBody({required this.data});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final latest = data.latestMetric;
     final today = DateTime.now();
 
@@ -72,6 +76,13 @@ class _DashboardBody extends StatelessWidget {
     final todayWorkouts =
         data.allWorkouts.where((w) => _sameDay(w.date, today)).toList();
 
+    // 今日完成度（用于咕嘎台词）
+    final doneCount = [
+      data.todayMetric != null,
+      todayWorkouts.isNotEmpty,
+      data.todayPhoto != null,
+    ].where((d) => d).length;
+
     // 今日训练安排（计划排期）
     final activePlan = data.activePlan;
 
@@ -89,9 +100,21 @@ class _DashboardBody extends StatelessWidget {
                 ? null
                 : '距升级 ${guga.remainToNext!.toStringAsFixed(1)} 斤',
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 10),
 
-          // 2) 今日任务（首页唯一主区块）
+          // 2) 咕嘎站立区（2D 立绘 + 呼吸浮动 + 点击弹跳）
+          Center(
+            child: GugaPuppet(
+              headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
+              bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
+              height: 150,
+              lines: const ['今天也一起加油吧', '不错嘛，继续保持', '全部完成！抱抱！'],
+              lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 3) 今日任务（首页唯一主区块）
           TodayTasksCard(
             todayWeightJin: data.todayMetric != null
                 ? data.todayMetric!.weightKg * 2
@@ -99,7 +122,7 @@ class _DashboardBody extends StatelessWidget {
             latestWeightJin: currentJin,
             hasTraining: activePlan != null,
             workoutCount: todayWorkouts.length,
-            calories: data.todayCalories,
+            photoDone: data.todayPhoto != null,
             gugaAsset: guga.stage.asset,
             onWeight: () => context.push('/body'),
             onWorkout: () {
@@ -109,7 +132,7 @@ class _DashboardBody extends StatelessWidget {
                 context.push('/workout/quick-start');
               }
             },
-            onDiet: () => context.push('/diet'),
+            onPhoto: () => _capturePhoto(context, ref),
           ),
           const SizedBox(height: 12),
 
@@ -120,7 +143,7 @@ class _DashboardBody extends StatelessWidget {
             latestPath: data.latestPhoto?.filePath,
             latestDate: data.latestPhoto?.date,
             lossJin: totalLossJin > 0 ? totalLossJin : null,
-            onTap: () => context.push('/body/album'),
+            onTap: () => context.push('/body/compare'),
           ),
         ],
       ),
@@ -129,6 +152,29 @@ class _DashboardBody extends StatelessWidget {
 }
 
 // ───────────── 辅助函数 ─────────────
+
+/// 首页「今日图片」：拍照并保存为身体照片
+Future<void> _capturePhoto(BuildContext context, WidgetRef ref) async {
+  final picker = ImagePicker();
+  final file = await picker.pickImage(
+    source: ImageSource.camera,
+    maxWidth: 2000,
+    imageQuality: 92,
+  );
+  if (file == null) return;
+
+  await ref.read(photoRepoProvider).addPhoto(
+        date: DateTime.now(),
+        imageFile: File(file.path),
+      );
+  ref.invalidate(dashboardDataProvider);
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('今日图片已记录')),
+    );
+  }
+}
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;

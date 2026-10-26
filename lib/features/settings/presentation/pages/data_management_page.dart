@@ -3,13 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/features/settings/presentation/settings_actions.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 数据管理页 —— 导出 / 备份 / 恢复
 ///
 /// 低频功能从「我的」主页面收进这里，主页面保持轻量。
 class DataManagementPage extends ConsumerWidget {
   const DataManagementPage({super.key});
 
-  static const _grey = Color(0xFF9E9E9E);
+  static const _grey = AppColors.textTertiary;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

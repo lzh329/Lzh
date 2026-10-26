@@ -24,7 +24,8 @@ import 'package:fittrack/features/settings/domain/repositories/user_settings_rep
 import 'package:fittrack/features/settings/data/user_settings_repository_impl.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
 import 'package:fittrack/features/diet/data/diet_repository_impl.dart';
-import 'package:fittrack/features/water/data/water_repository_impl.dart' show WaterRepository, WaterRepositoryImpl;
+import 'package:fittrack/features/water/data/water_repository_impl.dart'
+    show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 
 // ── 数据库 ──
@@ -80,15 +81,11 @@ final waterRepoProvider = Provider<WaterRepository>((ref) {
 });
 
 // ── 主题模式 ──
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
+// 全站固定浅色主题，不再提供深色模式；保留 provider 仅为兼容初始化调用。
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 
 void initThemeMode(WidgetRef ref, {required String? themeMode}) {
-  final mode = switch (themeMode) {
-    'system' => ThemeMode.system,
-    // App 固定深色设计：'light' 与未知值都回退深色
-    _ => ThemeMode.dark,
-  };
-  ref.read(themeModeProvider.notifier).state = mode;
+  ref.read(themeModeProvider.notifier).state = ThemeMode.light;
 }
 
 // ── 首页数据 ──
@@ -120,6 +117,9 @@ class DashboardData {
   final Photo? firstPhoto;
   final Photo? latestPhoto;
 
+  /// 今天的身体照片（首页「今日图片」打卡）
+  final Photo? todayPhoto;
+
   const DashboardData({
     this.calendarWorkoutDates = const {},
     this.allWorkouts = const [],
@@ -139,6 +139,7 @@ class DashboardData {
     this.todayPlanItems = const [],
     this.firstPhoto,
     this.latestPhoto,
+    this.todayPhoto,
   });
 }
 
@@ -169,7 +170,9 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   final todayMetrics = await bodyRepo.getAll(from: todayStart, to: now);
   final todayMetric = todayMetrics.isNotEmpty ? todayMetrics.first : null;
   final todayCalories = await dietRepo.getDailyCalories(now);
-  final weighInDates = allMetrics.map((m) => DateTime(m.date.year, m.date.month, m.date.day)).toSet();
+  final weighInDates = allMetrics
+      .map((m) => DateTime(m.date.year, m.date.month, m.date.day))
+      .toSet();
   final todayCups = await waterRepo.getTodayCups();
   final weekWorkoutDays = recent
       .where((w) => !w.date.isBefore(monday))
@@ -190,9 +193,18 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   final photos = await ref.watch(photoRepoProvider).getAll();
   final latestPhoto = photos.isNotEmpty ? photos.first : null;
   final firstPhoto = photos.isNotEmpty ? photos.last : null;
+  final todayPhotos = photos
+      .where((p) =>
+          p.date.year == now.year &&
+          p.date.month == now.month &&
+          p.date.day == now.day)
+      .toList();
+  final todayPhoto = todayPhotos.isNotEmpty ? todayPhotos.first : null;
 
   return DashboardData(
-    calendarWorkoutDates: calWorkouts.map((w) => DateTime(w.date.year, w.date.month, w.date.day)).toSet(),
+    calendarWorkoutDates: calWorkouts
+        .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
+        .toSet(),
     allWorkouts: calWorkouts,
     recentWorkouts: recent.take(3).toList(),
     latestMetric: latestMetric,
@@ -210,16 +222,26 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
     todayPlanItems: todayPlanItems,
     firstPhoto: firstPhoto,
     latestPhoto: latestPhoto,
+    todayPhoto: todayPhoto,
   );
 });
 
 // ── 提醒设置 ──
+
+/// 训练历史（训练页「历史」分段 / 训练记录列表共用；保存训练后需 invalidate）
+final workoutHistoryProvider = FutureProvider<List<WorkoutEntity>>(
+    (ref) => ref.watch(workoutRepoProvider).getAll());
+
+/// 目标列表（保存训练会推进频率目标，需刷新）
+final goalListProvider = FutureProvider<List<GoalEntity>>(
+    (ref) => ref.watch(goalRepoProvider).getAll());
 final reminderEnabledProvider = StateProvider<bool>((ref) => false);
 final reminderHourProvider = StateProvider<int>((ref) => 8);
 final reminderMinuteProvider = StateProvider<int>((ref) => 0);
 
 /// 从 UserSettings 初始化提醒状态
-void initReminderState(WidgetRef ref, {bool enabled = false, int hour = 8, int minute = 0}) {
+void initReminderState(WidgetRef ref,
+    {bool enabled = false, int hour = 8, int minute = 0}) {
   ref.read(reminderEnabledProvider.notifier).state = enabled;
   ref.read(reminderHourProvider.notifier).state = hour;
   ref.read(reminderMinuteProvider.notifier).state = minute;

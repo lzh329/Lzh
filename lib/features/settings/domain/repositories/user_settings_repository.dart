@@ -19,6 +19,8 @@ abstract class UserSettingsRepository {
     String? themeMode,
     int? defaultTrainingSec,
     int? defaultRestSec,
+    int? restShortSec,
+    int? restLongSec,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

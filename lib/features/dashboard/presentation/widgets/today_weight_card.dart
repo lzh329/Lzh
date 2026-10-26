@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 首页「体重」卡 —— 大字 + 变化 + 目标进度 + 记录入口
 class TodayWeightCard extends StatelessWidget {
   final double? currentJin;
@@ -22,17 +24,19 @@ class TodayWeightCard extends StatelessWidget {
     required this.onTap,
   });
 
-  static const _orange = Color(0xFFFF8A00);
-  static const _green = Color(0xFF3DDC84);
-  static const _red = Color(0xFFEF5350);
+  static const _orange = AppColors.primary;
+  static const _green = AppColors.success;
+  static const _red = AppColors.danger;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final change = weekChangeJin;
     final changeColor = change == null
-        ? Colors.white54
-        : (change < -0.05 ? _green : (change > 0.05 ? _red : Colors.white54));
+        ? AppColors.textTertiary
+        : (change < -0.05
+            ? _green
+            : (change > 0.05 ? _red : AppColors.textTertiary));
     final remain = (targetJin != null && currentJin != null)
         ? (currentJin! - targetJin!).clamp(0.0, 999.0).toDouble()
         : null;
@@ -55,8 +59,8 @@ class TodayWeightCard extends StatelessWidget {
                     lastRecordedAt != null
                         ? '${DateFormat('M月d日 HH:mm').format(lastRecordedAt!)} 记录'
                         : '今天还没记录',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline, fontSize: 10),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
                   ),
                 ],
               ),
@@ -77,7 +81,7 @@ class TodayWeightCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text('斤',
                       style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
+                          ?.copyWith(color: AppColors.textTertiary)),
                   if (change != null) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -117,7 +121,7 @@ class TodayWeightCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: progress.clamp(0.0, 1.0),
                   minHeight: 5,
-                  backgroundColor: Colors.white.withAlpha(16),
+                  backgroundColor: AppColors.surfaceMuted,
                   color: _orange,
                 ),
               ),
@@ -127,7 +131,7 @@ class TodayWeightCard extends StatelessWidget {
                     ? '离目标还差 ${remain.toStringAsFixed(1)} 斤'
                     : '还没有设置目标体重',
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline, fontSize: 10),
+                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
             ],
           ),

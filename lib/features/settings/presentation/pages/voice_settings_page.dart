@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 语音教练设置页
 ///
 /// 从原设置页的语音卡片迁移而来，独立成页以便主设置页更清爽。
@@ -17,7 +19,7 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
   List<Map<String, String>> _voices = [];
   bool _voicesLoaded = false;
 
-  static const _green = Color(0xFFFF8A00);
+  static const _green = AppColors.primary;
 
   @override
   void initState() {
@@ -149,8 +151,7 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
                                         value: v['name'],
                                         child: Text(
                                           v['name'] ?? v['locale'] ?? '',
-                                          style:
-                                              const TextStyle(fontSize: 13),
+                                          style: const TextStyle(fontSize: 13),
                                         ),
                                       )),
                                 ],
@@ -177,7 +178,7 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black87,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: _preview,
               icon: const Icon(Icons.play_arrow, size: 20),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:fittrack/core/theme/app_colors.dart';
+
 /// 首页「今日训练」卡 —— 训练优先：今天该练什么 + 一键开始
 class TodayTrainingCard extends StatelessWidget {
   /// 计划名（无计划时为 null）
@@ -30,7 +32,7 @@ class TodayTrainingCard extends StatelessWidget {
     required this.onBrowse,
   });
 
-  static const _orange = Color(0xFFFF8A00);
+  static const _orange = AppColors.primary;
 
   @override
   Widget build(BuildContext context) {
@@ -84,11 +86,9 @@ class TodayTrainingCard extends StatelessWidget {
             Text(
               hasToday
                   ? '${itemLabels.take(3).join(' · ')}${itemLabels.length > 3 ? ' 等 ${itemLabels.length} 个动作' : ''}'
-                  : (hasPlan
-                      ? '想动一动？也可以直接选个模板'
-                      : '选一个模板，开始第一次训练'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline, height: 1.5),
+                  : (hasPlan ? '想动一动？也可以直接选个模板' : '选一个模板，开始第一次训练'),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: AppColors.textTertiary, height: 1.5),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -100,7 +100,7 @@ class TodayTrainingCard extends StatelessWidget {
                 onPressed: hasToday ? onStart : onBrowse,
                 style: FilledButton.styleFrom(
                   backgroundColor: _orange,
-                  foregroundColor: Colors.black,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -110,9 +110,7 @@ class TodayTrainingCard extends StatelessWidget {
                   size: 20,
                 ),
                 label: Text(
-                  hasToday
-                      ? '开始训练'
-                      : (hasPlan ? '选个模板' : '选一个模板'),
+                  hasToday ? '开始训练' : (hasPlan ? '选个模板' : '选一个模板'),
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
