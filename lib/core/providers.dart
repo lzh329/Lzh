@@ -27,9 +27,15 @@ import 'package:fittrack/features/diet/data/diet_repository_impl.dart';
 import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
+import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 
 // ── 数据库 ──
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+
+/// AI 教练聊天记录仓库
+final aiChatRepoProvider = Provider<AiChatRepository>((ref) {
+  return AiChatRepository(ref.watch(databaseProvider));
+});
 
 // ── 仓储 ──
 final exerciseRepoProvider = Provider<ExerciseRepository>((ref) {

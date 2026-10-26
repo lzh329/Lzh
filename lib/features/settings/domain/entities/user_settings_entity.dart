@@ -26,6 +26,9 @@ class UserSettingsEntity {
 
   /// 每周自动备份数据库（默认开）
   final bool autoBackupEnabled;
+
+  /// AI 教练：智谱 API Key（与 --dart-define 互补）
+  final String? aiApiKey;
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -53,6 +56,7 @@ class UserSettingsEntity {
     this.restShortSec,
     this.restLongSec,
     this.autoBackupEnabled = true,
+    this.aiApiKey,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,

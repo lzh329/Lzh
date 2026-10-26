@@ -22,6 +22,7 @@ abstract class UserSettingsRepository {
     int? restShortSec,
     int? restLongSec,
     bool? autoBackupEnabled,
+    String? aiApiKey,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

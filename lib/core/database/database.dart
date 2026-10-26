@@ -125,6 +125,8 @@ class UserSettings extends Table {
   // 每周自动备份数据库开关（默认开）
   BoolColumn get autoBackupEnabled =>
       boolean().withDefault(const Constant(true))();
+  // AI 教练：智谱开放平台 API Key（--dart-define 优先，此处兜底）
+  TextColumn get aiApiKey => text().nullable()();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -156,6 +158,15 @@ class WaterLog extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
   IntColumn get cups => integer()(); // 杯数（约200ml/杯）
+}
+
+// ─────────── v16: AI 教练聊天记录 ───────────
+
+class AiChatMessages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get role => text()(); // user / assistant
+  TextColumn get content => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 // ─────────── v12: 训练模板 ───────────
@@ -202,13 +213,14 @@ class WorkoutTemplateExercises extends Table {
     WaterLog,
     WorkoutTemplates,
     WorkoutTemplateExercises,
+    AiChatMessages,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 15; // v15: 自动备份开关（auto_backup_enabled）
+  int get schemaVersion => 16; // v16: AI 教练（聊天记录表 + api key 列）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -286,6 +298,11 @@ class AppDatabase extends _$AppDatabase {
           // v15: 自动备份开关
           if (from < 15) {
             await m.addColumn(userSettings, userSettings.autoBackupEnabled);
+          }
+          // v16: AI 教练 —— 聊天记录表 + API Key 设置列
+          if (from < 16) {
+            await m.createTable(aiChatMessages);
+            await m.addColumn(userSettings, userSettings.aiApiKey);
           }
         },
       );
