@@ -53,6 +53,8 @@ class AiToolSpecs {
   static const logWeight = 'log_weight';
   static const logWater = 'log_water';
   static const queryStats = 'query_stats';
+  static const logFood = 'log_food';
+  static const logWorkout = 'log_workout';
 
   /// 暴露给模型的工具清单（只读查询 + 两项写操作）
   static const defs = <Map<String, dynamic>>[
@@ -112,6 +114,62 @@ class AiToolSpecs {
         },
       },
     },
+    {
+      'type': 'function',
+      'function': {
+        'name': logFood,
+        'description': '记录用户吃了什么。需要你估算每 100 克热量后一起提交。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'food_name': {
+              'type': 'string',
+              'description': '食物名称，如"牛肉面""米饭"',
+            },
+            'grams': {
+              'type': 'number',
+              'description': '估算重量（克），1~2000',
+            },
+            'meal_type': {
+              'type': 'string',
+              'enum': ['breakfast', 'lunch', 'dinner', 'snack'],
+              'description': '餐次：早餐/午餐/晚餐/加餐',
+            },
+            'calories_per_100g': {
+              'type': 'number',
+              'description': '你估算的每 100 克热量（千卡），0~900',
+            },
+          },
+          'required': ['food_name', 'grams', 'meal_type', 'calories_per_100g'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': logWorkout,
+        'description': '记录用户完成的一次训练（自由度较高的记录，不细分每组动作）',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'workout_type': {
+              'type': 'string',
+              'enum': ['力量', '有氧', '拉伸', '其他'],
+              'description': '训练类型',
+            },
+            'minutes': {
+              'type': 'integer',
+              'description': '训练时长（分钟），1~300',
+            },
+            'note': {
+              'type': 'string',
+              'description': '训练内容简述，如"深蹲 4 组 × 12 次、卧推 4 组 × 10 次"',
+            },
+          },
+          'required': ['workout_type', 'minutes'],
+        },
+      },
+    },
   ];
 }
 
@@ -165,6 +223,92 @@ class AiToolArgs {
     final v = args['range'];
     final r = v is String ? v : 'week';
     return const ['week', 'month', 'all'].contains(r) ? r : 'week';
+  }
+
+  /// 食物名称（非空、长度合理）
+  static String foodName(Map<String, dynamic> args) {
+    final v = args['food_name'];
+    final name = v is String ? v.trim() : '';
+    if (name.isEmpty) throw const AiToolException('缺少食物名称');
+    if (name.length > 30) throw const AiToolException('食物名称太长');
+    return name;
+  }
+
+  /// 重量（克），1~2000
+  static double grams(Map<String, dynamic> args) {
+    final v = args['grams'];
+    final grams = v is num ? v.toDouble() : double.tryParse('$v');
+    if (grams == null) throw const AiToolException('缺少重量');
+    if (grams < 1 || grams > 2000) {
+      throw const AiToolException('重量不合理（应在 1~2000 克）');
+    }
+    return grams;
+  }
+
+  /// 每 100 克热量，0~900
+  static double caloriesPer100g(Map<String, dynamic> args) {
+    final v = args['calories_per_100g'];
+    final c = v is num ? v.toDouble() : double.tryParse('$v');
+    if (c == null) throw const AiToolException('缺少热量估算');
+    if (c < 0 || c > 900) {
+      throw const AiToolException('热量数值不合理（应在 0~900 千卡/100g）');
+    }
+    return c;
+  }
+
+  /// 餐次：非法或缺失时按当前时间推断
+  static String mealType(Map<String, dynamic> args) {
+    final raw = args['meal_type'];
+    if (raw is String && const ['breakfast', 'lunch', 'dinner', 'snack'].contains(raw)) {
+      return raw;
+    }
+    final hour = DateTime.now().hour;
+    if (hour < 10) return 'breakfast';
+    if (hour < 15) return 'lunch';
+    if (hour < 20) return 'dinner';
+    return 'snack';
+  }
+
+  static const mealLabels = {
+    'breakfast': '早餐',
+    'lunch': '午餐',
+    'dinner': '晚餐',
+    'snack': '加餐',
+  };
+
+  /// 训练类型：兼容中英文，未知归为"其他"
+  static String workoutType(Map<String, dynamic> args) {
+    final raw = args['workout_type'];
+    final v = raw is String ? raw.trim() : '';
+    if (const ['力量', '有氧', '拉伸', '其他'].contains(v)) return v;
+    const map = {
+      'strength': '力量',
+      'cardio': '有氧',
+      'stretch': '拉伸',
+      'stretching': '拉伸',
+      'other': '其他',
+    };
+    return map[v.toLowerCase()] ?? '其他';
+  }
+
+  /// 训练时长（分钟），1~300
+  static int minutes(Map<String, dynamic> args) {
+    final v = args['minutes'];
+    final m = v is num ? v.toInt() : int.tryParse('$v');
+    if (m == null) throw const AiToolException('缺少训练时长');
+    if (m < 1 || m > 300) {
+      throw const AiToolException('训练时长不合理（应在 1~300 分钟）');
+    }
+    return m;
+  }
+
+  /// 训练备注（可选，截断保护）
+  static String? workoutNote(Map<String, dynamic> args) {
+    final v = args['note'];
+    if (v is! String) return null;
+    final note = v.trim();
+    if (note.isEmpty) return null;
+    return note.length > 120 ? note.substring(0, 120) : note;
   }
 
   /// 日期展示：今天 / 昨天 / 10-24

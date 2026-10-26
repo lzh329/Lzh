@@ -110,4 +110,37 @@ class DietRepositoryImpl implements DietRepository {
     }
     return total;
   }
+
+  @override
+  Future<FoodLibraryEntity?> findFoodByName(String name) async {
+    final row = await (_db.select(_db.foodLibrary)
+          ..where((t) => t.name.equals(name.trim()))
+          ..limit(1))
+        .getSingleOrNull();
+    if (row == null) return null;
+    return FoodLibraryEntity(
+      id: row.id,
+      name: row.name,
+      caloriesPer100g: row.caloriesPer100g,
+      proteinPer100g: row.proteinPer100g,
+      fatPer100g: row.fatPer100g,
+      carbsPer100g: row.carbsPer100g,
+      category: row.category,
+      isCustom: row.isCustom,
+    );
+  }
+
+  @override
+  Future<int> addCustomFood({
+    required String name,
+    required double caloriesPer100g,
+    String category = 'other',
+  }) async {
+    return _db.into(_db.foodLibrary).insert(FoodLibraryCompanion.insert(
+          name: name.trim(),
+          caloriesPer100g: caloriesPer100g,
+          category: category,
+          isCustom: const Value(true),
+        ));
+  }
 }

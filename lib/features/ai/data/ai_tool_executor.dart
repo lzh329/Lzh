@@ -64,6 +64,32 @@ class AiToolExecutor {
           detail: range == 'week' ? '本周' : (range == 'month' ? '本月' : '全部'),
           needsConfirm: false,
         );
+      case AiToolSpecs.logFood:
+        final args = call.arguments;
+        final name = AiToolArgs.foodName(args);
+        final grams = AiToolArgs.grams(args);
+        final cal = AiToolArgs.caloriesPer100g(args);
+        final meal = AiToolArgs.mealType(args);
+        final kcal = cal * grams / 100;
+        return AiToolPreview(
+          call: call,
+          label: '记录饮食',
+          detail: '$name ${grams.round()}g · ${AiToolArgs.mealLabels[meal]}'
+              ' · 约 ${kcal.round()} 千卡',
+          needsConfirm: true,
+        );
+      case AiToolSpecs.logWorkout:
+        final args = call.arguments;
+        final type = AiToolArgs.workoutType(args);
+        final minutes = AiToolArgs.minutes(args);
+        final note = AiToolArgs.workoutNote(args);
+        return AiToolPreview(
+          call: call,
+          label: '记录训练',
+          detail: '$type训练 · $minutes 分钟'
+              '${note != null ? ' · $note' : ''}',
+          needsConfirm: true,
+        );
       default:
         throw AiToolException('不支持的操作：${call.name}');
     }
@@ -92,6 +118,58 @@ class AiToolExecutor {
 
       case AiToolSpecs.queryStats:
         return _queryStats(AiToolArgs.range(call.arguments));
+
+      case AiToolSpecs.logFood:
+        final args = call.arguments;
+        final name = AiToolArgs.foodName(args);
+        final grams = AiToolArgs.grams(args);
+        final cal = AiToolArgs.caloriesPer100g(args);
+        final meal = AiToolArgs.mealType(args);
+        // 食物库有同名就用现成的，没有则按模型估算值新建自定义食物
+        var food = await _dietRepo.findFoodByName(name);
+        var created = false;
+        if (food == null) {
+          final id = await _dietRepo.addCustomFood(
+              name: name, caloriesPer100g: cal);
+          food = await _dietRepo.getFoodById(id);
+          created = true;
+        }
+        if (food == null) throw const AiToolException('食物写入失败');
+        final now = DateTime.now();
+        await _dietRepo.addLog(
+          date: now,
+          foodId: food.id,
+          grams: grams,
+          mealType: meal,
+        );
+        return jsonEncode({
+          'ok': true,
+          'food': food.name,
+          'grams': grams,
+          'meal_type': meal,
+          'kcal_estimated': (food.caloriesPer100g * grams / 100).round(),
+          'new_food_created': created,
+        });
+
+      case AiToolSpecs.logWorkout:
+        final args = call.arguments;
+        final type = AiToolArgs.workoutType(args);
+        final minutes = AiToolArgs.minutes(args);
+        final note = AiToolArgs.workoutNote(args);
+        final now = DateTime.now();
+        await _workoutRepo.createWorkout(
+          date: now,
+          type: type,
+          note: note ?? 'AI 教练记录',
+          durationSec: minutes * 60,
+          sets: const [],
+        );
+        return jsonEncode({
+          'ok': true,
+          'type': type,
+          'minutes': minutes,
+          'date': _ymd(now),
+        });
 
       default:
         throw AiToolException('不支持的操作：${call.name}');

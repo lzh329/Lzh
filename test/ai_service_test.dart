@@ -202,6 +202,38 @@ void main() {
       expect(AiToolArgs.range({'range': 'xx'}), 'week');
       expect(AiToolArgs.range({}), 'week');
     });
+
+    test('饮食参数：名称/克数/热量校验', () {
+      expect(AiToolArgs.foodName({'food_name': ' 牛肉面 '}), '牛肉面');
+      expect(() => AiToolArgs.foodName({}), throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.grams({'grams': 250}), 250);
+      expect(() => AiToolArgs.grams({'grams': 0}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.grams({'grams': 5000}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.caloriesPer100g({'calories_per_100g': 116}), 116);
+      expect(() => AiToolArgs.caloriesPer100g({'calories_per_100g': 2000}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('餐次非法值按时间推断，且必为四选一', () {
+      expect(AiToolArgs.mealType({'meal_type': 'lunch'}), 'lunch');
+      const valid = ['breakfast', 'lunch', 'dinner', 'snack'];
+      expect(valid.contains(AiToolArgs.mealType({'meal_type': 'xx'})), isTrue);
+      expect(valid.contains(AiToolArgs.mealType({})), isTrue);
+    });
+
+    test('训练参数：类型归一化与时长校验', () {
+      expect(AiToolArgs.workoutType({'workout_type': '有氧'}), '有氧');
+      expect(AiToolArgs.workoutType({'workout_type': 'strength'}), '力量');
+      expect(AiToolArgs.workoutType({'workout_type': 'unknown'}), '其他');
+      expect(AiToolArgs.minutes({'minutes': 30}), 30);
+      expect(() => AiToolArgs.minutes({'minutes': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.minutes({'minutes': 999}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.workoutNote({'note': '  深蹲 4×12  '}), '深蹲 4×12');
+      expect(AiToolArgs.workoutNote({}), isNull);
+    });
   });
 
   group('parseToolCallDelta', () {
