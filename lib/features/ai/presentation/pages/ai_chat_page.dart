@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
@@ -86,6 +87,11 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: '教练设定',
+            icon: const Icon(Icons.tune),
+            onPressed: () => context.push('/ai/settings'),
+          ),
           IconButton(
             tooltip: 'API Key',
             icon: Icon(

@@ -95,12 +95,16 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 发起请求（基于当前历史 + 最新 system prompt）
   Future<void> _request() async {
     try {
-      final systemPrompt = await _buildSystemPrompt();
+      final settings = await _ref.read(userSettingsProvider.future);
+      final trends = await _ref.read(trendsDataProvider.future);
+      final systemPrompt =
+          AiPromptBuilder.build(trends: trends, settings: settings);
       state = state.copyWith(
           isStreaming: true, clearStreaming: true, clearError: true);
       final apiKey = _resolveKey()!;
       final reply = await AiService.streamChat(
         apiKey: apiKey,
+        temperature: (settings?.aiTemperature ?? 0.8).clamp(0.3, 1.0),
         messages: [
           AiMessage(role: 'system', content: systemPrompt),
           ...state.messages,
@@ -147,12 +151,6 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   String? _resolveKey() {
     final settings = _ref.read(userSettingsProvider).valueOrNull;
     return AiService.resolveKey(settings?.aiApiKey);
-  }
-
-  Future<String> _buildSystemPrompt() async {
-    final trends = await _ref.read(trendsDataProvider.future);
-    final settings = await _ref.read(userSettingsProvider.future);
-    return AiPromptBuilder.build(trends: trends, settings: settings);
   }
 }
 

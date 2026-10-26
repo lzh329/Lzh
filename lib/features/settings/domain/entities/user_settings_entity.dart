@@ -29,6 +29,18 @@ class UserSettingsEntity {
 
   /// AI 教练：智谱 API Key（与 --dart-define 互补）
   final String? aiApiKey;
+
+  /// AI 教练风格：guga（嘎式默认）/ gentle（温柔）/ strict（严厉）
+  final String? aiStyle;
+
+  /// 用户自定义约束（JSON 数组字符串，每条一句规则）
+  final String? aiConstraints;
+
+  /// 回复长度：short / medium / long
+  final String? aiReplyLength;
+
+  /// 自由度 temperature（0.3 ~ 1.0）
+  final double? aiTemperature;
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -57,6 +69,10 @@ class UserSettingsEntity {
     this.restLongSec,
     this.autoBackupEnabled = true,
     this.aiApiKey,
+    this.aiStyle,
+    this.aiConstraints,
+    this.aiReplyLength,
+    this.aiTemperature,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,

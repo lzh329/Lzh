@@ -37,6 +37,10 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     int? restLongSec,
     bool? autoBackupEnabled,
     String? aiApiKey,
+    String? aiStyle,
+    String? aiConstraints,
+    String? aiReplyLength,
+    double? aiTemperature,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,
@@ -87,6 +91,14 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             : const Value(true),
         aiApiKey:
             aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
+        aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
+        aiConstraints:
+            aiConstraints != null ? Value(aiConstraints) : const Value.absent(),
+        aiReplyLength:
+            aiReplyLength != null ? Value(aiReplyLength) : const Value.absent(),
+        aiTemperature: aiTemperature != null
+            ? Value(aiTemperature)
+            : const Value.absent(),
         dailyCalorieTarget: dailyCalorieTarget != null
             ? Value(dailyCalorieTarget)
             : const Value.absent(),
@@ -147,6 +159,16 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             aiApiKey: aiApiKey != null
                 ? Value(aiApiKey)
                 : const Value.absent(),
+            aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
+            aiConstraints: aiConstraints != null
+                ? Value(aiConstraints)
+                : const Value.absent(),
+            aiReplyLength: aiReplyLength != null
+                ? Value(aiReplyLength)
+                : const Value.absent(),
+            aiTemperature: aiTemperature != null
+                ? Value(aiTemperature)
+                : const Value.absent(),
             dailyCalorieTarget: dailyCalorieTarget != null
                 ? Value(dailyCalorieTarget)
                 : const Value.absent(),
@@ -197,6 +219,10 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         restLongSec: row.restLongSec,
         autoBackupEnabled: row.autoBackupEnabled,
         aiApiKey: row.aiApiKey,
+        aiStyle: row.aiStyle,
+        aiConstraints: row.aiConstraints,
+        aiReplyLength: row.aiReplyLength,
+        aiTemperature: row.aiTemperature,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,

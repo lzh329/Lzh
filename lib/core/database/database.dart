@@ -127,6 +127,12 @@ class UserSettings extends Table {
       boolean().withDefault(const Constant(true))();
   // AI 教练：智谱开放平台 API Key（--dart-define 优先，此处兜底）
   TextColumn get aiApiKey => text().nullable()();
+  // AI 教练调教设定：风格（guga/gentle/strict）、自定义约束（JSON 数组）、
+  // 回复长度（short/medium/long）、自由度 temperature
+  TextColumn get aiStyle => text().nullable()();
+  TextColumn get aiConstraints => text().nullable()();
+  TextColumn get aiReplyLength => text().nullable()();
+  RealColumn get aiTemperature => real().nullable()();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -220,7 +226,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 16; // v16: AI 教练（聊天记录表 + api key 列）
+  int get schemaVersion => 17; // v17: AI 教练调教设定（风格/约束/长度/温度）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -303,6 +309,13 @@ class AppDatabase extends _$AppDatabase {
           if (from < 16) {
             await m.createTable(aiChatMessages);
             await m.addColumn(userSettings, userSettings.aiApiKey);
+          }
+          // v17: AI 教练调教设定
+          if (from < 17) {
+            await m.addColumn(userSettings, userSettings.aiStyle);
+            await m.addColumn(userSettings, userSettings.aiConstraints);
+            await m.addColumn(userSettings, userSettings.aiReplyLength);
+            await m.addColumn(userSettings, userSettings.aiTemperature);
           }
         },
       );
