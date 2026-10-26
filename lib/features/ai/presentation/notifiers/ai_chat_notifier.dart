@@ -56,6 +56,9 @@ class AiChatState {
 class AiChatNotifier extends StateNotifier<AiChatState> {
   final Ref _ref;
 
+  /// 最近一次用户输入（失败后供「重试」复用，不重复入库）
+  String? _lastUserText;
+
   AiChatNotifier(this._ref) : super(const AiChatState()) {
     _init();
   }
@@ -76,18 +79,32 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
           error: '请先点右上角钥匙图标，配置 DeepSeek API Key');
       return;
     }
-    final userMsg = AiMessage(role: 'user', content: content);
-    final messages = [...state.messages, userMsg];
+    _lastUserText = content;
+    final messages = [...state.messages, AiMessage(role: 'user', content: content)];
     state = state.copyWith(messages: messages, clearError: true);
     await _ref.read(aiChatRepoProvider).add('user', content);
+    await _request();
+  }
 
+  /// 失败后重试上一条（用户消息已在历史里，不重复写入）
+  Future<void> retryLast() async {
+    if (_lastUserText == null || state.isStreaming) return;
+    await _request();
+  }
+
+  /// 发起请求（基于当前历史 + 最新 system prompt）
+  Future<void> _request() async {
     try {
       final systemPrompt = await _buildSystemPrompt();
-      state = state.copyWith(isStreaming: true, clearStreaming: true);
+      state = state.copyWith(
+          isStreaming: true, clearStreaming: true, clearError: true);
       final apiKey = _resolveKey()!;
       final reply = await AiService.streamChat(
         apiKey: apiKey,
-        messages: [AiMessage(role: 'system', content: systemPrompt), ...messages],
+        messages: [
+          AiMessage(role: 'system', content: systemPrompt),
+          ...state.messages,
+        ],
         onDelta: (delta) {
           state = state.copyWith(streamingText: state.streamingText + delta);
         },

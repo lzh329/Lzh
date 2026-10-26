@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- AI 教练需要联网调用 DeepSeek；Flutter 只在 debug/profile 清单自动加，release 必须显式声明 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="减肥嘎"
         android:name="${applicationName}"

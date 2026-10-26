@@ -55,9 +55,22 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       if (next.error != null && next.error != prev?.error) {
         final msg = next.error!;
         ref.read(aiChatProvider.notifier).consumeError();
+        final canRetry = !msg.contains('API Key') && !msg.contains('余额');
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(msg)));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              duration: const Duration(seconds: 5),
+              action: canRetry
+                  ? SnackBarAction(
+                      label: '重试',
+                      onPressed: () =>
+                          ref.read(aiChatProvider.notifier).retryLast(),
+                    )
+                  : null,
+            ),
+          );
       }
     });
 
