@@ -14,6 +14,9 @@ abstract class WaterRepository {
   Future<void> incrementCup();
   Future<void> decrementCup();
   Future<List<WaterLogEntry>> getHistory();
+
+  /// 直接设置今日杯数（AI 教练记录用）：无记录则新建，有记录则覆盖
+  Future<void> setTodayCups(int cups);
 }
 
 class WaterRepositoryImpl implements WaterRepository {
@@ -89,5 +92,24 @@ class WaterRepositoryImpl implements WaterRepository {
     return rows
         .map((r) => WaterLogEntry(id: r.id, date: r.date, cups: r.cups))
         .toList();
+  }
+
+  @override
+  Future<void> setTodayCups(int cups) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(const Duration(days: 1));
+    final existing = await (_db.select(_db.waterLog)
+          ..where((t) =>
+              t.date.isBiggerOrEqualValue(start) &
+              t.date.isSmallerThanValue(end)))
+        .getSingleOrNull();
+    if (existing != null) {
+      await (_db.update(_db.waterLog)..where((t) => t.id.equals(existing.id)))
+          .write(WaterLogCompanion(cups: Value(cups)));
+    } else {
+      await _db.into(_db.waterLog).insert(
+          WaterLogCompanion(date: Value(now), cups: Value(cups)));
+    }
   }
 }

@@ -102,21 +102,7 @@ class _DashboardBody extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
 
-          // 2) 咕嘎站立区（2D 立绘 + 呼吸浮动 + 点击进入 AI 教练）
-          Center(
-            child: GugaPuppet(
-              headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
-              bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
-              height: 150,
-              lines: const ['点我聊聊，我在听', '今天吃啥好？问我', '训练有疑问？戳我'],
-              lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
-              isChatEntry: true,
-              onTap: () => context.push('/ai/coach'),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 3) 今日任务（首页唯一主区块）
+          // 2) 今日任务（打卡方块，紧跟问候区）
           TodayTasksCard(
             todayWeightJin: data.todayMetric != null
                 ? data.todayMetric!.weightKg * 2
@@ -136,7 +122,21 @@ class _DashboardBody extends ConsumerWidget {
             },
             onPhoto: () => _capturePhoto(context, ref),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // 3) 咕嘎站立区（点头像找 AI 教练）
+          Center(
+            child: GugaPuppet(
+              headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
+              bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
+              height: 150,
+              lines: const ['点我聊聊，我在听', '今天吃啥好？问我', '训练有疑问？戳我'],
+              lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
+              isChatEntry: true,
+              onTap: () => context.push('/ai/coach'),
+            ),
+          ),
+          const SizedBox(height: 14),
 
           // 3) 身体变化对比（最早 vs 最新）
           PhotoCompareCard(

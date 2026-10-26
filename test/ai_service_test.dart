@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
+import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
@@ -153,6 +158,130 @@ void main() {
       expect(prompt, contains('不做医疗诊断'));
       expect(prompt, contains('1200 千卡'));
       expect(prompt, contains('不用 Markdown'));
+    });
+  });
+
+  group('AiToolArgs 参数校验', () {
+    test('体重斤 → 公斤，且限制 40~600 斤', () {
+      expect(AiToolArgs.weightKg({'weight_jin': 160}), 80);
+      expect(AiToolArgs.weightJin({'weight_jin': 161.0}), 161.0);
+      expect(() => AiToolArgs.weightKg({}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.weightKg({'weight_jin': 10}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.weightKg({'weight_jin': 800}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('杯数限制 1~30', () {
+      expect(AiToolArgs.cups({'cups': 6}), 6);
+      expect(() => AiToolArgs.cups({'cups': 0}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.cups({'cups': 50}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.cups({}), throwsA(isA<AiToolException>()));
+    });
+
+    test('日期默认今天、拒绝未来与过久', () {
+      final today = DateTime.now();
+      final d = AiToolArgs.date({});
+      expect(d.day, DateTime(today.year, today.month, today.day).day);
+
+      expect(
+          () => AiToolArgs.date(
+              {'date': today.add(const Duration(days: 1)).toIso8601String()}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.date({'date': 'not-a-date'}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.date(
+              {'date': today.subtract(const Duration(days: 400)).toIso8601String()}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('统计范围非法值回落到 week', () {
+      expect(AiToolArgs.range({'range': 'month'}), 'month');
+      expect(AiToolArgs.range({'range': 'xx'}), 'week');
+      expect(AiToolArgs.range({}), 'week');
+    });
+  });
+
+  group('parseToolCallDelta', () {
+    test('解析首片（id + name）', () {
+      const line =
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"log_weight","arguments":""}}]}}]}';
+      final d = AiService.parseToolCallDelta(line);
+      expect(d, isNotNull);
+      expect(d!.id, 'call_1');
+      expect(d.name, 'log_weight');
+    });
+
+    test('解析参数分片', () {
+      const line =
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"weight_jin\\":161}"}}]}}]}';
+      final d = AiService.parseToolCallDelta(line);
+      expect(d!.arguments, '{"weight_jin":161}');
+      expect(d.name, isNull);
+    });
+
+    test('普通内容帧返回 null', () {
+      expect(
+          AiService.parseToolCallDelta(
+              'data: {"choices":[{"delta":{"content":"hi"}}]}'),
+          isNull);
+      expect(AiService.parseToolCallDelta('data: [DONE]'), isNull);
+    });
+  });
+
+  group('streamChat 工具调用（mock 流式响应）', () {
+    test('分片工具调用被拼接成完整调用，且请求带上 tools', () async {
+      late String requestBody;
+      final client = MockClient.streaming((request, bodyStream) async {
+        requestBody = await bodyStream.bytesToString();
+        final chunks = [
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"log_weight","arguments":""}}]}}]}\n\n',
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"weight_jin\\":160}"}}]}}]}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return http.StreamedResponse(
+            Stream.fromIterable(chunks.map(utf8.encode)), 200);
+      });
+
+      final result = await AiService.streamChat(
+        apiKey: 'test-key',
+        messages: const [AiMessage(role: 'user', content: '160 斤')],
+        tools: AiToolSpecs.defs,
+        onDelta: (_) {},
+        client: client,
+      );
+
+      expect(result.toolCalls, hasLength(1));
+      expect(result.toolCalls.first.id, 'call_1');
+      expect(result.toolCalls.first.name, 'log_weight');
+      expect(result.toolCalls.first.arguments['weight_jin'], 160);
+      expect(requestBody, contains('"tools"'));
+      expect(requestBody, contains('"tool_choice":"auto"'));
+    });
+
+    test('普通文本流式回复正常返回', () async {
+      final client = MockClient.streaming((request, bodyStream) async {
+        final chunks = [
+          'data: {"choices":[{"delta":{"content":"今天"}}]}\n\n',
+          'data: {"choices":[{"delta":{"content":"练腿"}}]}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return http.StreamedResponse(
+            Stream.fromIterable(chunks.map(utf8.encode)), 200);
+      });
+
+      final deltas = <String>[];
+      final result = await AiService.streamChat(
+        apiKey: 'test-key',
+        messages: const [AiMessage(role: 'user', content: '练什么')],
+        onDelta: deltas.add,
+        client: client,
+      );
+      expect(result.content, '今天练腿');
+      expect(result.toolCalls, isEmpty);
+      expect(deltas.join(), '今天练腿');
     });
   });
 }

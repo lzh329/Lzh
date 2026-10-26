@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
+import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
@@ -118,15 +119,23 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         children: [
           if (!chat.hasKey) const _ApiKeyCard(),
           Expanded(
-            child: chat.messages.isEmpty && chat.streamingText.isEmpty
+            child: chat.messages.isEmpty &&
+                    chat.streamingText.isEmpty &&
+                    chat.pendingTool == null
                 ? _EmptyHint(
                     onTap: _send, prompts: _quickPrompts, headAsset: headAsset)
                 : _MessageList(chat: chat, headAsset: headAsset),
           ),
+          if (chat.pendingTool != null)
+            _ToolConfirmCard(
+              preview: chat.pendingTool!,
+              onConfirm: () => ref.read(aiChatProvider.notifier).confirmTool(),
+              onCancel: () => ref.read(aiChatProvider.notifier).cancelTool(),
+            ),
           _InputBar(
             controller: _inputCtrl,
             focusNode: _focusNode,
-            isStreaming: chat.isStreaming,
+            isStreaming: chat.isBusy,
             onSend: () => _send(),
           ),
         ],
@@ -397,6 +406,66 @@ class _ApiKeyCard extends StatelessWidget {
               '尚未配置 AI Key。点右上角钥匙图标，粘贴 DeepSeek 开放平台的 API Key 即可开始。',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 写操作确认卡 —— AI 想改数据时必须由你点头
+class _ToolConfirmCard extends StatelessWidget {
+  final AiToolPreview preview;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _ToolConfirmCard({
+    required this.preview,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withAlpha(14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit_note, size: 18, color: AppColors.primaryText),
+              const SizedBox(width: 6),
+              Text('嘎教练想${preview.label}',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(preview.detail,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: onCancel, child: const Text('取消')),
+              const SizedBox(width: 6),
+              FilledButton(
+                onPressed: onConfirm,
+                child: const Text('确认记录'),
+              ),
+            ],
           ),
         ],
       ),

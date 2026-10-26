@@ -3,12 +3,47 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// 聊天消息（OpenAI 兼容格式）
+import 'package:fittrack/features/ai/domain/ai_tool.dart';
+
+/// 聊天消息（OpenAI 兼容格式，支持工具调用）
 class AiMessage {
-  final String role; // system / user / assistant
+  final String role; // system / user / assistant / tool
   final String content;
 
-  const AiMessage({required this.role, required this.content});
+  /// assistant 请求的工具调用（仅 role=assistant 时使用）
+  final List<AiToolCall>? toolCalls;
+
+  /// tool 消息回传时的调用 id（仅 role=tool 时使用）
+  final String? toolCallId;
+
+  const AiMessage({
+    required this.role,
+    required this.content,
+    this.toolCalls,
+    this.toolCallId,
+  });
+
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{'role': role, 'content': content};
+    if (toolCalls != null && toolCalls!.isNotEmpty) {
+      map['tool_calls'] = toolCalls!
+          .map((c) => {
+                'id': c.id,
+                'type': 'function',
+                'function': {'name': c.name, 'arguments': c.argumentsJson},
+              })
+          .toList();
+    }
+    if (toolCallId != null) map['tool_call_id'] = toolCallId!;
+    return map;
+  }
+}
+
+/// 一轮流式结果：正文 + 模型请求的工具调用
+class AiStreamResult {
+  final String content;
+  final List<AiToolCall> toolCalls;
+  const AiStreamResult({required this.content, this.toolCalls = const []});
 }
 
 /// DeepSeek 聊天服务（OpenAI 兼容）
@@ -36,11 +71,12 @@ class AiService {
     return null;
   }
 
-  /// 流式对话：返回完整回复文本（同时通过 [onDelta] 逐段回调）
-  static Future<String> streamChat({
+  /// 流式对话：返回正文与工具调用（同时通过 [onDelta] 逐段回调正文）
+  static Future<AiStreamResult> streamChat({
     required String apiKey,
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
+    List<Map<String, dynamic>>? tools,
     double temperature = 0.8,
     int maxTokens = 2048,
     http.Client? client,
@@ -52,6 +88,7 @@ class AiService {
         apiKey: apiKey,
         messages: messages,
         onDelta: onDelta,
+        tools: tools,
         temperature: temperature,
         maxTokens: maxTokens,
       );
@@ -65,6 +102,7 @@ class AiService {
           apiKey: apiKey,
           messages: messages,
           onDelta: onDelta,
+          tools: tools,
           temperature: temperature,
           maxTokens: maxTokens,
         );
@@ -79,38 +117,44 @@ class AiService {
     }
   }
 
-  static Future<String> _sendOnce({
+  static Future<AiStreamResult> _sendOnce({
     required http.Client httpClient,
     required String apiKey,
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
+    required List<Map<String, dynamic>>? tools,
     required double temperature,
     required int maxTokens,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'model': _model,
+        'messages': messages.map((m) => m.toJson()).toList(),
+        'stream': true,
+        'temperature': temperature,
+        'max_tokens': maxTokens,
+      };
+      if (tools != null && tools.isNotEmpty) {
+        body['tools'] = tools;
+        body['tool_choice'] = 'auto';
+      }
+
       final req = http.Request('POST', Uri.parse('$_baseUrl/chat/completions'))
         ..headers['Authorization'] = 'Bearer $apiKey'
         ..headers['Content-Type'] = 'application/json'
-        ..body = jsonEncode({
-          'model': _model,
-          'messages': messages
-              .map((m) => {'role': m.role, 'content': m.content})
-              .toList(),
-          'stream': true,
-          'temperature': temperature,
-          'max_tokens': maxTokens,
-        });
+        ..body = jsonEncode(body);
 
       final res = await httpClient.send(req);
       if (res.statusCode != 200) {
-        final body = await res.stream.bytesToString();
+        final errBody = await res.stream.bytesToString();
         throw AiServiceException(
-          _httpErrorMessage(res.statusCode, body),
-          body: body,
+          _httpErrorMessage(res.statusCode, errBody),
+          body: errBody,
         );
       }
 
       final buffer = StringBuffer();
+      final toolAcc = <int, _ToolAcc>{};
       var done = false;
       await for (final chunk in res.stream
           .transform(utf8.decoder)
@@ -120,15 +164,35 @@ class AiService {
           break;
         }
         final delta = parseSseLine(chunk);
-        if (delta == null || delta.isEmpty) continue;
-        buffer.write(delta);
-        onDelta(delta);
+        if (delta != null && delta.isNotEmpty) {
+          buffer.write(delta);
+          onDelta(delta);
+        }
+        final tc = parseToolCallDelta(chunk);
+        if (tc != null) {
+          final acc = toolAcc.putIfAbsent(tc.index, () => _ToolAcc());
+          if (tc.id != null && tc.id!.isNotEmpty) acc.id = tc.id!;
+          if (tc.name != null && tc.name!.isNotEmpty) acc.name = tc.name!;
+          if (tc.arguments != null) acc.arguments.write(tc.arguments);
+        }
       }
       final text = buffer.toString();
-      if (text.isEmpty && !done) {
+      final calls = toolAcc.entries
+          .where((e) => e.value.name != null)
+          .toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      final toolCalls = [
+        for (final e in calls)
+          AiToolCall(
+            id: e.value.id ?? 'call_${e.key}',
+            name: e.value.name!,
+            argumentsJson: e.value.arguments.toString(),
+          ),
+      ];
+      if (text.isEmpty && !done && toolCalls.isEmpty) {
         throw const AiServiceException('模型没有返回内容，稍后再试');
       }
-      return text;
+      return AiStreamResult(content: text, toolCalls: toolCalls);
     } on AiServiceException {
       rethrow;
     } catch (e) {
@@ -206,6 +270,53 @@ class AiService {
       return '';
     }
   }
+
+  /// 解析单行 SSE 中的工具调用增量（流式分片拼接）
+  static ToolCallDelta? parseToolCallDelta(String line) {
+    final trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return null;
+    final data = trimmed.substring(5).trim();
+    if (data.isEmpty || data == '[DONE]') return null;
+    try {
+      final json = jsonDecode(data) as Map<String, dynamic>;
+      final choices = json['choices'] as List<dynamic>?;
+      if (choices == null || choices.isEmpty) return null;
+      final delta = choices.first['delta'] as Map<String, dynamic>?;
+      final calls = delta?['tool_calls'] as List<dynamic>?;
+      if (calls == null || calls.isEmpty) return null;
+      final tc = calls.first as Map<String, dynamic>;
+      final fn = tc['function'] as Map<String, dynamic>?;
+      return ToolCallDelta(
+        index: (tc['index'] as num?)?.toInt() ?? 0,
+        id: tc['id'] as String?,
+        name: fn?['name'] as String?,
+        arguments: fn?['arguments'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// 流式工具调用增量
+class ToolCallDelta {
+  final int index;
+  final String? id;
+  final String? name;
+  final String? arguments;
+
+  const ToolCallDelta({
+    required this.index,
+    this.id,
+    this.name,
+    this.arguments,
+  });
+}
+
+class _ToolAcc {
+  String? id;
+  String? name;
+  final StringBuffer arguments = StringBuffer();
 }
 
 /// AI 服务统一异常（上层据此展示可读错误）
