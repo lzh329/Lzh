@@ -605,10 +605,107 @@ class AiToolArgs {
     );
   }
 
-  // ───────────── create_exercises（批量新增动作） ─────────────
-
-  /// 一次最多新增的动作数（再多就该拆成两轮说）
+  /// 一次最多新增的动作数（再多就该拆成两轮说；create_exercises 用）
   static const maxBatchExercises = 10;
+
+  // ───────────── web_search（联网搜索） ─────────────
+
+  /// 联网搜索关键词长度上限（DeepSeek 官方限制 1~128）
+  static const maxWebQueryLength = 128;
+
+  /// 联网搜索默认条数 / 上限（模型一次最多要 10 条，实际回传再压到 5 条）
+  static const defaultWebSearchCount = 5;
+  static const maxWebSearchCount = 10;
+
+  /// 联网搜索关键词：非空、≤128 字
+  static String webSearchQuery(Map<String, dynamic> args) {
+    final raw = args['query'];
+    final q = raw is String ? raw.trim() : '';
+    if (q.isEmpty) throw const AiToolException('缺少搜索关键词');
+    if (q.length > maxWebQueryLength) {
+      throw const AiToolException('搜索关键词太长（128 字以内）');
+    }
+    return q;
+  }
+
+  /// 联网搜索条数：缺失默认 5，越界（1~10）抛异常
+  static int webSearchCount(Map<String, dynamic> args) {
+    final raw = args['count'];
+    if (raw == null || (raw is String && raw.trim().isEmpty)) {
+      return defaultWebSearchCount;
+    }
+    final v = lenientIntOf(raw);
+    if (v == null) throw const AiToolException('搜索条数格式不正确');
+    if (v < 1 || v > maxWebSearchCount) {
+      throw const AiToolException(
+          '搜索条数不合理（应在 1~$maxWebSearchCount 条）');
+    }
+    return v;
+  }
+
+  // ───────────── fetch_url（读取网页） ─────────────
+
+  /// 链接长度上限（官方限制 8192，App 侧收紧到 2048：正常文章链接远小于此）
+  static const maxUrlLength = 2048;
+
+  /// 链接不合法（协议 / 内网 / 带账号密码）时的统一文案
+  static const unsafeUrlMessage = '这个链接不能抓取（内网或格式不支持）';
+
+  /// 抓取链接的校验：只放行公网 http/https
+  ///
+  /// 拦的是「模型被诱导去读内网 / 本机」这类风险：
+  /// - 协议必须是 http / https（拒绝 ftp:、file:、javascript: 等）
+  /// - 必须带 host，且不能含用户名密码（`user:pass@host`）
+  /// - host 不能是 localhost / 私有网段 / 链路本地 / IPv6 回环 / `.local`
+  static Uri fetchUrl(Map<String, dynamic> args) {
+    final raw = args['url'];
+    final text = raw is String ? raw.trim() : '';
+    if (text.isEmpty) throw const AiToolException('缺少网页链接');
+    if (text.length > maxUrlLength) throw const AiToolException(unsafeUrlMessage);
+    final uri = Uri.tryParse(text);
+    if (uri == null) throw const AiToolException(unsafeUrlMessage);
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') {
+      throw const AiToolException(unsafeUrlMessage);
+    }
+    if (uri.host.isEmpty) throw const AiToolException(unsafeUrlMessage);
+    if (uri.userInfo.isNotEmpty) throw const AiToolException(unsafeUrlMessage);
+    if (!isPublicHost(uri.host)) throw const AiToolException(unsafeUrlMessage);
+    return uri;
+  }
+
+  /// host 是否指向公网（纯函数，便于单测）
+  static bool isPublicHost(String host) {
+    var h = host.trim().toLowerCase();
+    // IPv6 的方括号：不同平台 / 写法下可能带也可能不带
+    if (h.startsWith('[') && h.endsWith(']')) {
+      h = h.substring(1, h.length - 1);
+    }
+    if (h.isEmpty) return false;
+    if (h == 'localhost' || h.endsWith('.localhost')) return false;
+    if (h.endsWith('.local')) return false;
+    if (h == '::1' || h == '0:0:0:0:0:0:0:1') return false;
+    if (h == '::' || h.endsWith('::1')) return false;
+    if (h.startsWith('fe80:')) return false;
+
+    final parts = h.split('.');
+    if (parts.length == 4) {
+      final octets = [for (final p in parts) int.tryParse(p)];
+      // 不是点分十进制：按域名处理（交给下面的单段判断）
+      if (octets.any((o) => o == null || o < 0 || o > 255)) return h.contains('.');
+      final a = octets[0]!;
+      final b = octets[1]!;
+      if (a == 0 || a == 10 || a == 127) return false; // 0.0.0.0 / 10/8 / 回环
+      if (a == 169 && b == 254) return false; // 链路本地
+      if (a == 192 && b == 168) return false; // 192.168/16
+      if (a == 172 && b >= 16 && b <= 31) return false; // 172.16~31/12
+      return true;
+    }
+    // 单段主机名（如 http://intranet）几乎都指向内网，一律拒绝
+    return h.contains('.');
+  }
+
+  // ───────────── create_exercises（批量新增动作） ─────────────
 
   /// 批量新增动作的入参：1~[maxBatchExercises] 个
   ///

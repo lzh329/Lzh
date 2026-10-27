@@ -12,6 +12,7 @@ import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_settings_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
@@ -720,15 +721,15 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('17 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('19 个工具、名称唯一、读写两类正好覆盖全部', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(17));
-      expect(names.toSet(), hasLength(17));
+      expect(names, hasLength(19));
+      expect(names.toSet(), hasLength(19));
       expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(17));
+          hasLength(19));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -765,6 +766,8 @@ void main() {
           ]));
       // 第四批新增 1 个（批量加动作）
       expect(names, containsAll(['create_exercises']));
+      // 第五批新增 2 个（联网搜索 / 读网页，只读自动执行）
+      expect(names, containsAll(['web_search', 'fetch_url']));
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -829,7 +832,7 @@ void main() {
   // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
 
   group('工具清单一致性', () {
-    test('17 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
+    test('19 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
       expect(_defToolNames(), {
         AiToolSpecs.logWeight,
         AiToolSpecs.logWater,
@@ -845,6 +848,8 @@ void main() {
         AiToolSpecs.queryStats,
         AiToolSpecs.searchFood,
         AiToolSpecs.queryExercises,
+        AiToolSpecs.webSearch,
+        AiToolSpecs.fetchUrl,
         AiToolSpecs.createExercise,
         AiToolSpecs.createExercises,
         AiToolSpecs.createTemplate,
@@ -864,11 +869,14 @@ void main() {
           reason: '危险工具必须同时是写操作（必须走确认卡）');
       expect({...write, ...readOnly, ...destructive}, all, reason: '三集合并集必须覆盖全部工具');
       expect(write.length + readOnly.length, all.length, reason: '写 + 只读应正好划分全部工具');
-      expect(readOnly, hasLength(3),
-          reason: '只允许 query_stats / search_food / query_exercises 自动执行');
+      expect(readOnly, hasLength(5),
+          reason: '只允许 query_stats / search_food / query_exercises / '
+              'web_search / fetch_url 自动执行');
       expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
           reason: '危险工具仍然只有 delete_records');
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.queryExercises), isTrue);
+      expect(AiToolSpecs.isReadOnly(AiToolSpecs.webSearch), isTrue);
+      expect(AiToolSpecs.isReadOnly(AiToolSpecs.fetchUrl), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.createExercise), isFalse);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.createTemplate), isFalse);
       expect(write, contains(AiToolSpecs.createExercise));
@@ -876,10 +884,11 @@ void main() {
       expect(write, contains(AiToolSpecs.createTemplate));
     });
 
-    test('五组 handler 白名单互不重叠，并集 = defs', () {
+    test('六组 handler 白名单互不重叠，并集 = defs', () {
       final repos = _fakeReposWithData();
       final groups = <Set<String>>[
         AiToolReaders(repos).toolNames,
+        AiToolWebReaders(repos).toolNames,
         AiToolWriters(repos).toolNames,
         AiToolSettingsWriters(repos).toolNames,
         AiToolAdminWriters(repos).toolNames,
@@ -2019,6 +2028,8 @@ const _validArgs = <String, Map<String, dynamic>>{
   AiToolSpecs.queryStats: {'range': 'week'},
   AiToolSpecs.searchFood: {'query': '牛肉面'},
   AiToolSpecs.queryExercises: {'query': '深蹲'},
+  AiToolSpecs.webSearch: {'query': 'DeepSeek 网页搜索 API', 'count': 3},
+  AiToolSpecs.fetchUrl: {'url': 'https://example.com/article'},
   AiToolSpecs.createExercise: {
     'name': '保加利亚分腿蹲',
     'category': '器械',

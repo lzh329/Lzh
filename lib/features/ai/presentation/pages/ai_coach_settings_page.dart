@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/core/services/web_tools_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
@@ -259,6 +260,13 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 const SizedBox(height: 24),
                 const Text(
                   '设定改完立刻保存，下一条消息生效。想让语气更准，建议先清空聊天记录再试。',
+                  style: TextStyle(
+                      fontSize: 11, color: AppColors.textTertiary, height: 1.5),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  // 与服务层共用同一句话，改价只改一处
+                  WebToolsService.priceNote,
                   style: TextStyle(
                       fontSize: 11, color: AppColors.textTertiary, height: 1.5),
                 ),

@@ -29,11 +29,23 @@ class AiToolSpecs {
   static const searchFood = 'search_food';
   static const queryExercises = 'query_exercises';
 
+  // ── 联网类（只读，自动执行） ──
+  static const webSearch = 'web_search';
+  static const fetchUrl = 'fetch_url';
+
   /// 危险工具（删除数据）：确认卡必须用警示样式
   static const Set<String> destructiveTools = {deleteRecords};
 
   /// 只读工具：无需用户确认，直接执行
-  static const Set<String> readOnlyTools = {queryStats, searchFood, queryExercises};
+  ///
+  /// 联网搜索 / 读网页也只读：不碰本地数据，不需要确认卡。
+  static const Set<String> readOnlyTools = {
+    queryStats,
+    searchFood,
+    queryExercises,
+    webSearch,
+    fetchUrl,
+  };
 
   /// 需要用户确认的写操作
   static const Set<String> writeTools = {
@@ -57,7 +69,7 @@ class AiToolSpecs {
 
   static bool isReadOnly(String name) => readOnlyTools.contains(name);
 
-  /// 暴露给模型的工具清单（17 个：14 个写操作 + 3 个只读查询）
+  /// 暴露给模型的工具清单（19 个：14 个写操作 + 5 个只读工具）
   ///
   /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：
   /// 空数组会被部分 OpenAI 兼容网关判为非法 schema 并返回 400，直接省略该键即可。
@@ -526,6 +538,47 @@ class AiToolSpecs {
             },
           },
           'required': ['name', 'difficulty', 'focus', 'minutes', 'items'],
+        },
+      },
+    },
+    // ───────── 联网类（只读，自动执行） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': webSearch,
+        'description': '联网搜索最新信息（只读）。新闻、价格、赛事、政策、产品发布这类'
+            '有时效性的事实先搜一下，别凭记忆答。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'query': {
+              'type': 'string',
+              'description': '搜索关键词，1~128 字，写清楚要查什么',
+            },
+            'count': {
+              'type': 'integer',
+              'description': '要几条结果，1~10，默认 5；回传给模型的最多 5 条',
+            },
+          },
+          'required': ['query'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': fetchUrl,
+        'description': '读取一个公开网页的正文（只读，返回 Markdown）。用户发来链接、'
+            '或需要看搜索结果全文时调用。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'url': {
+              'type': 'string',
+              'description': '要读取的网址，必须是 http / https 公网链接（内网地址读不了）',
+            },
+          },
+          'required': ['url'],
         },
       },
     },
