@@ -203,6 +203,16 @@ class WorkoutTemplateExercises extends Table {
 
 // ───────────────────── 数据库 ─────────────────────
 
+/// 数据库迁移 SQL 常量（便于单测锁住行为）
+class AiStyleMigration {
+  AiStyleMigration._();
+
+  /// v18：把老的默认风格 guga 一次性切到豆包感
+  /// （guga 长期是默认值，大概率不是用户主动选择；用户仍可在「教练设定」改回）
+  static const sqlLegacyGugaToDoubao =
+      "UPDATE user_settings SET ai_style = 'doubao' WHERE ai_style = 'guga'";
+}
+
 @DriftDatabase(
   tables: [
     Exercises,
@@ -226,7 +236,8 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 17; // v17: AI 教练调教设定（风格/约束/长度/温度）
+  int get schemaVersion =>
+      18; // v18: AI 风格默认切到豆包感（老 guga 视为未主动选择）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -316,6 +327,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(userSettings, userSettings.aiConstraints);
             await m.addColumn(userSettings, userSettings.aiReplyLength);
             await m.addColumn(userSettings, userSettings.aiTemperature);
+          }
+          // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
+          if (from < 18) {
+            await customStatement(AiStyleMigration.sqlLegacyGugaToDoubao);
           }
         },
       );
