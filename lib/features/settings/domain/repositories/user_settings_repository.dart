@@ -27,6 +27,7 @@ abstract class UserSettingsRepository {
     String? aiConstraints,
     String? aiReplyLength,
     double? aiTemperature,
+    String? aiPersonaCustom,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

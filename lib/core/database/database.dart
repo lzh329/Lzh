@@ -133,6 +133,8 @@ class UserSettings extends Table {
   TextColumn get aiConstraints => text().nullable()();
   TextColumn get aiReplyLength => text().nullable()();
   RealColumn get aiTemperature => real().nullable()();
+  // 用户自定义人设文案（只替换 system prompt 的「角色」段；空值 = 用风格默认）
+  TextColumn get aiPersonaCustom => text().nullable()();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -237,7 +239,7 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion =>
-      18; // v18: AI 风格默认切到豆包感（老 guga 视为未主动选择）
+      19; // v19: AI 教练支持用户自定义人设文案（ai_persona_custom）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -331,6 +333,10 @@ class AppDatabase extends _$AppDatabase {
           // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
           if (from < 18) {
             await customStatement(AiStyleMigration.sqlLegacyGugaToDoubao);
+          }
+          // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
+          if (from < 19) {
+            await m.addColumn(userSettings, userSettings.aiPersonaCustom);
           }
         },
       );

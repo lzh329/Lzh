@@ -41,6 +41,9 @@ class UserSettingsEntity {
 
   /// 自由度 temperature（0.3 ~ 1.0）
   final double? aiTemperature;
+
+  /// 用户自定义人设文案（多行，只替换「角色」段；null / 空串 = 用风格默认）
+  final String? aiPersonaCustom;
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -73,6 +76,7 @@ class UserSettingsEntity {
     this.aiConstraints,
     this.aiReplyLength,
     this.aiTemperature,
+    this.aiPersonaCustom,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,

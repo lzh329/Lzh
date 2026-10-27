@@ -57,6 +57,10 @@ class AiPromptBuilder {
   ];
 
   /// 构建完整 system prompt（数据为空时也能工作）
+  ///
+  /// 「角色」段优先用用户自定义文案（`aiPersonaCustom`，trim 后为空视为未设置），
+  /// 其余段落（必须遵守 / 输出格式 / 工具使用 / 示例 / 用户数据 / 额外约束）
+  /// 一律走原逻辑，**自定义人设不得覆盖安全边界**。
   static String build({
     required TrendsData trends,
     UserSettingsEntity? settings,
@@ -65,11 +69,22 @@ class AiPromptBuilder {
     final length = AiCoachOptions.lengthOf(settings?.aiReplyLength);
     final constraints =
         AiCoachOptions.decodeConstraints(settings?.aiConstraints);
+    final customPersona = (settings?.aiPersonaCustom ?? '').trim();
 
-    final buf = StringBuffer()
-      ..writeln('# 角色')
-      ..writeAll(style.personaLines, '\n')
-      ..writeln()
+    final buf = StringBuffer();
+    if (customPersona.isNotEmpty) {
+      // 用户自己写的人设：只替换角色段，标题标注来源便于自查
+      buf
+        ..writeln('# 角色（用户自定义）')
+        ..writeln(customPersona)
+        ..writeln();
+    } else {
+      buf
+        ..writeln('# 角色')
+        ..writeAll(style.personaLines, '\n')
+        ..writeln();
+    }
+    buf
       ..writeln('# 必须遵守')
       ..writeAll(_rules, '\n')
       ..writeln()

@@ -13,9 +13,9 @@ void main() {
       expect(sql, isNot(contains("'strict'")));
     });
 
-    test('schemaVersion 为 18', () {
+    test('schemaVersion 为 19（v19 新增 ai_persona_custom 列）', () {
       final db = AppDatabase();
-      expect(db.schemaVersion, 18);
+      expect(db.schemaVersion, 19);
       // 不触发任何查询，直接关闭（LazyDatabase 不会打开 sqlite 文件）
       db.close();
     });

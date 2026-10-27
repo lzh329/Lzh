@@ -41,6 +41,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     String? aiConstraints,
     String? aiReplyLength,
     double? aiTemperature,
+    String? aiPersonaCustom,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,
@@ -98,6 +99,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             aiReplyLength != null ? Value(aiReplyLength) : const Value.absent(),
         aiTemperature: aiTemperature != null
             ? Value(aiTemperature)
+            : const Value.absent(),
+        aiPersonaCustom: aiPersonaCustom != null
+            ? Value(aiPersonaCustom)
             : const Value.absent(),
         dailyCalorieTarget: dailyCalorieTarget != null
             ? Value(dailyCalorieTarget)
@@ -169,6 +173,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             aiTemperature: aiTemperature != null
                 ? Value(aiTemperature)
                 : const Value.absent(),
+            aiPersonaCustom: aiPersonaCustom != null
+                ? Value(aiPersonaCustom)
+                : const Value.absent(),
             dailyCalorieTarget: dailyCalorieTarget != null
                 ? Value(dailyCalorieTarget)
                 : const Value.absent(),
@@ -223,6 +230,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         aiConstraints: row.aiConstraints,
         aiReplyLength: row.aiReplyLength,
         aiTemperature: row.aiTemperature,
+        aiPersonaCustom: row.aiPersonaCustom,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,
