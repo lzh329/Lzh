@@ -355,6 +355,14 @@ void main() {
       expect(prompt, contains('templates'));
       expect(prompt, contains('没找到模板'));
     });
+
+    test('能力询问（有没有按钮）也要直接开练，不许回答做不到', () {
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('有没有按钮'));
+      expect(prompt, contains('不要回答"我没有按钮 / 我做不到"'));
+      expect(prompt, contains('做给他看'));
+    });
   });
 }
 

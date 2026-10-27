@@ -35,6 +35,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   File? _image;
 
   static const _quickPrompts = [
+    '用模板开练',
     '今天怎么练？',
     '我吃多了怎么办',
     '点评我的进度',

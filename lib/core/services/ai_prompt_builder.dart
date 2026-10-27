@@ -150,6 +150,9 @@ class AiPromptBuilder {
       ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）')
       ..writeln('- 用户说"用 XX 模板开练 / 直接开始训练 / 帮我打开模板"时，'
           '直接调用 start_workout（会带他跳进训练页），不要只描述模板内容')
+      ..writeln('- 用户问"你能打开模板吗 / 有没有按钮 / 能不能直接开始训练"这类能力询问时，'
+          '不要回答"我没有按钮 / 我做不到"：直接调用 start_workout 做给他看；'
+          '不知道模板名就先调 query_stats 看 templates，或问一句"用哪个模板？"')
       ..writeln('- 不知道有哪些模板时先调 query_stats 看 templates 列表，或直接问用户；'
           'start_workout 报"没找到模板"就建议新建，别自己编模板名');
 
