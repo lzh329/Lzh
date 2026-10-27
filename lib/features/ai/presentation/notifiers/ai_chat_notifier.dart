@@ -1,11 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_round.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_side_effects.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_state.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_tool_context.dart';
@@ -17,8 +21,8 @@ export 'ai_chat_state.dart';
 class AiChatNotifier extends StateNotifier<AiChatState> {
   final Ref _ref;
 
-  /// 最近一次用户输入（失败后供「重试」复用，不重复入库）
-  String? _lastUserText;
+  /// 最近一次用户消息内容（失败后供「重试」复用，不重复入库；图片消息也能重试）
+  Object? _lastUserContent;
 
   /// 当前轮的工具上下文（assistant tool_calls + tool 结果）
   final AiToolContext _tool = AiToolContext();
@@ -36,27 +40,38 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     state = state.copyWith(messages: history, hasKey: key != null);
   }
 
-  /// 发送一条消息（流式接收回复）
-  Future<void> send(String text) async {
-    final content = text.trim();
-    if (content.isEmpty || state.isBusy) return;
+  /// 发送一条消息（[image] 不为空时走视觉消息，文本可留空）
+  Future<void> send(String text, {File? image}) async {
+    final trimmed = text.trim();
+    if ((trimmed.isEmpty && image == null) || state.isBusy) return;
     if (!state.hasKey) {
       state = state.copyWith(error: '请先点右上角钥匙图标，配置 DeepSeek API Key');
       return;
     }
-    _lastUserText = content;
+    final prepared =
+        await AiUserPayloadResult.load(text: trimmed, image: image);
+    final payload = prepared.payload;
+    if (payload == null) {
+      state = state.copyWith(error: prepared.error);
+      return;
+    }
+    _lastUserContent = payload.content;
     _tool.reset();
     state = state.copyWith(
-      messages: [...state.messages, AiMessage(role: 'user', content: content)],
+      messages: [
+        ...state.messages,
+        AiMessage(role: 'user', content: payload.content),
+      ],
       clearError: true,
     );
-    await _ref.read(aiChatRepoProvider).add('user', content);
+    // 数据库只存文本，图片用「[图片]」占位
+    await _ref.read(aiChatRepoProvider).add('user', payload.historyText);
     await _request();
   }
 
   /// 失败后重试上一条（用户消息已在历史里，不重复写入）
   Future<void> retryLast() async {
-    if (_lastUserText == null || state.isBusy) return;
+    if (_lastUserContent == null || state.isBusy) return;
     _tool.reset();
     await _request();
   }
@@ -89,21 +104,26 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   }
 
   /// 发起请求（基于当前历史 + 工具上下文 + 最新 system prompt）
+  ///
+  /// 全流程都在 try 内（含取设置 / 取趋势）：任何一步抛异常都必须把
+  /// [AiChatState.isStreaming] 复位，否则输入框会被永久禁用、只能重启 App。
   Future<void> _request() async {
     try {
+      // 取设置与趋势数据失败也要兜住，不能把异常冒泡到 send()
       final settings = await _ref.read(userSettingsProvider.future);
       final trends = await _ref.read(trendsDataProvider.future);
-      final systemPrompt =
-          AiPromptBuilder.build(trends: trends, settings: settings);
       state = state.copyWith(
           isStreaming: true, clearStreaming: true, clearError: true);
 
-      final result = await AiService.streamChat(
-        apiKey: _resolveKey()!,
-        temperature: (settings?.aiTemperature ?? 0.8).clamp(0.3, 1.0),
-        tools: AiToolSpecs.defs,
+      final round = await AiChatRoundResult.run(
+        apiKey: AiService.resolveKey(settings?.aiApiKey) ?? '',
+        temperature: (settings?.aiTemperature ?? AiService.defaultTemperature)
+            .clamp(0.3, 1.0),
         messages: [
-          AiMessage(role: 'system', content: systemPrompt),
+          AiMessage(
+            role: 'system',
+            content: AiPromptBuilder.build(trends: trends, settings: settings),
+          ),
           ...state.messages,
           ..._tool.messages,
         ],
@@ -112,17 +132,20 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         },
       );
 
-      if (result.toolCalls.isNotEmpty) {
-        await _handleToolCall(result.toolCalls.first);
+      if (round.isFailed) {
+        state = state.copyWith(
+            isStreaming: false, clearStreaming: true, error: round.error);
         return;
       }
-
-      final reply = result.content;
-      await _ref.read(aiChatRepoProvider).add('assistant', reply);
+      if (round.toolCalls.isNotEmpty) {
+        await _handleToolCall(round.toolCalls.first);
+        return;
+      }
+      await _ref.read(aiChatRepoProvider).add('assistant', round.content);
       state = state.copyWith(
         messages: [
           ...state.messages,
-          AiMessage(role: 'assistant', content: reply)
+          AiMessage(role: 'assistant', content: round.content)
         ],
         isStreaming: false,
         clearStreaming: true,
@@ -131,11 +154,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     } on AiToolException catch (e) {
       state = state.copyWith(
           isStreaming: false, clearStreaming: true, error: e.message);
-    } on AiServiceException catch (e) {
-      debugPrint('AI 对话失败: ${e.message} ${e.body ?? ''}');
-      state = state.copyWith(
-          isStreaming: false, clearStreaming: true, error: e.message);
     } catch (e) {
+      // 兜底：写库 / 取设置等非工具异常（如 Drift 报错）也要复位状态
       debugPrint('AI 对话异常: $e');
       state = state.copyWith(
           isStreaming: false, clearStreaming: true, error: '出错了，请稍后再试');
@@ -180,11 +200,6 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 错误展示后清空（页面消费）
   void consumeError() {
     state = state.copyWith(clearError: true);
-  }
-
-  String? _resolveKey() {
-    final settings = _ref.read(userSettingsProvider).valueOrNull;
-    return AiService.resolveKey(settings?.aiApiKey);
   }
 }
 

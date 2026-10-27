@@ -13,11 +13,20 @@ class AiToolContext {
   List<AiMessage> get messages => _messages;
 
   /// 追加一轮「工具调用 + 工具结果」
+  ///
+  /// assistant 那一轮的 content 留空，[AiMessage.toJson] 会把它序列化成 null
+  /// （DeepSeek 对带 tool_calls 的消息要求 content 为 null）；
+  /// tool 结果带上 [AiMessage.toolName]，否则模型无法把结果和工具对上。
   void append(AiToolCall call, String result) {
     _messages = [
       ..._messages,
       AiMessage(role: 'assistant', content: '', toolCalls: [call]),
-      AiMessage(role: 'tool', content: result, toolCallId: call.id),
+      AiMessage(
+        role: 'tool',
+        content: result,
+        toolCallId: call.id,
+        toolName: call.name,
+      ),
     ];
   }
 

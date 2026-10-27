@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 
@@ -20,7 +21,7 @@ class AiCoachSettingsPage extends ConsumerStatefulWidget {
 class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
   String _style = 'guga';
   String _length = 'medium';
-  double _temp = 0.8;
+  double _temp = AiService.defaultTemperature;
   List<String> _constraints = [];
   bool _loaded = false;
 
@@ -51,7 +52,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
     setState(() {
       _style = s?.aiStyle ?? 'guga';
       _length = s?.aiReplyLength ?? 'medium';
-      _temp = (s?.aiTemperature ?? 0.8).clamp(0.3, 1.0);
+      _temp = (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
       _constraints = AiCoachOptions.decodeConstraints(s?.aiConstraints);
       _loaded = true;
     });
@@ -123,7 +124,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   _temp <= 0.5
                       ? '偏稳定：严格守规矩，措辞更保守'
                       : (_temp >= 0.85
-                          ? '偏灵活：更有梗、更即兴，偶尔跑偏'
+                          ? '偏灵活：更有梗、更即兴，话也会多一点'
                           : '均衡：规矩和发挥各占一半'),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary),

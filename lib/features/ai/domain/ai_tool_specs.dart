@@ -56,6 +56,9 @@ class AiToolSpecs {
   static bool isReadOnly(String name) => readOnlyTools.contains(name);
 
   /// 暴露给模型的工具清单（16 个：13 个写操作 + 3 个只读查询）
+  ///
+  /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：
+  /// 空数组会被部分 OpenAI 兼容网关判为非法 schema 并返回 400，直接省略该键即可。
   static const defs = <Map<String, dynamic>>[
     // ───────── 记录类 ─────────
     {
@@ -163,7 +166,6 @@ class AiToolSpecs {
               'description': '日期 YYYY-MM-DD，默认今天；不允许未来日期',
             },
           },
-          'required': [],
         },
       },
     },
@@ -204,7 +206,6 @@ class AiToolSpecs {
               'description': '出生年份，如 1995；1920 到（今年-10）之间',
             },
           },
-          'required': [],
         },
       },
     },
@@ -224,7 +225,6 @@ class AiToolSpecs {
             'carbs_g': {'type': 'number', 'description': '每日碳水目标（克），0~500'},
             'fat_g': {'type': 'number', 'description': '每日脂肪目标（克），0~500'},
           },
-          'required': [],
         },
       },
     },
@@ -364,7 +364,6 @@ class AiToolSpecs {
               'description': '分类筛选：徒手 / 器械 / 有氧 / 拉伸，可省略',
             },
           },
-          'required': [],
         },
       },
     },

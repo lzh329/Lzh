@@ -311,6 +311,10 @@ void main() {
       expect(result.toolCalls.first.arguments['weight_jin'], 160);
       expect(requestBody, contains('"tools"'));
       expect(requestBody, contains('"tool_choice":"auto"'));
+      // thinking 必须关掉：它要求每轮回传 reasoning_content，否则工具回合 400
+      expect(requestBody, contains('"thinking":{"type":"disabled"}'));
+      final decoded = jsonDecode(requestBody) as Map<String, dynamic>;
+      expect(decoded['thinking'], {'type': 'disabled'});
     });
 
     test('普通文本流式回复正常返回', () async {
@@ -631,7 +635,13 @@ void main() {
         final params = fn['parameters'] as Map;
         expect(params['type'], 'object');
         expect(params['properties'], isA<Map>());
-        expect(params['required'], isA<List>());
+        // required 要么不写（无必填参数），要么是非空数组；
+        // 空数组会被 OpenAI 兼容网关判非法 schema → 400
+        if (params.containsKey('required')) {
+          expect(params['required'], isA<List>());
+          expect(params['required'] as List, isNotEmpty,
+              reason: '${fn['name']} 的 required 不能是空数组，应直接省略该键');
+        }
       }
     });
 

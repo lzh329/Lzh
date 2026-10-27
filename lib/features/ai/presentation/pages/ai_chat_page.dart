@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
+import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_bubbles.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_panels.dart';
@@ -15,6 +18,7 @@ import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 /// - 历史消息 + 流式打字机渲染
 /// - 写操作一律弹确认卡（删除类走警示样式）
 /// - 数据上下文自动注入（见 AiPromptBuilder）
+/// - 支持发图片（视觉提问）
 class AiChatPage extends ConsumerStatefulWidget {
   const AiChatPage({super.key});
 
@@ -25,6 +29,9 @@ class AiChatPage extends ConsumerStatefulWidget {
 class _AiChatPageState extends ConsumerState<AiChatPage> {
   final _inputCtrl = TextEditingController();
   final _focusNode = FocusNode();
+
+  /// 待发送的图片（发送后清空）
+  File? _image;
 
   static const _quickPrompts = [
     '今天怎么练？',
@@ -41,9 +48,57 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 
   void _send([String? text]) {
     final content = (text ?? _inputCtrl.text).trim();
-    if (content.isEmpty) return;
+    final image = _image;
+    if (content.isEmpty && image == null) return;
     _inputCtrl.clear();
-    ref.read(aiChatProvider.notifier).send(content);
+    if (image != null) setState(() => _image = null);
+    ref.read(aiChatProvider.notifier).send(content, image: image);
+  }
+
+  /// 选图：底部菜单 → 拍照 / 相册
+  Future<void> _pickImage() async {
+    final fromCamera = await _showPickSheet();
+    if (fromCamera == null) return;
+    try {
+      final file = await AiChatImageFlow.pick(fromCamera: fromCamera);
+      if (file == null || !mounted) return;
+      setState(() => _image = file);
+    } catch (e) {
+      debugPrint('选择图片失败: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('打开相机/相册失败，检查权限后重试')),
+        );
+    }
+  }
+
+  /// 返回 true=拍照，false=相册，null=取消
+  Future<bool?> _showPickSheet() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined,
+                  color: AppColors.textSecondary),
+              title: const Text('拍照'),
+              onTap: () => Navigator.pop(ctx, true),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: AppColors.textSecondary),
+              title: const Text('从相册选'),
+              onTap: () => Navigator.pop(ctx, false),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -142,6 +197,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             controller: _inputCtrl,
             focusNode: _focusNode,
             isStreaming: chat.isBusy,
+            image: _image,
+            onPickImage: _pickImage,
+            onRemoveImage: () => setState(() => _image = null),
             onSend: () => _send(),
           ),
         ],
