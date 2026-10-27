@@ -147,7 +147,11 @@ class AiPromptBuilder {
           '直接调用一次 create_template，把 create_missing_exercises 设成 true，'
           '并在每个 item 里一并给出 category（徒手 / 器械 / 有氧 / 拉伸）与 muscle_group，'
           '缺失的动作会和模板在同一次确认里一起建好')
-      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）');
+      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）')
+      ..writeln('- 用户说"用 XX 模板开练 / 直接开始训练 / 帮我打开模板"时，'
+          '直接调用 start_workout（会带他跳进训练页），不要只描述模板内容')
+      ..writeln('- 不知道有哪些模板时先调 query_stats 看 templates 列表，或直接问用户；'
+          'start_workout 报"没找到模板"就建议新建，别自己编模板名');
 
     // 联网开关：关掉时工具清单里已经没有 web_search / fetch_url，
     // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动

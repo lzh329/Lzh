@@ -310,13 +310,13 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('19 个工具、唯一、写/只读互斥并集全覆盖，危险仍只 delete_records', () {
+    test('20 个工具、唯一、写/只读互斥并集全覆盖，危险仍只 delete_records', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(registered, hasLength(19), reason: '工具总数应为 19');
-      expect(registered.toSet(), hasLength(19), reason: '工具名不能重复');
+      expect(registered, hasLength(20), reason: '工具总数应为 20');
+      expect(registered.toSet(), hasLength(20), reason: '工具名不能重复');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools},
           registered.toSet(),
           reason: '写 / 只读两集合必须正好划分已注册的工具');
@@ -324,7 +324,7 @@ void main() {
           isEmpty,
           reason: '同一工具不能既写又只读（否则可以绕过确认）');
       expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
-          reason: '19 个里仍只有 delete_records 是危险操作');
+          reason: '20 个里仍只有 delete_records 是危险操作');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools),
           isEmpty);
 

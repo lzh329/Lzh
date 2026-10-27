@@ -151,6 +151,7 @@ class AiToolReaders extends AiToolHandler {
     final cups = await repos.water.getTodayCups();
     final calories = await repos.diet.getDailyCalories(now);
     final goals = await repos.goal.getAll();
+    final templates = await repos.template.getAll();
 
     return jsonEncode({
       'range': range,
@@ -188,6 +189,19 @@ class AiToolReaders extends AiToolHandler {
             'target_value': g.targetValue,
             'current_value': g.currentValue,
             'completed': g.isCompleted,
+          },
+      ],
+      // 模板清单：模型据此判断"有哪个模板可以直接开练"（start_workout 用），
+      // 没有模板时也知道该建议用户新建，而不是瞎猜名字
+      'templates': [
+        for (final t in templates)
+          {
+            'id': t.id,
+            'name': t.name,
+            'focus': t.focus,
+            'difficulty': t.difficulty,
+            'minutes': t.minutes,
+            'item_count': t.items.length,
           },
       ],
     });

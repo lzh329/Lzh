@@ -111,6 +111,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     final headAsset = stage.asset.replaceFirst('.png', '_head.png');
 
     ref.listen(aiChatProvider, (prev, next) {
+      _startPendingWorkout(next);
       if (next.error != null && next.error != prev?.error) {
         final msg = next.error!;
         ref.read(aiChatProvider.notifier).consumeError();
@@ -206,6 +207,20 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         ],
       ),
     );
+  }
+
+  /// 「开始训练」确认后直接进训练页（组数 / 计时已在工具里初始化好）
+  ///
+  /// 先清空意图再跳转：训练页返回时不会又跳一次。
+  void _startPendingWorkout(AiChatState state) {
+    final slots = state.pendingWorkoutStart;
+    if (slots == null || slots.isEmpty || !mounted) return;
+    final name = state.pendingWorkoutTemplateName ?? '训练模板';
+    ref.read(aiChatProvider.notifier).consumeWorkoutStart();
+    context.push('/workout/active', extra: slots);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('已用「$name」开始训练')));
   }
 
   Future<bool?> _confirmClear() {

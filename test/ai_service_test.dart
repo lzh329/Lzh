@@ -13,6 +13,7 @@ import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_settings_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_workout_launcher.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
@@ -721,15 +722,15 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('19 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('20 个工具、名称唯一、读写两类正好覆盖全部', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(19));
-      expect(names.toSet(), hasLength(19));
+      expect(names, hasLength(20));
+      expect(names.toSet(), hasLength(20));
       expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(19));
+          hasLength(20));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -768,6 +769,8 @@ void main() {
       expect(names, containsAll(['create_exercises']));
       // 第五批新增 2 个（联网搜索 / 读网页，只读自动执行）
       expect(names, containsAll(['web_search', 'fetch_url']));
+      // 第六批新增 1 个（按模板直接开练，需确认但不落库）
+      expect(names, containsAll(['start_workout']));
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -832,7 +835,7 @@ void main() {
   // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
 
   group('工具清单一致性', () {
-    test('19 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
+    test('20 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
       expect(_defToolNames(), {
         AiToolSpecs.logWeight,
         AiToolSpecs.logWater,
@@ -853,6 +856,7 @@ void main() {
         AiToolSpecs.createExercise,
         AiToolSpecs.createExercises,
         AiToolSpecs.createTemplate,
+        AiToolSpecs.startWorkout,
       });
     });
 
@@ -882,9 +886,13 @@ void main() {
       expect(write, contains(AiToolSpecs.createExercise));
       expect(write, contains(AiToolSpecs.createExercises));
       expect(write, contains(AiToolSpecs.createTemplate));
+      expect(write, contains(AiToolSpecs.startWorkout),
+          reason: '开始训练会跳界面，仍走确认卡');
+      expect(AiToolSpecs.isDestructive(AiToolSpecs.startWorkout), isFalse,
+          reason: '开始训练不删数据，不能挂危险样式');
     });
 
-    test('六组 handler 白名单互不重叠，并集 = defs', () {
+    test('七组 handler 白名单互不重叠，并集 = defs', () {
       final repos = _fakeReposWithData();
       final groups = <Set<String>>[
         AiToolReaders(repos).toolNames,
@@ -893,6 +901,7 @@ void main() {
         AiToolSettingsWriters(repos).toolNames,
         AiToolAdminWriters(repos).toolNames,
         AiToolLibraryWriters(repos).toolNames,
+        AiToolWorkoutLauncher(repos).toolNames,
       ];
       final union = <String>{};
       for (final group in groups) {
@@ -2052,7 +2061,39 @@ const _validArgs = <String, Map<String, dynamic>>{
       {'exercise_name': '平板支撑', 'sets': 3, 'duration_sec': 45},
     ],
   },
+  AiToolSpecs.startWorkout: {'template_name': '下肢力量'},
 };
+
+/// 假模板库：给 start_workout 预览层用（模板名必须能在库里匹配到）
+const _fakeTemplates = <WorkoutTemplateEntity>[
+  WorkoutTemplateEntity(
+    id: 1,
+    name: '下肢力量',
+    difficulty: '中阶',
+    focus: '全身',
+    minutes: 30,
+    items: [
+      WorkoutTemplateItemEntity(
+        id: 1,
+        templateId: 1,
+        exerciseId: 1,
+        exerciseName: '深蹲',
+        category: 'gym',
+        targetSets: 4,
+        targetReps: 12,
+      ),
+      WorkoutTemplateItemEntity(
+        id: 2,
+        templateId: 1,
+        exerciseId: 3,
+        exerciseName: '平板支撑',
+        category: 'bodyweight',
+        targetSets: 3,
+        targetDurationSec: 45,
+      ),
+    ],
+  ),
+];
 
 /// 假动作库的固定数据（供 query_exercises / create_template 解析动作名）
 const _fakeExercises = <ExerciseEntity>[
@@ -2113,7 +2154,7 @@ AiToolRepos _fakeReposWithData() {
     ]),
     settings: const _FakeSettingsRepo(),
     exercise: _FakeExerciseRepo(_fakeExercises),
-    template: _FakeTemplateRepo(const []),
+    template: _FakeTemplateRepo(_fakeTemplates),
   );
 }
 

@@ -60,13 +60,13 @@ void main() {
       }
     });
 
-    test('19 个工具：写 14 + 只读 5 正好覆盖，危险仍只 delete_records', () {
+    test('20 个工具：写 15 + 只读 5 正好覆盖，危险仍只 delete_records', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toSet();
 
-      expect(registered, hasLength(19), reason: '工具总数没同步');
-      expect(AiToolSpecs.writeTools, hasLength(14), reason: '写工具应为 14 个');
+      expect(registered, hasLength(20), reason: '工具总数没同步');
+      expect(AiToolSpecs.writeTools, hasLength(15), reason: '写工具应为 15 个');
       expect(AiToolSpecs.readOnlyTools, hasLength(5), reason: '只读工具应为 5 个');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools}, registered,
           reason: '写 / 只读两集合必须正好划分已注册的工具');

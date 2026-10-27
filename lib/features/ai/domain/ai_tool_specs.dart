@@ -24,6 +24,9 @@ class AiToolSpecs {
   static const createExercises = 'create_exercises';
   static const createTemplate = 'create_template';
 
+  // ── 训练启动类（写语义：走确认卡；不落库，所以不算危险操作） ──
+  static const startWorkout = 'start_workout';
+
   // ── 只读类（自动执行） ──
   static const queryStats = 'query_stats';
   static const searchFood = 'search_food';
@@ -48,6 +51,9 @@ class AiToolSpecs {
   };
 
   /// 需要用户确认的写操作
+  ///
+  /// [startWorkout] 也在这里：它不写库，但会把用户带进训练页（界面跳转
+  /// 属于"用户可感知的副作用"），所以同样必须先弹确认卡。
   static const Set<String> writeTools = {
     logWeight,
     logWater,
@@ -63,6 +69,7 @@ class AiToolSpecs {
     createExercise,
     createExercises,
     createTemplate,
+    startWorkout,
   };
 
   static bool isDestructive(String name) => destructiveTools.contains(name);
@@ -75,8 +82,8 @@ class AiToolSpecs {
   /// 按「联网搜索」开关裁剪后的工具清单
   ///
   /// [webEnabled] 为 false 时把 [webSearch] / [fetchUrl] 两个 schema 摘掉
-  /// （19 → 17）：模型看不到这两个工具，就没法调，也就不会产生搜索费用。
-  /// [defs] 本身保持 19 个不变（单测锁全集、执行器仍认识这两个名字）。
+  /// （20 → 18）：模型看不到这两个工具，就没法调，也就不会产生搜索费用。
+  /// [defs] 本身保持 20 个不变（单测锁全集、执行器仍认识这两个名字）。
   static List<Map<String, dynamic>> defsFor({required bool webEnabled}) {
     if (webEnabled) return defs;
     return [
@@ -93,7 +100,7 @@ class AiToolSpecs {
     return name is String ? name : '';
   }
 
-  /// 暴露给模型的工具清单（19 个：14 个写操作 + 5 个只读工具）
+  /// 暴露给模型的工具清单（20 个：15 个写操作 + 5 个只读工具）
   ///
   /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：
   /// 空数组会被部分 OpenAI 兼容网关判为非法 schema 并返回 400，直接省略该键即可。
@@ -353,7 +360,8 @@ class AiToolSpecs {
       'function': {
         'name': queryStats,
         'description':
-            '查询用户的体重、训练、饮水、饮食统计与目标列表（只读，不修改数据）',
+            '查询用户的体重、训练、饮水、饮食统计，以及目标与训练模板列表'
+                '（只读，不修改数据）',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -562,6 +570,29 @@ class AiToolSpecs {
             },
           },
           'required': ['name', 'difficulty', 'focus', 'minutes', 'items'],
+        },
+      },
+    },
+    // ───────── 训练启动类（写语义，需确认；不落库） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': startWorkout,
+        'description': '按训练模板直接开始训练（会跳进训练页并初始化好组数 / 计时）。'
+            '用户说"用 XX 模板开练""直接开始训练""帮我打开模板"时调用，不要只描述模板内容。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'template_name': {
+              'type': 'string',
+              'description': '模板名称，须与已有模板一致（不区分大小写），1~30 字',
+            },
+            'rest_sec': {
+              'type': 'integer',
+              'description': '动作间休息时长（秒），10~300；不给就用用户设置里的默认休息',
+            },
+          },
+          'required': ['template_name'],
         },
       },
     },

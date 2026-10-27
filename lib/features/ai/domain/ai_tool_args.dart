@@ -705,6 +705,39 @@ class AiToolArgs {
     return h.contains('.');
   }
 
+  // ───────────── start_workout（直接开练） ─────────────
+
+  /// 模板名长度上限（与 create_template 保持一致）
+  static const maxTemplateNameLength = 30;
+
+  /// 休息时长范围（秒）：太短没意义，太长该去睡觉了
+  static const minRestSec = 10;
+  static const maxRestSec = 300;
+
+  /// start_workout 的模板名（参数键是 `template_name`）：trim 后 1~30 字
+  static String startWorkoutTemplateName(Map<String, dynamic> args) {
+    final raw = args['template_name'];
+    final name = raw is String ? raw.trim() : '';
+    if (name.isEmpty) throw const AiToolException('缺少模板名称');
+    if (name.length > maxTemplateNameLength) {
+      throw const AiToolException('模板名称太长（30 字以内）');
+    }
+    return name;
+  }
+
+  /// start_workout 的可选休息时长（秒）：缺失返回 null（由用户设置兜底）
+  static int? optionalRestSec(Map<String, dynamic> args) {
+    final raw = args['rest_sec'];
+    if (raw == null || (raw is String && raw.trim().isEmpty)) return null;
+    final sec = lenientIntOf(raw);
+    if (sec == null) throw const AiToolException('休息时长格式不正确');
+    if (sec < minRestSec || sec > maxRestSec) {
+      throw const AiToolException(
+          '休息时长不合理（应在 $minRestSec~$maxRestSec 秒之间）');
+    }
+    return sec;
+  }
+
   // ───────────── create_exercises（批量新增动作） ─────────────
 
   /// 批量新增动作的入参：1~[maxBatchExercises] 个
