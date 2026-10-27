@@ -560,6 +560,10 @@ class AiToolArgs {
   }
 
   /// 单个模板动作：sets 缺省 3；reps / duration_sec 都不给时默认 reps=10
+  ///
+  /// `category` / `muscle_group` 只在这个动作需要**新建**时用到：
+  /// - category 可省略（省略即兜底），给了非法值直接抛错（不猜用户的意图）
+  /// - muscle_group 超长自动截断到 10 字
   static AiTemplateItemInput templateItem(Map<String, dynamic> args) {
     final rawName = args['exercise_name'];
     final name = rawName is String ? rawName.trim() : '';
@@ -577,8 +581,16 @@ class AiToolArgs {
       // 只给了计时就按时长算；两者都没给时默认 10 次
       reps: reps ?? (duration == null ? 10 : null),
       durationSec: duration,
+      category: optionalExerciseCategory(args),
+      muscleGroup: optionalMuscleGroup(args),
     );
   }
+
+  /// 是否顺手补齐缺失动作：默认 false（保持"缺动作就报错"的原行为）
+  ///
+  /// 无法解析的取值按 false 处理：宁可让用户先加动作，也不要静默多写几条库。
+  static bool createMissingExercises(Map<String, dynamic> args) =>
+      boolOf(args['create_missing_exercises']) ?? false;
 
   /// create_template 的完整入参
   static AiTemplateCommand template(Map<String, dynamic> args) {
@@ -589,6 +601,34 @@ class AiToolArgs {
       minutes: templateMinutes(args),
       description: optionalTemplateDescription(args),
       items: templateItems(args),
+      createMissingExercises: createMissingExercises(args),
     );
+  }
+
+  // ───────────── create_exercises（批量新增动作） ─────────────
+
+  /// 一次最多新增的动作数（再多就该拆成两轮说）
+  static const maxBatchExercises = 10;
+
+  /// 批量新增动作的入参：1~[maxBatchExercises] 个
+  ///
+  /// 同一批里同名（trim 后忽略大小写）的动作只保留第一个：
+  /// 模型很容易把"深蹲"写两遍，这里先按批内去重，避免自己撞自己的查重规则。
+  static List<AiExerciseInput> exercises(Map<String, dynamic> args) {
+    final raw = args['exercises'];
+    if (raw is! List || raw.isEmpty) {
+      throw const AiToolException('至少要给 1 个动作');
+    }
+    if (raw.length > maxBatchExercises) {
+      throw const AiToolException('一次最多新增 $maxBatchExercises 个动作');
+    }
+    final inputs = <AiExerciseInput>[];
+    final seen = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map) throw const AiToolException('动作格式不正确');
+      final input = exercise(Map<String, dynamic>.from(entry));
+      if (seen.add(input.name.trim().toLowerCase())) inputs.add(input);
+    }
+    return inputs;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
+import 'package:fittrack/features/ai/domain/ai_tool.dart' show AiToolLimits;
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
@@ -86,6 +87,13 @@ class AiPromptBuilder {
       ..writeln('- 动作库里没有用户要的动作时，先 create_exercise 加进动作库，再建模板')
       ..writeln('- 用户说"帮我加个动作 XX"（想练但库里没有）时直接 create_exercise，'
           '分类按动作性质选徒手 / 器械 / 有氧 / 拉伸')
+      ..writeln('- 用户一次列出多个动作要建模板时，**不要逐个调用工具**：'
+          '直接调用一次 create_template，把 create_missing_exercises 设成 true，'
+          '并在每个 item 里一并给出 category（徒手 / 器械 / 有氧 / 拉伸）与 muscle_group，'
+          '缺失的动作会和模板在同一次确认里一起建好')
+      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）')
+      ..writeln('- 每轮最多 ${AiToolLimits.maxCallsPerRound} 次工具调用，'
+          '超了要拆成两步并告知用户"先做这一步，剩下的接着说"')
       ..writeln()
       ..writeln('# 示例')
       ..writeAll(_examples, '\n')

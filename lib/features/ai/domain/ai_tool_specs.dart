@@ -21,6 +21,7 @@ class AiToolSpecs {
 
   // ── 动作库 / 模板类（create_* 写需确认，query_exercises 只读） ──
   static const createExercise = 'create_exercise';
+  static const createExercises = 'create_exercises';
   static const createTemplate = 'create_template';
 
   // ── 只读类（自动执行） ──
@@ -48,6 +49,7 @@ class AiToolSpecs {
     manageGoal,
     deleteRecords,
     createExercise,
+    createExercises,
     createTemplate,
   };
 
@@ -55,7 +57,7 @@ class AiToolSpecs {
 
   static bool isReadOnly(String name) => readOnlyTools.contains(name);
 
-  /// 暴露给模型的工具清单（16 个：13 个写操作 + 3 个只读查询）
+  /// 暴露给模型的工具清单（17 个：14 个写操作 + 3 个只读查询）
   ///
   /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：
   /// 空数组会被部分 OpenAI 兼容网关判为非法 schema 并返回 400，直接省略该键即可。
@@ -406,9 +408,57 @@ class AiToolSpecs {
     {
       'type': 'function',
       'function': {
+        'name': createExercises,
+        'description':
+            '一次往动作库批量新增多个动作（最多 10 个）。用户一次列出好几个库里没有的动作时用这个，'
+                '不要逐个调用 create_exercise。同名动作会自动跳过。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'exercises': {
+              'type': 'array',
+              'description': '要新增的动作，1~10 个',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'name': {
+                    'type': 'string',
+                    'description': '动作名称，如"开合跳"，1~30 字',
+                  },
+                  'category': {
+                    'type': 'string',
+                    'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+                    'description': '分类：徒手 / 器械 / 有氧 / 拉伸',
+                  },
+                  'muscle_group': {
+                    'type': 'string',
+                    'description': '目标肌群，如"腿部"，10 字以内，可省略',
+                  },
+                  'default_reps': {
+                    'type': 'integer',
+                    'description': '默认次数，1~100，可省略',
+                  },
+                  'default_duration_sec': {
+                    'type': 'integer',
+                    'description': '默认时长（秒），5~600，可省略；计时类动作用',
+                  },
+                },
+                'required': ['name', 'category'],
+              },
+            },
+          },
+          'required': ['exercises'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
         'name': createTemplate,
         'description':
-            '新建一个训练模板（一组动作 + 组数次数）。动作必须已在动作库里，不确定就先 query_exercises。',
+            '新建一个训练模板（一组动作 + 组数次数）。用户一次列出多个动作要建模板时，'
+                '直接一次调用本工具：把 create_missing_exercises 设成 true，'
+                '动作的 category / muscle_group 一并给出，缺失的动作会和模板在同一次确认里一起建好。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -434,9 +484,14 @@ class AiToolSpecs {
               'type': 'string',
               'description': '一句话说明，100 字以内，可省略',
             },
+            'create_missing_exercises': {
+              'type': 'boolean',
+              'description': 'true = 动作库里没有的动作在同一次确认里先建好再建模板；'
+                  'false / 省略 = 缺动作时直接失败，需要你先 create_exercise',
+            },
             'items': {
               'type': 'array',
-              'description': '动作列表，1~12 项；动作名必须已在动作库里',
+              'description': '动作列表，1~12 项',
               'items': {
                 'type': 'object',
                 'properties': {
@@ -455,6 +510,15 @@ class AiToolSpecs {
                   'duration_sec': {
                     'type': 'integer',
                     'description': '每组时长（秒），5~600；计时类动作（平板支撑等）用',
+                  },
+                  'category': {
+                    'type': 'string',
+                    'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+                    'description': '仅当这个动作库里没有、需要新建时用：分类（徒手 / 器械 / 有氧 / 拉伸）',
+                  },
+                  'muscle_group': {
+                    'type': 'string',
+                    'description': '仅当这个动作需要新建时用：目标肌群，如"腿部"，10 字以内',
                   },
                 },
                 'required': ['exercise_name'],

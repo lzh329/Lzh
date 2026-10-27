@@ -162,10 +162,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     }
   }
 
-  /// 处理模型请求的工具调用
+  /// 处理模型请求的工具调用（次数上限只防死循环，写操作仍逐次确认）
   Future<void> _handleToolCall(AiToolCall call) async {
-    if (_tool.round >= 2) {
-      throw const AiToolException('一次对话里操作次数过多，请分开说');
+    if (_tool.round >= AiToolLimits.maxCallsPerRound) {
+      throw const AiToolException(AiToolLimits.overLimitMessage);
     }
     _tool.round++;
     // 白名单 + 参数校验（delete_records 要先查库统计条数，故为异步），非法直接抛

@@ -15,12 +15,15 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
   if (call.name == AiToolSpecs.setReminder) {
     syncReminderState(ref, call.arguments);
   }
-  if (call.name == AiToolSpecs.createExercise) {
+  if (call.name == AiToolSpecs.createExercise ||
+      call.name == AiToolSpecs.createExercises) {
     // 动作库列表页直接 watch 仓储，重建后按新数据重新拉取
     ref.invalidate(exerciseRepoProvider);
   }
   if (call.name == AiToolSpecs.createTemplate) {
-    // 训练页「模板」分段的数据源
+    // create_template 可能顺手新建了缺失动作（create_missing_exercises），
+    // 所以动作库与训练页「模板」分段两个数据源都要刷新
+    ref.invalidate(exerciseRepoProvider);
     ref.invalidate(workoutTemplatesProvider);
   }
 }

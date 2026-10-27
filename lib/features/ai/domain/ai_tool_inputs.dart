@@ -179,6 +179,14 @@ class AiExerciseCategories {
 
   static const all = {bodyweight, gym, cardio, stretch};
 
+  /// 缺省分类（AI 没给 category 时新建动作用的兜底值）
+  ///
+  /// 数据库 `exercises.category` 列本身是无约束的 text，但整个 App 只认上面
+  /// 四个值：分类筛选栏遍历 [all]、颜色 / 图标按 [labels] 取值（见 AppTheme）。
+  /// 写 'other' 会让这个动作在筛选栏里消失、卡片上显示英文 'other'，
+  /// 因此这里兜底到"徒手"，保持动作库全部可取可用。
+  static const fallback = bodyweight;
+
   static const labels = {
     bodyweight: '徒手',
     gym: '器械',
@@ -251,16 +259,36 @@ class AiTemplateItemInput {
   final int? reps;
   final int? durationSec;
 
+  /// 该动作需要新建时才用到：分类（已归一化成 bodyweight 等英文值）
+  ///
+  /// null 表示模型没给，新建时按 [AiExerciseCategories.fallback] 兜底。
+  final String? category;
+
+  /// 该动作需要新建时才用到：目标肌群（≤10 字）
+  final String? muscleGroup;
+
   const AiTemplateItemInput({
     required this.exerciseName,
     this.sets = 3,
     this.reps,
     this.durationSec,
+    this.category,
+    this.muscleGroup,
   });
 
   /// 「3×12」/「3×30s」
   String get targetLabel =>
       reps != null ? '$sets×$reps' : '$sets×${durationSec ?? 0}s';
+
+  /// 查重用的键：trim + 小写（中文不受影响，英文 "Plank"/"plank" 视为同名）
+  String get nameKey => exerciseName.trim().toLowerCase();
+
+  /// 库里没有这个动作时，用于新建的入参（分类缺省走兜底值）
+  AiExerciseInput toNewExercise() => AiExerciseInput(
+        name: exerciseName,
+        category: category ?? AiExerciseCategories.fallback,
+        muscleGroup: muscleGroup,
+      );
 }
 
 /// create_template 的入参（已校验、已归一化）
@@ -272,6 +300,11 @@ class AiTemplateCommand {
   final String? description;
   final List<AiTemplateItemInput> items;
 
+  /// 为 true 时，items 里库里没有的动作会在**同一次确认**里先创建再建模板
+  ///
+  /// 默认 false = 保持原行为（缺动作直接报错，让模型先 create_exercise）。
+  final bool createMissingExercises;
+
   const AiTemplateCommand({
     required this.name,
     required this.difficulty,
@@ -279,6 +312,7 @@ class AiTemplateCommand {
     required this.minutes,
     this.description,
     required this.items,
+    this.createMissingExercises = false,
   });
 
   static const difficulties = ['入门', '中阶', '高阶'];
@@ -317,6 +351,15 @@ class AiTemplateCommand {
   static String? focusOf(String raw) => focusAliases[raw.trim().toLowerCase()];
 
   /// 确认卡文案，如「新建模板：下肢力量 · 中阶 · 4 个动作 · 约 35 分钟」
-  String get detail =>
-      '新建模板：$name · $difficulty · ${items.length} 个动作 · 约 $minutes 分钟';
+  ///
+  /// [missingCount] 是本次会顺手新建的动作数（预览阶段查库得到），
+  /// 大于 0 时追加「（含新建 N 个动作）」，让用户一次看清到底要写多少数据。
+  String detailWith({int missingCount = 0}) {
+    final base = '新建模板：$name · $difficulty · ${items.length} 个动作 · '
+        '约 $minutes 分钟';
+    return missingCount > 0 ? '$base（含新建 $missingCount 个动作）' : base;
+  }
+
+  /// 不需要新建动作时的文案（等价 [detailWith] 的默认值）
+  String get detail => detailWith();
 }

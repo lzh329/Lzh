@@ -46,6 +46,21 @@ class AiToolPreview {
   });
 }
 
+/// 工具调用的人为上限（只管"防死循环"，不管安全）
+class AiToolLimits {
+  AiToolLimits._();
+
+  /// 一轮对话里最多允许的工具调用次数
+  ///
+  /// 放开到 8 是为了让模型能在一次确认里把多个动作 + 模板一起提交；
+  /// **写操作的确认闸门没有放宽**：每个写工具依旧逐次弹确认卡，
+  /// 这里的次数限制只防止模型自己绕圈刷工具。
+  static const maxCallsPerRound = 8;
+
+  /// 超过上限时的提示
+  static const overLimitMessage = '一次对话里操作次数过多，请分两步说';
+}
+
 /// 统一的展示格式化（只做字符串，不做校验）
 class AiToolFormat {
   AiToolFormat._();

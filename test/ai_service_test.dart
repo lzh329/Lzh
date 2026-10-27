@@ -583,15 +583,15 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('16 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('17 个工具、名称唯一、读写两类正好覆盖全部', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(16));
-      expect(names.toSet(), hasLength(16));
+      expect(names, hasLength(17));
+      expect(names.toSet(), hasLength(17));
       expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(16));
+          hasLength(17));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -626,6 +626,8 @@ void main() {
             'create_exercise',
             'create_template',
           ]));
+      // 第四批新增 1 个（批量加动作）
+      expect(names, containsAll(['create_exercises']));
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -690,7 +692,7 @@ void main() {
   // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
 
   group('工具清单一致性', () {
-    test('16 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
+    test('17 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
       expect(_defToolNames(), {
         AiToolSpecs.logWeight,
         AiToolSpecs.logWater,
@@ -707,6 +709,7 @@ void main() {
         AiToolSpecs.searchFood,
         AiToolSpecs.queryExercises,
         AiToolSpecs.createExercise,
+        AiToolSpecs.createExercises,
         AiToolSpecs.createTemplate,
       });
     });
@@ -732,6 +735,7 @@ void main() {
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.createExercise), isFalse);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.createTemplate), isFalse);
       expect(write, contains(AiToolSpecs.createExercise));
+      expect(write, contains(AiToolSpecs.createExercises));
       expect(write, contains(AiToolSpecs.createTemplate));
     });
 
@@ -1551,6 +1555,278 @@ void main() {
       }
     });
   });
+
+  // ═══════════ 批量：create_missing_exercises / create_exercises ═══════════
+
+  group('工具轮次上限放开到 8', () {
+    test('常量 = 8，文案改成"请分两步说"', () {
+      expect(AiToolLimits.maxCallsPerRound, 8);
+      expect(AiToolLimits.overLimitMessage, contains('请分两步说'));
+      expect(AiToolLimits.overLimitMessage, contains('操作次数过多'));
+    });
+  });
+
+  group('create_template 的 category / muscle_group 归一化', () {
+    Map<String, dynamic> args(List<Map<String, dynamic>> items) => {
+          'name': '下肢力量',
+          'difficulty': '中阶',
+          'focus': '全身',
+          'minutes': 35,
+          'items': items,
+        };
+
+    test('中文 / 英文分类都归一化成英文枚举', () {
+      final cn = AiToolArgs.template(args([
+        {'exercise_name': '开合跳', 'category': '有氧'},
+        {'exercise_name': '拉伸腿', 'category': '拉伸'},
+        {'exercise_name': '深蹲跳', 'category': '徒手'},
+        {'exercise_name': '硬拉', 'category': '器械'},
+      ]));
+      expect(cn.items.map((e) => e.category).toList(),
+          ['cardio', 'stretch', 'bodyweight', 'gym']);
+
+      final en = AiToolArgs.template(args([
+        {'exercise_name': 'Plank', 'category': 'gym'},
+      ]));
+      expect(en.items.first.category, 'gym');
+    });
+
+    test('没给分类时保持 null（新建时按兜底值处理）', () {
+      final command = AiToolArgs.template(args([
+        {'exercise_name': '开合跳'},
+      ]));
+      expect(command.items.first.category, isNull);
+      expect(command.items.first.toNewExercise().category,
+          AiExerciseCategories.fallback);
+      expect(AiExerciseCategories.fallback, 'bodyweight',
+          reason: '动作库 UI 只认四个值，兜底不能写 other');
+    });
+
+    test('非法分类直接拒绝（不猜用户意图）', () {
+      expect(
+        () => AiToolArgs.template(args([
+          {'exercise_name': '开合跳', 'category': '杂技'},
+        ])),
+        throwsA(isA<AiToolException>()),
+      );
+    });
+
+    test('muscle_group 超长截断到 10 字', () {
+      final command = AiToolArgs.template(args([
+        {'exercise_name': '开合跳', 'muscle_group': '腿部肌肉群特别长的名字啊啊啊'},
+      ]));
+      expect(command.items.first.muscleGroup, hasLength(10));
+    });
+
+    test('create_missing_exercises 默认 false，可解析 true / "true" / 1', () {
+      expect(AiToolArgs.template(args([
+        {'exercise_name': '开合跳'},
+      ])).createMissingExercises, isFalse);
+      for (final v in <Object>[true, 'true', 1, '是']) {
+        final a = args([{'exercise_name': '开合跳'}])..['create_missing_exercises'] = v;
+        expect(AiToolArgs.template(a).createMissingExercises, isTrue,
+            reason: '$v 应解析成 true');
+      }
+    });
+  });
+
+  group('create_template 一次补齐缺失动作', () {
+    const args = '{"name":"下肢力量","difficulty":"中阶","focus":"全身",'
+        '"minutes":35,"create_missing_exercises":true,"items":['
+        '{"exercise_name":"开合跳","category":"有氧"},'
+        '{"exercise_name":"提膝下压","category":"徒手","muscle_group":"腹部"},'
+        '{"exercise_name":"平板支撑","sets":3,"duration_sec":45}]}';
+
+    test('开关为 true：preview 不抛错，文案带"含新建 N 个动作"', () async {
+      final executor = AiToolExecutor(repos: _mutableRepos());
+      final preview = await executor.preview(const AiToolCall(
+        id: 'call_b1',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson: args,
+      ));
+      expect(preview.label, '新建训练模板');
+      expect(preview.detail,
+          '新建模板：下肢力量 · 中阶 · 3 个动作 · 约 35 分钟（含新建 2 个动作）');
+      expect(preview.needsConfirm, isTrue, reason: '批量也不许跳过确认卡');
+    });
+
+    test('开关缺省：缺动作时预览与执行都抛错（保持原行为）', () async {
+      const json = '{"name":"下肢力量","difficulty":"中阶","focus":"全身",'
+          '"minutes":35,"items":[{"exercise_name":"开合跳"}]}';
+      final executor = AiToolExecutor(repos: _mutableRepos());
+      const call = AiToolCall(
+          id: 'call_b2', name: AiToolSpecs.createTemplate, argumentsJson: json);
+      await _expectToolRejected(() => executor.preview(call));
+      await _expectToolRejected(() => executor.execute(call));
+    });
+
+    test('列表里的动作都在库里：文案保持原样（不出现"含新建"）', () async {
+      final executor = AiToolExecutor(repos: _mutableRepos());
+      final preview = await executor.preview(const AiToolCall(
+        id: 'call_b3',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson: '{"name":"核心","difficulty":"入门","focus":"碎片",'
+            '"minutes":10,"create_missing_exercises":true,'
+            '"items":[{"exercise_name":"深蹲"},{"exercise_name":"平板支撑"}]}',
+      ));
+      expect(preview.detail, '新建模板：核心 · 入门 · 2 个动作 · 约 10 分钟');
+    });
+
+    test('执行：先建缺失动作再建模板，item 映射到新建动作的 id', () async {
+      final exercise = _MutableExerciseRepo(_fakeExercises);
+      final template = _MutableTemplateRepo();
+      final executor =
+          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+
+      final result = await _executeJson(executor, const AiToolCall(
+        id: 'call_b4',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson: args,
+      ));
+
+      expect(result['ok'], isTrue);
+      expect(result['template_id'], 1);
+      expect(result['created_exercises'], ['开合跳', '提膝下压']);
+      // 动作库：原本 3 个 + 新建 2 个
+      expect(exercise.rows, hasLength(5));
+      final created = exercise.rows.skip(3).toList();
+      expect(created.map((e) => e.category).toList(), ['cardio', 'bodyweight']);
+      expect(created.last.muscleGroup, '腹部');
+
+      // 模板 items 指向新建的 id（新 id 从 100 起）
+      final items = template.created.single.items;
+      expect(items, hasLength(3));
+      expect(items.map((e) => e.exerciseId).toList(), [100, 101, 3]);
+    });
+
+    test('同名缺失动作去重：忽略大小写，只建一个', () async {
+      final exercise = _MutableExerciseRepo(const []);
+      final template = _MutableTemplateRepo();
+      final executor =
+          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+
+      final result = await _executeJson(executor, const AiToolCall(
+        id: 'call_b5',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson: '{"name":"核心","difficulty":"入门","focus":"全身",'
+            '"minutes":15,"create_missing_exercises":true,"items":['
+            '{"exercise_name":"Plank","category":"徒手"},'
+            '{"exercise_name":" plank ","category":"器械"},'
+            '{"exercise_name":"平板支撑","category":"徒手"}]}',
+      ));
+
+      expect(result['created_exercises'], ['Plank', '平板支撑']);
+      expect(exercise.rows, hasLength(2), reason: '同名动作只能建一个');
+      expect(template.created.single.items.map((e) => e.exerciseId).toList(),
+          [100, 100, 101]);
+    });
+
+    test('二次校验：预览之后别处已把动作加进库，执行时复用、不重复建', () async {
+      final exercise = _MutableExerciseRepo(const []);
+      final template = _MutableTemplateRepo();
+      final executor =
+          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+
+      const call = AiToolCall(
+        id: 'call_b6',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson: '{"name":"腿日","difficulty":"入门","focus":"全身",'
+            '"minutes":20,"create_missing_exercises":true,'
+            '"items":[{"exercise_name":"开合跳","category":"有氧"}]}',
+      );
+
+      final preview = await executor.preview(call);
+      expect(preview.detail, contains('（含新建 1 个动作）'));
+
+      // 用户还没点确认的时候，动作库被别处写进了同名动作
+      exercise.rows
+          .add(const ExerciseEntity(id: 7, name: '开合跳', category: 'cardio'));
+
+      final result = await _executeJson(executor, call);
+      expect(result['ok'], isTrue);
+      expect(result['created_exercises'], isEmpty, reason: '已存在就该复用');
+      expect(exercise.rows.where((e) => e.name == '开合跳'), hasLength(1));
+      expect(template.created.single.items.single.exerciseId, 7);
+    });
+  });
+
+  group('create_exercises 批量新增动作', () {
+    Map<String, dynamic> batch(List<String> names) => {
+          'exercises': [
+            for (final name in names) {'name': name, 'category': '徒手'},
+          ],
+        };
+
+    test('边界：1 个可以，10 个可以，11 个拒绝，0 个拒绝', () {
+      expect(AiToolArgs.exercises(batch(['动作1'])), hasLength(1));
+      expect(
+          AiToolArgs.exercises(
+              batch([for (var i = 1; i <= 10; i++) '动作$i'])),
+          hasLength(10));
+      expect(() => AiToolArgs.exercises(batch([for (var i = 1; i <= 11; i++) '动作$i'])),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.exercises(batch(const [])),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('批内同名（忽略大小写）只保留第一个', () {
+      final inputs = AiToolArgs.exercises({
+        'exercises': [
+          {'name': 'Plank', 'category': '徒手', 'muscle_group': '核心'},
+          {'name': ' plank ', 'category': '器械'},
+        ],
+      });
+      expect(inputs, hasLength(1));
+      expect(inputs.single.category, 'bodyweight');
+      expect(inputs.single.muscleGroup, '核心');
+    });
+
+    test('预览文案：新增 3 个动作：A、B、C', () async {
+      final executor = AiToolExecutor(repos: _mutableRepos());
+      final preview = await executor.preview(const AiToolCall(
+        id: 'call_be1',
+        name: AiToolSpecs.createExercises,
+        argumentsJson: '{"exercises":[{"name":"开合跳","category":"有氧"},'
+            '{"name":"提膝下压","category":"徒手"},'
+            '{"name":"深蹲跳","category":"徒手"}]}',
+      ));
+      expect(preview.label, '批量新增动作');
+      expect(preview.detail, '新增 3 个动作：开合跳、提膝下压、深蹲跳');
+      expect(preview.needsConfirm, isTrue);
+      expect(preview.isDestructive, isFalse);
+    });
+
+    test('执行：库里已有同名跳过并列进 skipped', () async {
+      final exercise = _MutableExerciseRepo(_fakeExercises);
+      final executor = AiToolExecutor(repos: _mutableRepos(exercise: exercise));
+
+      final result = await _executeJson(executor, const AiToolCall(
+        id: 'call_be2',
+        name: AiToolSpecs.createExercises,
+        argumentsJson: '{"exercises":[{"name":"深蹲","category":"器械"},'
+            '{"name":"开合跳","category":"有氧","default_duration_sec":60},'
+            '{"name":"提膝下压","category":"徒手"}]}',
+      ));
+
+      expect(result['ok'], isTrue);
+      expect(result['created_count'], 2);
+      expect(result['skipped'], ['深蹲']);
+      expect(exercise.rows, hasLength(5));
+      final jumping = exercise.rows.firstWhere((e) => e.name == '开合跳');
+      expect(jumping.defaultDurationSec, 60, reason: '默认值要一起落库');
+    });
+  });
+
+  group('提示词：批量建模板 / 批量加动作', () {
+    test('引导一次调用 create_template 并开启 create_missing_exercises', () {
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('不要逐个调用工具'));
+      expect(prompt, contains('create_missing_exercises'));
+      expect(prompt, contains('create_exercises'));
+      expect(prompt, contains('${AiToolLimits.maxCallsPerRound} 次工具调用'));
+    });
+  });
 }
 
 /// 执行工具并把结果解析成 Map
@@ -1611,6 +1887,12 @@ const _validArgs = <String, Map<String, dynamic>>{
     'category': '器械',
     'muscle_group': '腿部',
     'default_reps': 12,
+  },
+  AiToolSpecs.createExercises: {
+    'exercises': [
+      {'name': '开合跳', 'category': '有氧'},
+      {'name': '深蹲跳', 'category': '徒手', 'muscle_group': '腿部'},
+    ],
   },
   AiToolSpecs.createTemplate: {
     'name': '下肢力量',
@@ -1968,8 +2250,7 @@ class _FakeExerciseRepo implements ExerciseRepository {
 }
 
 /// 假模板仓储：只读方法返回固定数据，写方法一律抛错
-class _FakeTemplateRepo implements WorkoutTemplateRepository {
-  _FakeTemplateRepo(this.rows);
+class _FakeTemplateRepo implements WorkoutTemplateRepository {  _FakeTemplateRepo(this.rows);
 
   final List<WorkoutTemplateEntity> rows;
 
@@ -2009,4 +2290,144 @@ class _FakeTemplateRepo implements WorkoutTemplateRepository {
 
   @override
   Future<void> delete(int id) async => _previewMustNotWrite('template.delete');
+}
+
+// ═══════════ 可变测试替身（批量新增动作要真的写进内存才能验证） ═══════════
+
+/// 只用可变动作库 / 可变模板仓储时构造的仓储集合
+AiToolRepos _mutableRepos({
+  _MutableExerciseRepo? exercise,
+  _MutableTemplateRepo? template,
+}) =>
+    AiToolRepos(
+      body: _FakeBodyRepo(const []),
+      water: _FakeWaterRepo(0),
+      workout: _FakeWorkoutRepo(const []),
+      diet: _FakeDietRepo(const []),
+      goal: _FakeGoalRepo(const []),
+      settings: const _FakeSettingsRepo(),
+      exercise: exercise ?? _MutableExerciseRepo(_fakeExercises),
+      template: template ?? _MutableTemplateRepo(),
+    );
+
+/// 可变动作库：create / saveDefaults 真的写进内存（新 id 从 100 起，便于断言）
+class _MutableExerciseRepo implements ExerciseRepository {
+  _MutableExerciseRepo([List<ExerciseEntity> seed = const []]) {
+    rows.addAll(seed);
+  }
+
+  final List<ExerciseEntity> rows = <ExerciseEntity>[];
+  int _nextId = 100;
+
+  @override
+  Future<List<ExerciseEntity>> getAll() async => List<ExerciseEntity>.of(rows);
+
+  @override
+  Future<List<ExerciseEntity>> getByCategory(String category) async =>
+      rows.where((e) => e.category == category).toList();
+
+  @override
+  Future<ExerciseEntity?> getById(int id) async {
+    for (final e in rows) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<ExerciseEntity>> search(String query) async {
+    final q = query.trim().toLowerCase();
+    return rows.where((e) => e.name.toLowerCase().contains(q)).toList();
+  }
+
+  @override
+  Future<ExerciseEntity> create(
+      String name, String category, String? muscleGroup) async {
+    final entity = ExerciseEntity(
+      id: _nextId++,
+      name: name,
+      category: category,
+      muscleGroup: muscleGroup,
+      isCustom: true,
+    );
+    rows.add(entity);
+    return entity;
+  }
+
+  @override
+  Future<void> update(ExerciseEntity exercise) async {
+    final i = rows.indexWhere((e) => e.id == exercise.id);
+    if (i >= 0) rows[i] = exercise;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    rows.removeWhere((e) => e.id == id);
+  }
+
+  @override
+  Future<void> saveDefaults(int id,
+      {int? defaultReps,
+      double? defaultWeightKg,
+      int? defaultDurationSec}) async {
+    final i = rows.indexWhere((e) => e.id == id);
+    if (i < 0) return;
+    final old = rows[i];
+    rows[i] = ExerciseEntity(
+      id: old.id,
+      name: old.name,
+      category: old.category,
+      muscleGroup: old.muscleGroup,
+      isCustom: old.isCustom,
+      defaultReps: defaultReps ?? old.defaultReps,
+      defaultWeightKg: defaultWeightKg ?? old.defaultWeightKg,
+      defaultDurationSec: defaultDurationSec ?? old.defaultDurationSec,
+    );
+  }
+}
+
+/// 可变模板仓储：只记录写入结果，不碰数据库
+class _MutableTemplateRepo implements WorkoutTemplateRepository {
+  final List<_CreatedTemplate> created = <_CreatedTemplate>[];
+
+  @override
+  Future<List<WorkoutTemplateEntity>> getAll() async => const [];
+
+  @override
+  Future<WorkoutTemplateEntity?> getById(int id) async => null;
+
+  @override
+  Future<int> create({
+    required String name,
+    required String difficulty,
+    required String focus,
+    required int minutes,
+    String? description,
+    required List<TemplateItemInput> items,
+  }) async {
+    created.add(_CreatedTemplate(name: name, items: items));
+    return created.length;
+  }
+
+  @override
+  Future<void> update({
+    required int id,
+    required String name,
+    required String difficulty,
+    required String focus,
+    required int minutes,
+    String? description,
+    required List<TemplateItemInput> items,
+  }) async {}
+
+  @override
+  Future<void> delete(int id) async {}
+}
+
+/// 一次 create 调用的落库结果
+class _CreatedTemplate {
+  const _CreatedTemplate({required this.name, required this.items});
+
+  final String name;
+  final List<TemplateItemInput> items;
 }
