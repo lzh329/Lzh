@@ -42,6 +42,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     String? aiReplyLength,
     double? aiTemperature,
     String? aiPersonaCustom,
+    bool? aiWebSearchEnabled,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,
@@ -102,6 +103,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             : const Value.absent(),
         aiPersonaCustom: aiPersonaCustom != null
             ? Value(aiPersonaCustom)
+            : const Value.absent(),
+        aiWebSearchEnabled: aiWebSearchEnabled != null
+            ? Value(aiWebSearchEnabled)
             : const Value.absent(),
         dailyCalorieTarget: dailyCalorieTarget != null
             ? Value(dailyCalorieTarget)
@@ -176,6 +180,10 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             aiPersonaCustom: aiPersonaCustom != null
                 ? Value(aiPersonaCustom)
                 : const Value.absent(),
+            // 新建记录时未指定就显式落 true（与建表默认值一致，别依赖 absent）
+            aiWebSearchEnabled: aiWebSearchEnabled != null
+                ? Value(aiWebSearchEnabled)
+                : const Value(true),
             dailyCalorieTarget: dailyCalorieTarget != null
                 ? Value(dailyCalorieTarget)
                 : const Value.absent(),
@@ -231,6 +239,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         aiReplyLength: row.aiReplyLength,
         aiTemperature: row.aiTemperature,
         aiPersonaCustom: row.aiPersonaCustom,
+        aiWebSearchEnabled: row.aiWebSearchEnabled,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,

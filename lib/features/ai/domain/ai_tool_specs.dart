@@ -69,6 +69,30 @@ class AiToolSpecs {
 
   static bool isReadOnly(String name) => readOnlyTools.contains(name);
 
+  /// 联网类工具（web_search / fetch_url）——「联网搜索」开关关闭时整体摘掉
+  static const Set<String> webTools = {webSearch, fetchUrl};
+
+  /// 按「联网搜索」开关裁剪后的工具清单
+  ///
+  /// [webEnabled] 为 false 时把 [webSearch] / [fetchUrl] 两个 schema 摘掉
+  /// （19 → 17）：模型看不到这两个工具，就没法调，也就不会产生搜索费用。
+  /// [defs] 本身保持 19 个不变（单测锁全集、执行器仍认识这两个名字）。
+  static List<Map<String, dynamic>> defsFor({required bool webEnabled}) {
+    if (webEnabled) return defs;
+    return [
+      for (final def in defs)
+        if (!webTools.contains(_nameOf(def))) def,
+    ];
+  }
+
+  /// 取一条 function schema 的工具名（结构固定，取不到就返回空串）
+  static String _nameOf(Map<String, dynamic> def) {
+    final function = def['function'];
+    if (function is! Map) return '';
+    final name = function['name'];
+    return name is String ? name : '';
+  }
+
   /// 暴露给模型的工具清单（19 个：14 个写操作 + 5 个只读工具）
   ///
   /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：

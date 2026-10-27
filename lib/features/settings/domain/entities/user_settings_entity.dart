@@ -44,6 +44,13 @@ class UserSettingsEntity {
 
   /// 用户自定义人设文案（多行，只替换「角色」段；null / 空串 = 用风格默认）
   final String? aiPersonaCustom;
+
+  /// AI 教练「联网搜索」开关（默认开）
+  ///
+  /// 关闭后请求里不注册 web_search / fetch_url，提示词里也不出现联网规则，
+  /// 直接掐掉搜索费用（¥5 / 1000 次成功请求）。
+  final bool aiWebSearchEnabled;
+
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -77,6 +84,7 @@ class UserSettingsEntity {
     this.aiReplyLength,
     this.aiTemperature,
     this.aiPersonaCustom,
+    this.aiWebSearchEnabled = true,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,

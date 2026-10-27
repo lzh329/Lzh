@@ -28,6 +28,9 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
   String _length = 'medium';
   double _temp = AiService.defaultTemperature;
   List<String> _constraints = [];
+
+  /// 「联网搜索」开关（默认开，老库没这一列时也按开处理）
+  bool _webSearch = true;
   bool _loaded = false;
 
   final _inputCtrl = TextEditingController();
@@ -60,6 +63,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
       _length = s?.aiReplyLength ?? AiCoachOptions.lengthOf(null).key;
       _temp = (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
       _constraints = AiCoachOptions.decodeConstraints(s?.aiConstraints);
+      _webSearch = s?.aiWebSearchEnabled ?? true;
       _loaded = true;
     });
   }
@@ -85,6 +89,22 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
   void _removeConstraint(String text) {
     setState(() => _constraints = _constraints.where((e) => e != text).toList());
     _save();
+  }
+
+  /// 切换「联网搜索」：立刻存库 + 刷新设置，下一条消息就按新开关走
+  Future<void> _toggleWebSearch(bool value) async {
+    setState(() => _webSearch = value);
+    await ref.read(userSettingsRepoProvider).save(aiWebSearchEnabled: value);
+    ref.invalidate(userSettingsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(value ? '已开启联网搜索' : '已关闭联网搜索'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   @override
@@ -158,6 +178,13 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                const AiCoachSectionTitle('联网搜索'),
+                AiWebSearchTile(
+                  value: _webSearch,
+                  onChanged: _toggleWebSearch,
                 ),
                 const SizedBox(height: 16),
 

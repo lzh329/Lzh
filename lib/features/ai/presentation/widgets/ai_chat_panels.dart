@@ -95,119 +95,13 @@ class ApiKeyCard extends StatelessWidget {
   }
 }
 
-/// 底部输入栏（左侧图片按钮 + 可选缩略图）
-class AiInputBar extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool isStreaming;
-  final VoidCallback onSend;
-
-  /// 待发送的图片（为空表示纯文本消息）
-  final File? image;
-
-  /// 点「图片」按钮
-  final VoidCallback onPickImage;
-
-  /// 删除待发送的图片
-  final VoidCallback onRemoveImage;
-
-  const AiInputBar({
-    super.key,
-    required this.controller,
-    required this.focusNode,
-    required this.isStreaming,
-    required this.onSend,
-    this.image,
-    required this.onPickImage,
-    required this.onRemoveImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (image != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _ImageThumbnail(
-                    file: image!,
-                    onRemove: onRemoveImage,
-                  ),
-                ),
-              ),
-            Row(
-              children: [
-                IconButton(
-                  tooltip: '发送图片',
-                  onPressed: isStreaming ? null : onPickImage,
-                  icon: Icon(
-                    Icons.add_photo_alternate_outlined,
-                    size: 24,
-                    color: isStreaming
-                        ? AppColors.textTertiary
-                        : AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: !isStreaming,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    decoration: InputDecoration(
-                      hintText: isStreaming ? '嘎教练正在回答…' : '向嘎教练提问',
-                      filled: true,
-                      fillColor: AppColors.surface,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor:
-                      isStreaming ? AppColors.surfaceAlt : AppColors.primary,
-                  child: IconButton(
-                    icon: Icon(Icons.send,
-                        size: 20,
-                        color: isStreaming
-                            ? AppColors.textTertiary
-                            : AppColors.onPrimary),
-                    onPressed: isStreaming ? null : onSend,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// 待发送图片的缩略图（60x60 圆角 + 右上角删除）
-class _ImageThumbnail extends StatelessWidget {
+class AiImageThumbnail extends StatelessWidget {
   final File file;
   final VoidCallback onRemove;
 
-  const _ImageThumbnail({required this.file, required this.onRemove});
+  const AiImageThumbnail({super.key, required this.file, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {

@@ -56,6 +56,21 @@ class AiPromptBuilder {
     '今天蛋白有点少，晚饭加个鸡蛋就够啦。',
   ];
 
+  /// 联网规则（「联网搜索」开关打开时才写进「工具使用」段）
+  static const _webRules = [
+    '- 需要最新、有时效性的信息（新闻、价格、赛事、政策、产品发布）时，'
+        '先用 web_search 搜，不要凭记忆编',
+    '- 用户发来链接（公众号 / 知乎 / B 站 / YouTube 等）时用 fetch_url 读正文；'
+        '视频链接只能拿到标题和简介，要明确告诉用户看不到画面',
+    '- 引用搜索结果必须标来源：正文结束后单独一行写「来源：站点名 链接」，'
+        '最多 3 条；不要用 [标题](url) 这种 Markdown 链接，气泡里不渲染',
+    '- 搜索 / 抓取失败或结果为空时，直说「没搜到可靠信息」，不要编造',
+  ];
+
+  /// 联网关闭时替代上面四条的唯一一条规则（避免模型以为还能搜）
+  static const _webDisabledRule = '- 联网已关闭：无法搜索或抓取网页；'
+      '用户需要时，提示他到「教练设定 → 联网搜索」开启';
+
   /// 构建完整 system prompt（数据为空时也能工作）
   ///
   /// 「角色」段优先用用户自定义文案（`aiPersonaCustom`，trim 后为空视为未设置），
@@ -132,14 +147,19 @@ class AiPromptBuilder {
           '直接调用一次 create_template，把 create_missing_exercises 设成 true，'
           '并在每个 item 里一并给出 category（徒手 / 器械 / 有氧 / 拉伸）与 muscle_group，'
           '缺失的动作会和模板在同一次确认里一起建好')
-      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）')
-      ..writeln('- 需要最新、有时效性的信息（新闻、价格、赛事、政策、产品发布）时，'
-          '先用 web_search 搜，不要凭记忆编')
-      ..writeln('- 用户发来链接（公众号 / 知乎 / B 站 / YouTube 等）时用 fetch_url 读正文；'
-          '视频链接只能拿到标题和简介，要明确告诉用户看不到画面')
-      ..writeln('- 引用搜索结果必须标来源：正文结束后单独一行写「来源：站点名 链接」，'
-          '最多 3 条；不要用 [标题](url) 这种 Markdown 链接，气泡里不渲染')
-      ..writeln('- 搜索 / 抓取失败或结果为空时，直说「没搜到可靠信息」，不要编造')
+      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）');
+
+    // 联网开关：关掉时工具清单里已经没有 web_search / fetch_url，
+    // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动
+    if (settings?.aiWebSearchEnabled ?? true) {
+      for (final line in _webRules) {
+        buf.writeln(line);
+      }
+    } else {
+      buf.writeln(_webDisabledRule);
+    }
+
+    buf
       ..writeln('- 每轮最多 ${AiToolLimits.maxCallsPerRound} 次工具调用，'
           '超了要拆成两步并告知用户"先做这一步，剩下的接着说"')
       ..writeln('- 记录类的事顺手做完就行，一句话带过（"记上了哈"），别写成流水账')

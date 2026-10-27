@@ -82,6 +82,42 @@ class AiCoachStyleCard extends StatelessWidget {
   }
 }
 
+/// 「联网搜索」开关行
+///
+/// 关闭后请求里不再注册 web_search / fetch_url，提示词也同步改口 ——
+/// 直接掐掉搜索费用（¥5 / 1000 次成功请求）。
+class AiWebSearchTile extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const AiWebSearchTile({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile.adaptive(
+      value: value,
+      onChanged: onChanged,
+      contentPadding: EdgeInsets.zero,
+      activeThumbColor: AppColors.primary,
+      title: const Text('联网搜索',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      subtitle: const Text(
+        '关闭后不产生搜索费用（¥5 / 1000 次成功请求）',
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      ),
+      secondary: Icon(
+        value ? Icons.travel_explore : Icons.public_off,
+        size: 20,
+        color: value ? AppColors.primary : AppColors.textTertiary,
+      ),
+    );
+  }
+}
+
 /// 人设页顶部说明卡：自定义人设能改什么、不能改什么
 class AiPersonaInfoCard extends StatelessWidget {
   const AiPersonaInfoCard({super.key});

@@ -23,12 +23,18 @@ class AiToolWebReaders extends AiToolHandler {
   /// 未配置 Key 时的提示（不弹服务端错误，直说缺什么）
   static const noKeyMessage = '还没配置 API Key';
 
+  /// 「联网搜索」开关关闭时的统一拒绝文案（提示去哪里打开）
+  static const webDisabledMessage = '联网搜索已关闭';
+
   @override
   Set<String> get toolNames =>
       const {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl};
 
   @override
   Future<AiToolPreview> preview(AiToolCall call) async {
+    // 开关关闭时两个工具都拒：即使模型从历史上下文里"记得"这两个工具，
+    // 也不能真的发出去（搜索按次计费，用户明确关了就别花这个钱）
+    await _ensureWebEnabled();
     switch (call.name) {
       case AiToolSpecs.webSearch:
         final query = AiToolArgs.webSearchQuery(call.arguments);
@@ -54,6 +60,7 @@ class AiToolWebReaders extends AiToolHandler {
 
   @override
   Future<String> execute(AiToolCall call) async {
+    await _ensureWebEnabled();
     switch (call.name) {
       case AiToolSpecs.webSearch:
         return _webSearch(call.arguments);
@@ -128,5 +135,15 @@ class AiToolWebReaders extends AiToolHandler {
     final key = AiService.resolveKey(settings?.aiApiKey);
     if (key == null) throw const AiToolException(noKeyMessage);
     return key;
+  }
+
+  /// 联网开关校验：读设置（没设置过 / 老库一律按开启处理）
+  ///
+  /// 抛 [AiToolException] 而不是返回 ok:false —— 关闭是「这个能力不存在」，
+  /// 让模型看到明确的中文原因，比让它自己猜要稳。
+  Future<void> _ensureWebEnabled() async {
+    final settings = await repos.settings.get();
+    if (settings?.aiWebSearchEnabled ?? true) return;
+    throw const AiToolException(webDisabledMessage);
   }
 }

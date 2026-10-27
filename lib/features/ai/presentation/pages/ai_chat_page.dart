@@ -9,6 +9,7 @@ import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_bubbles.dart';
+import 'package:fittrack/features/ai/presentation/widgets/ai_chat_input_bar.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_panels.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_tool_confirm_card.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';

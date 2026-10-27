@@ -26,6 +26,8 @@ dependencies:
   timezone: ^0.10.1
   wakelock_plus: ^1.5.2
   http: ^1.2.2
+  # 应用内语音输入（聊天页麦克风），走系统识别服务，不上传音频到第三方
+  speech_to_text: ^7.0.0
 
 dev_dependencies:
   flutter_test:

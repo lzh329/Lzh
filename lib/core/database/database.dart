@@ -135,6 +135,10 @@ class UserSettings extends Table {
   RealColumn get aiTemperature => real().nullable()();
   // 用户自定义人设文案（只替换 system prompt 的「角色」段；空值 = 用风格默认）
   TextColumn get aiPersonaCustom => text().nullable()();
+  // AI 教练「联网搜索」开关（默认开）：关闭后不注册 web_search / fetch_url，
+  // 提示词里也不出现联网规则 —— 直接掐掉搜索费用（¥5 / 1000 次成功请求）
+  BoolColumn get aiWebSearchEnabled =>
+      boolean().withDefault(const Constant(true))();
   // 饮食目标
   IntColumn get dailyCalorieTarget => integer().nullable()();
   RealColumn get proteinTargetG => real().nullable()();
@@ -238,8 +242,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion =>
-      19; // v19: AI 教练支持用户自定义人设文案（ai_persona_custom）
+  int get schemaVersion => 20; // v20: AI 教练「联网搜索」开关（ai_web_search_enabled）
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -337,6 +340,10 @@ class AppDatabase extends _$AppDatabase {
           // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
           if (from < 19) {
             await m.addColumn(userSettings, userSettings.aiPersonaCustom);
+          }
+          // v20: AI 教练「联网搜索」开关（老用户默认开，保持原有行为）
+          if (from < 20) {
+            await m.addColumn(userSettings, userSettings.aiWebSearchEnabled);
           }
         },
       );

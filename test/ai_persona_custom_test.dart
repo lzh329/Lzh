@@ -125,10 +125,10 @@ void main() {
     });
   });
 
-  group('v19 schema', () {
-    test('schemaVersion 为 19', () {
+  group('schema 版本', () {
+    test('schemaVersion 已推进到 20（v20 新增 ai_web_search_enabled）', () {
       final db = AppDatabase();
-      expect(db.schemaVersion, 19);
+      expect(db.schemaVersion, 20);
       // 不触发任何查询，直接关闭（LazyDatabase 不会打开 sqlite 文件）
       db.close();
     });

@@ -112,6 +112,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       // 取设置与趋势数据失败也要兜住，不能把异常冒泡到 send()
       final settings = await _ref.read(userSettingsProvider.future);
       final trends = await _ref.read(trendsDataProvider.future);
+      // 联网开关：没设置过（老库 / 首启）一律按开启处理
+      final webEnabled = settings?.aiWebSearchEnabled ?? true;
       state = state.copyWith(
           isStreaming: true, clearStreaming: true, clearError: true);
 
@@ -119,6 +121,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         apiKey: AiService.resolveKey(settings?.aiApiKey) ?? '',
         temperature: (settings?.aiTemperature ?? AiService.defaultTemperature)
             .clamp(0.3, 1.0),
+        webEnabled: webEnabled,
         messages: [
           AiMessage(
             role: 'system',

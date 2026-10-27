@@ -381,6 +381,42 @@ void main() {
       expect(called, 0, reason: '非法链接不该产生任何网络请求');
     });
 
+    test('联网开关关闭时 preview / execute 都拒绝（不发网络请求）', () async {
+      var called = 0;
+      final handler = AiToolWebReaders(
+        _repos(apiKey: 'sk-test', webEnabled: false),
+        client: MockClient((_) async {
+          called++;
+          return _json({'results': [], 'title': '', 'content': ''});
+        }),
+      );
+
+      for (final call in [
+        const AiToolCall(
+          id: 'call_off_1',
+          name: AiToolSpecs.webSearch,
+          argumentsJson: '{"query":"今天金价"}',
+        ),
+        const AiToolCall(
+          id: 'call_off_2',
+          name: AiToolSpecs.fetchUrl,
+          argumentsJson: '{"url":"https://example.com/a"}',
+        ),
+      ]) {
+        await expectLater(
+          handler.preview(call),
+          throwsA(isA<AiToolException>().having(
+              (e) => e.message, 'message', AiToolWebReaders.webDisabledMessage)),
+        );
+        await expectLater(
+          handler.execute(call),
+          throwsA(isA<AiToolException>().having(
+              (e) => e.message, 'message', AiToolWebReaders.webDisabledMessage)),
+        );
+      }
+      expect(called, 0, reason: '关闭联网后一次搜索请求都不应该发出去');
+    });
+
     test('handler 白名单只认这两个工具，别的工具直接拒绝', () {
       final handler = AiToolWebReaders(_repos(apiKey: null));
       expect(handler.toolNames, {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl});
@@ -535,27 +571,35 @@ class SocketExceptionStub implements Exception {
 }
 
 /// 只关心 settings 的仓储集合（其余仓储一旦被碰就报错）
-AiToolRepos _repos({required String? apiKey}) => AiToolRepos(
+AiToolRepos _repos({required String? apiKey, bool webEnabled = true}) =>
+    AiToolRepos(
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),
       workout: const _UntouchedWorkoutRepo(),
       diet: const _UntouchedDietRepo(),
       goal: const _UntouchedGoalRepo(),
-      settings: _StubSettingsRepo(apiKey),
+      settings: _StubSettingsRepo(apiKey, webEnabled: webEnabled),
       exercise: const _UntouchedExerciseRepo(),
       template: const _UntouchedTemplateRepo(),
     );
 
 /// 设置仓储：有 key 就返回带 key 的设置，无 key 返回 null
 class _StubSettingsRepo implements UserSettingsRepository {
-  const _StubSettingsRepo(this.apiKey);
+  const _StubSettingsRepo(this.apiKey, {this.webEnabled = true});
 
   final String? apiKey;
+
+  /// 「联网搜索」开关（v20）
+  final bool webEnabled;
 
   @override
   Future<UserSettingsEntity?> get() async => apiKey == null
       ? null
-      : UserSettingsEntity(id: 1, aiApiKey: apiKey);
+      : UserSettingsEntity(
+          id: 1,
+          aiApiKey: apiKey,
+          aiWebSearchEnabled: webEnabled,
+        );
 
   @override
   Future<UserSettingsEntity> save({
@@ -584,6 +628,7 @@ class _StubSettingsRepo implements UserSettingsRepository {
     String? aiReplyLength,
     double? aiTemperature,
     String? aiPersonaCustom,
+    bool? aiWebSearchEnabled,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

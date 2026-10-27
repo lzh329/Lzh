@@ -24,18 +24,20 @@ class AiChatRoundResult {
   /// 跑一轮流式请求；网络 / 服务端异常统一转成可读文案（不向外抛）
   ///
   /// 工具调用异常（[AiToolException]）由调用方自己处理，这里原样抛出。
+  /// [webEnabled] 关闭时只下发 17 个工具（不含 web_search / fetch_url）。
   static Future<AiChatRoundResult> run({
     required String apiKey,
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
     double temperature = AiService.defaultTemperature,
+    bool webEnabled = true,
   }) async {
     try {
       final res = await AiService.streamChat(
         apiKey: apiKey,
         messages: messages,
         onDelta: onDelta,
-        tools: AiToolSpecs.defs,
+        tools: AiToolSpecs.defsFor(webEnabled: webEnabled),
         temperature: temperature,
       );
       return AiChatRoundResult(
