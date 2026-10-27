@@ -31,3 +31,6 @@ macos/Pods/
 .workbuddy/
 generated-images/
 *.apk
+
+# 调试临时文件（截图 / 导出的 UI 树等）
+.tmp_*
