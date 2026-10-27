@@ -167,3 +167,156 @@ class AiRecordTypes {
   static AiToolException emptyOf(String type) =>
       AiToolException('这天没有可删除的${labelOf(type)}记录');
 }
+
+/// 动作库分类（数据库存英文：bodyweight / gym / cardio / stretch）
+class AiExerciseCategories {
+  AiExerciseCategories._();
+
+  static const bodyweight = 'bodyweight';
+  static const gym = 'gym';
+  static const cardio = 'cardio';
+  static const stretch = 'stretch';
+
+  static const all = {bodyweight, gym, cardio, stretch};
+
+  static const labels = {
+    bodyweight: '徒手',
+    gym: '器械',
+    cardio: '有氧',
+    stretch: '拉伸',
+  };
+
+  /// 中文 / 英文别名 → 数据库枚举值
+  static const aliases = <String, String>{
+    bodyweight: bodyweight,
+    'body_weight': bodyweight,
+    '徒手': bodyweight,
+    '自重': bodyweight,
+    gym: gym,
+    '器械': gym,
+    cardio: cardio,
+    '有氧': cardio,
+    stretch: stretch,
+    '拉伸': stretch,
+  };
+
+  /// 归一化：非法 / 空值返回 null（由调用方决定抛异常还是忽略）
+  static String? normalize(String raw) {
+    final v = raw.trim().toLowerCase();
+    if (v.isEmpty) return null;
+    return aliases[v];
+  }
+
+  static String labelOf(String category) => labels[category] ?? category;
+}
+
+/// create_exercise 的入参（已校验、已归一化）
+class AiExerciseInput {
+  final String name;
+  final String category; // bodyweight / gym / cardio / stretch
+  final String? muscleGroup;
+  final int? defaultReps;
+  final int? defaultDurationSec;
+
+  const AiExerciseInput({
+    required this.name,
+    required this.category,
+    this.muscleGroup,
+    this.defaultReps,
+    this.defaultDurationSec,
+  });
+
+  String get categoryLabel => AiExerciseCategories.labelOf(category);
+
+  /// 「器械 · 腿部 · 默认 12 次」：没有的项不出现
+  String get metaLabel {
+    final parts = <String>[
+      categoryLabel,
+      if (muscleGroup != null) muscleGroup!,
+      if (defaultReps != null)
+        '默认 $defaultReps 次'
+      else if (defaultDurationSec != null)
+        '默认 $defaultDurationSec 秒',
+    ];
+    return parts.join(' · ');
+  }
+
+  bool get hasDefaults => defaultReps != null || defaultDurationSec != null;
+}
+
+/// create_template 的单个动作（已校验）
+class AiTemplateItemInput {
+  final String exerciseName;
+  final int sets;
+  final int? reps;
+  final int? durationSec;
+
+  const AiTemplateItemInput({
+    required this.exerciseName,
+    this.sets = 3,
+    this.reps,
+    this.durationSec,
+  });
+
+  /// 「3×12」/「3×30s」
+  String get targetLabel =>
+      reps != null ? '$sets×$reps' : '$sets×${durationSec ?? 0}s';
+}
+
+/// create_template 的入参（已校验、已归一化）
+class AiTemplateCommand {
+  final String name;
+  final String difficulty; // 入门 / 中阶 / 高阶
+  final String focus; // 全身 / 放松 / 碎片
+  final int minutes;
+  final String? description;
+  final List<AiTemplateItemInput> items;
+
+  const AiTemplateCommand({
+    required this.name,
+    required this.difficulty,
+    required this.focus,
+    required this.minutes,
+    this.description,
+    required this.items,
+  });
+
+  static const difficulties = ['入门', '中阶', '高阶'];
+  static const focuses = ['全身', '放松', '碎片'];
+
+  /// 难度别名（英文兼容）→ 中文枚举值
+  static const difficultyAliases = <String, String>{
+    '入门': '入门',
+    'beginner': '入门',
+    'easy': '入门',
+    '中阶': '中阶',
+    'intermediate': '中阶',
+    'medium': '中阶',
+    '高阶': '高阶',
+    'advanced': '高阶',
+    'hard': '高阶',
+  };
+
+  /// 侧重别名（英文兼容）→ 中文枚举值
+  static const focusAliases = <String, String>{
+    '全身': '全身',
+    'full_body': '全身',
+    'fullbody': '全身',
+    'full': '全身',
+    '放松': '放松',
+    'relax': '放松',
+    'relaxation': '放松',
+    '碎片': '碎片',
+    'fragment': '碎片',
+    '碎片化': '碎片',
+  };
+
+  static String? difficultyOf(String raw) =>
+      difficultyAliases[raw.trim().toLowerCase()];
+
+  static String? focusOf(String raw) => focusAliases[raw.trim().toLowerCase()];
+
+  /// 确认卡文案，如「新建模板：下肢力量 · 中阶 · 4 个动作 · 约 35 分钟」
+  String get detail =>
+      '新建模板：$name · $difficulty · ${items.length} 个动作 · 约 $minutes 分钟';
+}

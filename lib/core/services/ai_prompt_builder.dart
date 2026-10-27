@@ -74,6 +74,11 @@ class AiPromptBuilder {
           'manage_goal(action:create)；围度、饮食目标、提醒、身体信息分别用 '
           'log_measurements / set_diet_target / set_reminder / update_profile')
       ..writeln('- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
+      ..writeln('- 建训练模板前先用 query_exercises 确认动作存在，'
+          '模板里的动作名必须与动作库完全一致')
+      ..writeln('- 动作库里没有用户要的动作时，先 create_exercise 加进动作库，再建模板')
+      ..writeln('- 用户说"帮我加个动作 XX"（想练但库里没有）时直接 create_exercise，'
+          '分类按动作性质选徒手 / 器械 / 有氧 / 拉伸')
       ..writeln()
       ..writeln('# 示例')
       ..writeAll(_examples, '\n')

@@ -19,15 +19,20 @@ class AiToolSpecs {
   static const manageGoal = 'manage_goal';
   static const deleteRecords = 'delete_records';
 
+  // ── 动作库 / 模板类（create_* 写需确认，query_exercises 只读） ──
+  static const createExercise = 'create_exercise';
+  static const createTemplate = 'create_template';
+
   // ── 只读类（自动执行） ──
   static const queryStats = 'query_stats';
   static const searchFood = 'search_food';
+  static const queryExercises = 'query_exercises';
 
   /// 危险工具（删除数据）：确认卡必须用警示样式
   static const Set<String> destructiveTools = {deleteRecords};
 
   /// 只读工具：无需用户确认，直接执行
-  static const Set<String> readOnlyTools = {queryStats, searchFood};
+  static const Set<String> readOnlyTools = {queryStats, searchFood, queryExercises};
 
   /// 需要用户确认的写操作
   static const Set<String> writeTools = {
@@ -42,13 +47,15 @@ class AiToolSpecs {
     setReminder,
     manageGoal,
     deleteRecords,
+    createExercise,
+    createTemplate,
   };
 
   static bool isDestructive(String name) => destructiveTools.contains(name);
 
   static bool isReadOnly(String name) => readOnlyTools.contains(name);
 
-  /// 暴露给模型的工具清单（13 个：11 个写操作 + 2 个只读查询）
+  /// 暴露给模型的工具清单（16 个：13 个写操作 + 3 个只读查询）
   static const defs = <Map<String, dynamic>>[
     // ───────── 记录类 ─────────
     {
@@ -336,6 +343,126 @@ class AiToolSpecs {
             },
           },
           'required': ['query'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': queryExercises,
+        'description': '查看动作库里有哪些动作（只读）。建训练模板前、或不确定某个动作是否已在库里时先查。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'query': {
+              'type': 'string',
+              'description': '动作名关键词，如"深蹲"，20 字以内；不给则列出前 8 个动作',
+            },
+            'category': {
+              'type': 'string',
+              'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+              'description': '分类筛选：徒手 / 器械 / 有氧 / 拉伸，可省略',
+            },
+          },
+          'required': [],
+        },
+      },
+    },
+    // ───────── 动作库 / 模板类（写，需确认） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': createExercise,
+        'description':
+            '往动作库里新增一个自定义动作。动作库里没有这个动作、但用户想练 / 想加进模板时调用。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'name': {
+              'type': 'string',
+              'description': '动作名称，如"保加利亚分腿蹲"，1~30 字',
+            },
+            'category': {
+              'type': 'string',
+              'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+              'description': '分类：徒手 / 器械 / 有氧 / 拉伸',
+            },
+            'muscle_group': {
+              'type': 'string',
+              'description': '目标肌群，如"腿部""胸部"，10 字以内，可省略',
+            },
+            'default_reps': {
+              'type': 'integer',
+              'description': '默认次数，1~100，可省略',
+            },
+            'default_duration_sec': {
+              'type': 'integer',
+              'description': '默认时长（秒），5~600，可省略；计时类动作用',
+            },
+          },
+          'required': ['name', 'category'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': createTemplate,
+        'description':
+            '新建一个训练模板（一组动作 + 组数次数）。动作必须已在动作库里，不确定就先 query_exercises。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'name': {
+              'type': 'string',
+              'description': '模板名称，如"下肢力量"，1~30 字',
+            },
+            'difficulty': {
+              'type': 'string',
+              'enum': ['入门', '中阶', '高阶'],
+              'description': '难度：入门 / 中阶 / 高阶',
+            },
+            'focus': {
+              'type': 'string',
+              'enum': ['全身', '放松', '碎片'],
+              'description': '侧重：全身 / 放松 / 碎片（碎片=碎片时间短练）',
+            },
+            'minutes': {
+              'type': 'integer',
+              'description': '预计时长（分钟），5~180',
+            },
+            'description': {
+              'type': 'string',
+              'description': '一句话说明，100 字以内，可省略',
+            },
+            'items': {
+              'type': 'array',
+              'description': '动作列表，1~12 项；动作名必须已在动作库里',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'exercise_name': {
+                    'type': 'string',
+                    'description': '动作名，须与动作库里的名称一致',
+                  },
+                  'sets': {
+                    'type': 'integer',
+                    'description': '组数，1~10，默认 3',
+                  },
+                  'reps': {
+                    'type': 'integer',
+                    'description': '每组次数，1~100',
+                  },
+                  'duration_sec': {
+                    'type': 'integer',
+                    'description': '每组时长（秒），5~600；计时类动作（平板支撑等）用',
+                  },
+                },
+                'required': ['exercise_name'],
+              },
+            },
+          },
+          'required': ['name', 'difficulty', 'focus', 'minutes', 'items'],
         },
       },
     },

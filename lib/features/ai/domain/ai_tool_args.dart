@@ -405,4 +405,190 @@ class AiToolArgs {
     if (q.length > 20) throw const AiToolException('搜索关键词太长（20 字以内）');
     return q;
   }
+
+  // ───────────── query_exercises ─────────────
+
+  /// 动作搜索关键词（可选）：空 / 缺失返回 null，表示不按名称筛选
+  static String? optionalExerciseQuery(Map<String, dynamic> args) {
+    final raw = args['query'];
+    if (raw is! String) return null;
+    final q = raw.trim();
+    if (q.isEmpty) return null;
+    if (q.length > 20) {
+      throw const AiToolException('搜索关键词太长（20 字以内）');
+    }
+    return q;
+  }
+
+  /// 动作分类（可选）：缺失返回 null，非法值抛异常
+  static String? optionalExerciseCategory(Map<String, dynamic> args) {
+    final raw = args['category'];
+    if (raw is! String || raw.trim().isEmpty) return null;
+    final category = AiExerciseCategories.normalize(raw);
+    if (category == null) {
+      throw AiToolException(
+          '不支持的分类"${raw.trim()}"（只能是 徒手 / 器械 / 有氧 / 拉伸）');
+    }
+    return category;
+  }
+
+  /// 动作分类（必填）：中文 / 英文均可，统一归一化成 bodyweight 等英文值
+  static String exerciseCategory(Map<String, dynamic> args) {
+    final raw = args['category'];
+    if (raw is! String || raw.trim().isEmpty) {
+      throw const AiToolException('缺少动作分类（只能是 徒手 / 器械 / 有氧 / 拉伸）');
+    }
+    return optionalExerciseCategory(args)!;
+  }
+
+  /// 动作名称：1~30 字
+  static String exerciseName(Map<String, dynamic> args) {
+    final raw = args['name'];
+    final name = raw is String ? raw.trim() : '';
+    if (name.isEmpty) throw const AiToolException('缺少动作名称');
+    if (name.length > 30) throw const AiToolException('动作名称太长（30 字以内）');
+    return name;
+  }
+
+  /// 目标肌群（可选）：≤10 字，超长截断
+  static String? optionalMuscleGroup(Map<String, dynamic> args) {
+    final raw = args['muscle_group'];
+    if (raw is! String) return null;
+    final group = raw.trim();
+    if (group.isEmpty) return null;
+    return group.length > 10 ? group.substring(0, 10) : group;
+  }
+
+  /// 默认次数（可选）：1~100
+  static int? optionalDefaultReps(Map<String, dynamic> args) {
+    final v = _optionalRange(args, 'default_reps', '默认次数', min: 1, max: 100);
+    return v?.round();
+  }
+
+  /// 默认时长（可选，秒）：5~600
+  static int? optionalDefaultDurationSec(Map<String, dynamic> args) {
+    final v = _optionalRange(args, 'default_duration_sec', '默认时长',
+        min: 5, max: 600);
+    return v?.round();
+  }
+
+  // ───────────── create_exercise ─────────────
+
+  /// create_exercise 的完整入参
+  static AiExerciseInput exercise(Map<String, dynamic> args) {
+    final input = AiExerciseInput(
+      name: exerciseName(args),
+      category: exerciseCategory(args),
+      muscleGroup: optionalMuscleGroup(args),
+      defaultReps: optionalDefaultReps(args),
+      defaultDurationSec: optionalDefaultDurationSec(args),
+    );
+    return input;
+  }
+
+  // ───────────── create_template ─────────────
+
+  /// 模板名称：1~30 字
+  static String templateName(Map<String, dynamic> args) {
+    final raw = args['name'];
+    final name = raw is String ? raw.trim() : '';
+    if (name.isEmpty) throw const AiToolException('缺少模板名称');
+    if (name.length > 30) throw const AiToolException('模板名称太长（30 字以内）');
+    return name;
+  }
+
+  /// 模板难度：入门 / 中阶 / 高阶，兼容 beginner / intermediate / advanced
+  static String templateDifficulty(Map<String, dynamic> args) {
+    final raw = args['difficulty'];
+    final v = raw is String ? raw.trim() : '';
+    if (v.isEmpty) {
+      throw const AiToolException('缺少模板难度（只能是 入门 / 中阶 / 高阶）');
+    }
+    final d = AiTemplateCommand.difficultyOf(v);
+    if (d == null) {
+      throw AiToolException('不支持的难度"$v"（只能是 入门 / 中阶 / 高阶）');
+    }
+    return d;
+  }
+
+  /// 模板侧重：全身 / 放松 / 碎片，兼容 full_body / relax / fragment
+  static String templateFocus(Map<String, dynamic> args) {
+    final raw = args['focus'];
+    final v = raw is String ? raw.trim() : '';
+    if (v.isEmpty) {
+      throw const AiToolException('缺少模板侧重（只能是 全身 / 放松 / 碎片）');
+    }
+    final f = AiTemplateCommand.focusOf(v);
+    if (f == null) {
+      throw AiToolException('不支持的侧重"$v"（只能是 全身 / 放松 / 碎片）');
+    }
+    return f;
+  }
+
+  /// 模板时长（分钟）：5~180
+  static int templateMinutes(Map<String, dynamic> args) {
+    final m = lenientIntOf(args['minutes']);
+    if (m == null) throw const AiToolException('缺少模板时长');
+    if (m < 5 || m > 180) {
+      throw const AiToolException('模板时长不合理（应在 5~180 分钟）');
+    }
+    return m;
+  }
+
+  /// 模板说明（可选）：≤100 字，超长截断
+  static String? optionalTemplateDescription(Map<String, dynamic> args) {
+    final raw = args['description'];
+    if (raw is! String) return null;
+    final d = raw.trim();
+    if (d.isEmpty) return null;
+    return d.length > 100 ? d.substring(0, 100) : d;
+  }
+
+  /// 模板动作列表：1~12 项
+  static List<AiTemplateItemInput> templateItems(Map<String, dynamic> args) {
+    final raw = args['items'];
+    if (raw is! List || raw.isEmpty) {
+      throw const AiToolException('模板至少要包含 1 个动作');
+    }
+    if (raw.length > 12) throw const AiToolException('模板最多 12 个动作');
+    final items = <AiTemplateItemInput>[];
+    for (final entry in raw) {
+      if (entry is! Map) throw const AiToolException('模板动作格式不正确');
+      items.add(templateItem(Map<String, dynamic>.from(entry)));
+    }
+    return items;
+  }
+
+  /// 单个模板动作：sets 缺省 3；reps / duration_sec 都不给时默认 reps=10
+  static AiTemplateItemInput templateItem(Map<String, dynamic> args) {
+    final rawName = args['exercise_name'];
+    final name = rawName is String ? rawName.trim() : '';
+    if (name.isEmpty) throw const AiToolException('模板里有动作缺少名称');
+    if (name.length > 30) throw const AiToolException('动作名称太长（30 字以内）');
+
+    final sets = _optionalRange(args, 'sets', '组数', min: 1, max: 10)?.round();
+    final reps = _optionalRange(args, 'reps', '次数', min: 1, max: 100)?.round();
+    final duration =
+        _optionalRange(args, 'duration_sec', '时长', min: 5, max: 600)?.round();
+
+    return AiTemplateItemInput(
+      exerciseName: name,
+      sets: sets ?? 3,
+      // 只给了计时就按时长算；两者都没给时默认 10 次
+      reps: reps ?? (duration == null ? 10 : null),
+      durationSec: duration,
+    );
+  }
+
+  /// create_template 的完整入参
+  static AiTemplateCommand template(Map<String, dynamic> args) {
+    return AiTemplateCommand(
+      name: templateName(args),
+      difficulty: templateDifficulty(args),
+      focus: templateFocus(args),
+      minutes: templateMinutes(args),
+      description: optionalTemplateDescription(args),
+      items: templateItems(args),
+    );
+  }
 }

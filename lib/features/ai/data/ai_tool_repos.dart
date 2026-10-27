@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
+import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart';
 import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
 import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository;
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
+import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
 
 /// 工具执行所需的仓储集合
 ///
@@ -20,6 +22,12 @@ class AiToolRepos {
   final GoalRepository goal;
   final UserSettingsRepository settings;
 
+  /// 动作库（query_exercises / create_exercise）
+  final ExerciseRepository exercise;
+
+  /// 训练模板（create_template）
+  final WorkoutTemplateRepository template;
+
   const AiToolRepos({
     required this.body,
     required this.water,
@@ -27,6 +35,8 @@ class AiToolRepos {
     required this.diet,
     required this.goal,
     required this.settings,
+    required this.exercise,
+    required this.template,
   });
 
   /// 从 providers 构建（工具执行时即时读取，不做 watch）
@@ -37,5 +47,7 @@ class AiToolRepos {
         diet: ref.read(dietRepoProvider),
         goal: ref.read(goalRepoProvider),
         settings: ref.read(userSettingsRepoProvider),
+        exercise: ref.read(exerciseRepoProvider),
+        template: ref.read(workoutTemplateRepoProvider),
       );
 }

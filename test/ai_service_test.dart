@@ -8,6 +8,7 @@ import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
+import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_settings_writers.dart';
@@ -18,6 +19,8 @@ import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.da
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/diet/domain/entities/diet_entity.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
+import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
+import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/goal/domain/entities/goal_entity.dart';
 import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -25,7 +28,9 @@ import 'package:fittrack/features/settings/domain/repositories/user_settings_rep
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/water/data/water_repository_impl.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
+import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
+import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
 
 void main() {
   group('AiService.parseSseLine', () {
@@ -574,15 +579,15 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('13 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('16 个工具、名称唯一、读写两类正好覆盖全部', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(13));
-      expect(names.toSet(), hasLength(13));
+      expect(names, hasLength(16));
+      expect(names.toSet(), hasLength(16));
       expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(13));
+          hasLength(16));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -596,7 +601,7 @@ void main() {
             'log_food',
             'log_workout',
           ]));
-      // 新增 8 个
+      // 第二批新增 8 个
       expect(
           names,
           containsAll([
@@ -608,6 +613,14 @@ void main() {
             'delete_records',
             'manage_goal',
             'search_food',
+          ]));
+      // 第三批新增 3 个（动作库 + 训练模板）
+      expect(
+          names,
+          containsAll([
+            'query_exercises',
+            'create_exercise',
+            'create_template',
           ]));
     });
 
@@ -652,12 +665,22 @@ void main() {
       expect(prompt, contains('manage_goal(action:create)'));
       expect(prompt, contains('不要凭猜的 id'));
     });
+
+    test('动作库 / 模板：先查动作再建模板，缺动作先加动作', () {
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('query_exercises'));
+      expect(prompt, contains('create_exercise'));
+      expect(prompt, contains('建训练模板前先用 query_exercises 确认动作存在'));
+      expect(prompt, contains('先 create_exercise 加进动作库'));
+      expect(prompt, contains('帮我加个动作'));
+    });
   });
 
   // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
 
   group('工具清单一致性', () {
-    test('13 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
+    test('16 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
       expect(_defToolNames(), {
         AiToolSpecs.logWeight,
         AiToolSpecs.logWater,
@@ -672,6 +695,9 @@ void main() {
         AiToolSpecs.deleteRecords,
         AiToolSpecs.queryStats,
         AiToolSpecs.searchFood,
+        AiToolSpecs.queryExercises,
+        AiToolSpecs.createExercise,
+        AiToolSpecs.createTemplate,
       });
     });
 
@@ -688,16 +714,25 @@ void main() {
           reason: '危险工具必须同时是写操作（必须走确认卡）');
       expect({...write, ...readOnly, ...destructive}, all, reason: '三集合并集必须覆盖全部工具');
       expect(write.length + readOnly.length, all.length, reason: '写 + 只读应正好划分全部工具');
-      expect(readOnly, hasLength(2), reason: '只允许 query_stats / search_food 自动执行');
+      expect(readOnly, hasLength(3),
+          reason: '只允许 query_stats / search_food / query_exercises 自动执行');
+      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
+          reason: '危险工具仍然只有 delete_records');
+      expect(AiToolSpecs.isReadOnly(AiToolSpecs.queryExercises), isTrue);
+      expect(AiToolSpecs.isReadOnly(AiToolSpecs.createExercise), isFalse);
+      expect(AiToolSpecs.isReadOnly(AiToolSpecs.createTemplate), isFalse);
+      expect(write, contains(AiToolSpecs.createExercise));
+      expect(write, contains(AiToolSpecs.createTemplate));
     });
 
-    test('四组 handler 白名单互不重叠，并集 = defs', () {
+    test('五组 handler 白名单互不重叠，并集 = defs', () {
       final repos = _fakeReposWithData();
       final groups = <Set<String>>[
         AiToolReaders(repos).toolNames,
         AiToolWriters(repos).toolNames,
         AiToolSettingsWriters(repos).toolNames,
         AiToolAdminWriters(repos).toolNames,
+        AiToolLibraryWriters(repos).toolNames,
       ];
       final union = <String>{};
       for (final group in groups) {
@@ -970,6 +1005,549 @@ void main() {
           DateTime(2026, 6, 1));
     });
   });
+
+  // ═══════════ 动作库 + 训练模板（query_exercises / create_exercise / create_template） ═══════════
+
+  group('query_exercises / create_exercise 参数校验', () {
+    test('分类中文、英文都归一化成英文枚举值', () {
+      const cases = {
+        '徒手': 'bodyweight',
+        ' bodyweight ': 'bodyweight',
+        '自重': 'bodyweight',
+        '器械': 'gym',
+        'GYM': 'gym',
+        '有氧': 'cardio',
+        'cardio': 'cardio',
+        '拉伸': 'stretch',
+        'Stretch': 'stretch',
+      };
+      for (final entry in cases.entries) {
+        expect(AiToolArgs.exerciseCategory({'category': entry.key}), entry.value,
+            reason: '分类 "${entry.key}" 应归一化为 ${entry.value}');
+      }
+      // 归一化结果一定落在数据库枚举内
+      for (final c in AiExerciseCategories.all) {
+        expect(AiExerciseCategories.normalize(c), c);
+      }
+    });
+
+    test('非法分类 / 缺失分类直接拒绝', () {
+      for (final bad in ['', '   ', '游泳', 'yoga', 'HIIT']) {
+        expect(() => AiToolArgs.exerciseCategory({'category': bad}),
+            throwsA(isA<AiToolException>()),
+            reason: '非法分类 "$bad" 必须拒绝');
+      }
+      expect(() => AiToolArgs.exerciseCategory({}),
+          throwsA(isA<AiToolException>()));
+      // 可选分类：缺失 / 空白返回 null，非法值仍然抛
+      expect(AiToolArgs.optionalExerciseCategory({}), isNull);
+      expect(AiToolArgs.optionalExerciseCategory({'category': '  '}), isNull);
+      expect(() => AiToolArgs.optionalExerciseCategory({'category': '游泳'}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('动作名 1~30 字：0 与 31 拒绝', () {
+      expect(AiToolArgs.exerciseName({'name': ' 深蹲 '}), '深蹲');
+      expect(AiToolArgs.exerciseName({'name': 'x' * 30}).length, 30);
+      expect(() => AiToolArgs.exerciseName({'name': ''}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.exerciseName({'name': '   '}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.exerciseName({'name': 'x' * 31}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.exerciseName({}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('目标肌群可选、超长截断到 10 字', () {
+      expect(AiToolArgs.optionalMuscleGroup({}), isNull);
+      expect(AiToolArgs.optionalMuscleGroup({'muscle_group': '  '}), isNull);
+      expect(AiToolArgs.optionalMuscleGroup({'muscle_group': ' 腿部 '}), '腿部');
+      expect(
+          AiToolArgs.optionalMuscleGroup({'muscle_group': 'x' * 12}), 'x' * 10);
+    });
+
+    test('默认次数 1~100 / 默认时长 5~600 含端点', () {
+      expect(AiToolArgs.optionalDefaultReps({'default_reps': 1}), 1);
+      expect(AiToolArgs.optionalDefaultReps({'default_reps': 100}), 100);
+      expect(AiToolArgs.optionalDefaultReps({}), isNull);
+      expect(() => AiToolArgs.optionalDefaultReps({'default_reps': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.optionalDefaultReps({'default_reps': 101}),
+          throwsA(isA<AiToolException>()));
+
+      expect(AiToolArgs.optionalDefaultDurationSec({'default_duration_sec': 5}),
+          5);
+      expect(
+          AiToolArgs.optionalDefaultDurationSec({'default_duration_sec': 600}),
+          600);
+      expect(AiToolArgs.optionalDefaultDurationSec({}), isNull);
+      expect(
+          () => AiToolArgs.optionalDefaultDurationSec(
+              {'default_duration_sec': 4}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.optionalDefaultDurationSec(
+              {'default_duration_sec': 601}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('动作展示文案：没有默认值就不带最后一段', () {
+      expect(
+          const AiExerciseInput(
+            name: '保加利亚分腿蹲',
+            category: 'gym',
+            muscleGroup: '腿部',
+            defaultReps: 12,
+          ).metaLabel,
+          '器械 · 腿部 · 默认 12 次');
+      expect(
+          const AiExerciseInput(
+            name: '平板支撑',
+            category: 'bodyweight',
+            defaultDurationSec: 45,
+          ).metaLabel,
+          '徒手 · 默认 45 秒');
+      expect(
+          const AiExerciseInput(name: '深蹲', category: 'gym').metaLabel, '器械');
+    });
+
+    test('动作搜索关键词可选，≤20 字', () {
+      expect(AiToolArgs.optionalExerciseQuery({}), isNull);
+      expect(AiToolArgs.optionalExerciseQuery({'query': '  '}), isNull);
+      expect(AiToolArgs.optionalExerciseQuery({'query': ' 深蹲 '}), '深蹲');
+      expect(() => AiToolArgs.optionalExerciseQuery({'query': 'x' * 21}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('create_exercise 组合入参（分类 + 默认值）', () {
+      final input = AiToolArgs.exercise({
+        'name': ' 保加利亚分腿蹲 ',
+        'category': '器械',
+        'muscle_group': '腿部',
+        'default_reps': 12,
+      });
+      expect(input.name, '保加利亚分腿蹲');
+      expect(input.category, 'gym');
+      expect(input.defaultReps, 12);
+      expect(input.defaultDurationSec, isNull);
+      expect(input.hasDefaults, isTrue);
+    });
+  });
+
+  group('create_template 参数校验', () {
+    test('难度归一化：中文 + 英文兼容，非法拒绝', () {
+      const cases = {
+        '入门': '入门',
+        'beginner': '入门',
+        '中阶': '中阶',
+        'Intermediate': '中阶',
+        '高阶': '高阶',
+        'advanced': '高阶',
+      };
+      for (final entry in cases.entries) {
+        expect(AiToolArgs.templateDifficulty({'difficulty': entry.key}),
+            entry.value);
+      }
+      for (final bad in ['', '  ', '大师', 'expert']) {
+        expect(() => AiToolArgs.templateDifficulty({'difficulty': bad}),
+            throwsA(isA<AiToolException>()),
+            reason: '非法难度 "$bad" 必须拒绝');
+      }
+      expect(() => AiToolArgs.templateDifficulty({}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('侧重归一化：中文 + 英文兼容，非法拒绝', () {
+      const cases = {
+        '全身': '全身',
+        'full_body': '全身',
+        '放松': '放松',
+        'relax': '放松',
+        '碎片': '碎片',
+        'fragment': '碎片',
+      };
+      for (final entry in cases.entries) {
+        expect(AiToolArgs.templateFocus({'focus': entry.key}), entry.value);
+      }
+      for (final bad in ['', '增肌', 'bulk']) {
+        expect(() => AiToolArgs.templateFocus({'focus': bad}),
+            throwsA(isA<AiToolException>()),
+            reason: '非法侧重 "$bad" 必须拒绝');
+      }
+      expect(() => AiToolArgs.templateFocus({}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('模板时长 5~180 含端点，4 与 181 拒绝', () {
+      expect(AiToolArgs.templateMinutes({'minutes': 5}), 5);
+      expect(AiToolArgs.templateMinutes({'minutes': 180}), 180);
+      expect(() => AiToolArgs.templateMinutes({'minutes': 4}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateMinutes({'minutes': 181}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateMinutes({}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('模板名 1~30 字，说明 ≤100 字截断', () {
+      expect(AiToolArgs.templateName({'name': ' 下肢力量 '}), '下肢力量');
+      expect(AiToolArgs.templateName({'name': 'x' * 30}).length, 30);
+      expect(() => AiToolArgs.templateName({'name': ''}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateName({'name': 'x' * 31}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.optionalTemplateDescription({}), isNull);
+      expect(AiToolArgs.optionalTemplateDescription({'description': '  '}),
+          isNull);
+      expect(AiToolArgs.optionalTemplateDescription({'description': 'x' * 120}),
+          'x' * 100);
+    });
+
+    test('动作数量 1~12：0 与 13 拒绝', () {
+      List<Map<String, dynamic>> build(int n) => [
+            for (var i = 0; i < n; i++) {'exercise_name': '深蹲'},
+          ];
+      expect(AiToolArgs.templateItems({'items': build(1)}), hasLength(1));
+      expect(AiToolArgs.templateItems({'items': build(12)}), hasLength(12));
+      expect(() => AiToolArgs.templateItems({'items': const []}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItems({'items': build(13)}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItems({}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('组数 1~10 / 次数 1~100 / 时长 5~600 含端点', () {
+      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 1}).sets,
+          1);
+      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 10}).sets,
+          10);
+      expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 11}),
+          throwsA(isA<AiToolException>()));
+
+      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 1}).reps,
+          1);
+      expect(
+          AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 100}).reps,
+          100);
+      expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 101}),
+          throwsA(isA<AiToolException>()));
+
+      expect(
+          AiToolArgs.templateItem(
+                  {'exercise_name': '平板支撑', 'duration_sec': 5})
+              .durationSec,
+          5);
+      expect(
+          AiToolArgs.templateItem(
+                  {'exercise_name': '平板支撑', 'duration_sec': 501})
+              .durationSec,
+          501);
+      expect(
+          AiToolArgs.templateItem(
+                  {'exercise_name': '平板支撑', 'duration_sec': 600})
+              .durationSec,
+          600);
+      expect(
+          () => AiToolArgs.templateItem(
+              {'exercise_name': '平板支撑', 'duration_sec': 4}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.templateItem(
+              {'exercise_name': '平板支撑', 'duration_sec': 601}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('reps 与 duration_sec 都不给时默认 10 次，组数默认 3', () {
+      final item = AiToolArgs.templateItem({'exercise_name': '深蹲'});
+      expect(item.sets, 3);
+      expect(item.reps, 10);
+      expect(item.durationSec, isNull);
+      expect(item.targetLabel, '3×10');
+
+      final timed =
+          AiToolArgs.templateItem({'exercise_name': '平板支撑', 'duration_sec': 45});
+      expect(timed.reps, isNull, reason: '计时类动作不补默认次数');
+      expect(timed.durationSec, 45);
+      expect(timed.targetLabel, '3×45s');
+    });
+
+    test('动作名缺失 / 过长、单项格式非法都拒绝', () {
+      expect(() => AiToolArgs.templateItem({}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItem({'exercise_name': '   '}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItem({'exercise_name': 'x' * 31}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.templateItems({'items': ['深蹲']}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('组合入参 + 确认卡文案', () {
+      final command = AiToolArgs.template({
+        'name': '下肢力量',
+        'difficulty': '中阶',
+        'focus': '全身',
+        'minutes': 35,
+        'items': [
+          {'exercise_name': '深蹲', 'sets': 4, 'reps': 12},
+          {'exercise_name': '臀桥', 'sets': 3, 'reps': 15},
+          {'exercise_name': '箭步蹲', 'sets': 3, 'reps': 10},
+          {'exercise_name': '平板支撑', 'sets': 3, 'duration_sec': 45},
+        ],
+      });
+      expect(command.difficulty, '中阶');
+      expect(command.focus, '全身');
+      expect(command.items, hasLength(4));
+      expect(command.items.last.reps, isNull);
+      expect(command.items.last.durationSec, 45);
+      expect(command.detail, '新建模板：下肢力量 · 中阶 · 4 个动作 · 约 35 分钟');
+    });
+  });
+
+  group('动作库 / 模板工具预览层', () {
+    test('query_exercises：只读、不确认、detail 带关键词', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+
+      final search = await executor.preview(const AiToolCall(
+        id: 'call_q1',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"query":"深蹲"}',
+      ));
+      expect(search.label, '查动作库');
+      expect(search.detail, '搜索"深蹲"');
+      expect(search.needsConfirm, isFalse);
+      expect(search.isDestructive, isFalse);
+
+      final all = await executor.preview(const AiToolCall(
+        id: 'call_q2',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{}',
+      ));
+      expect(all.detail, '查看动作库');
+      expect(all.needsConfirm, isFalse);
+
+      final byCategory = await executor.preview(const AiToolCall(
+        id: 'call_q3',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"category":"器械"}',
+      ));
+      expect(byCategory.detail, '查看动作库（器械）');
+    });
+
+    test('query_exercises 执行：名称包含匹配 + 分类过滤 + 最多 8 条', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+
+      final byName = await _executeJson(executor, const AiToolCall(
+        id: 'call_q4',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"query":"支撑"}',
+      ));
+      expect(byName['ok'], isTrue);
+      expect(byName['count'], 1);
+      final hit = (byName['results'] as List).first as Map<String, dynamic>;
+      expect(hit['name'], '平板支撑');
+      expect(hit['category'], 'bodyweight');
+      expect(hit['muscle_group'], '核心');
+      expect(hit['default_duration_sec'], 45);
+
+      final byCategory = await _executeJson(executor, const AiToolCall(
+        id: 'call_q5',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"category":"徒手"}',
+      ));
+      expect(byCategory['count'], 2);
+
+      // 12 个动作只回传前 8 个
+      final many = AiToolExecutor(
+        repos: _fakeReposWithExercises([
+          for (var i = 1; i <= 12; i++)
+            ExerciseEntity(id: i, name: '动作$i', category: 'gym'),
+        ]),
+      );
+      final capped = await _executeJson(many, const AiToolCall(
+        id: 'call_q6',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{}',
+      ));
+      expect(capped['count'], 8);
+      expect(capped['results'], hasLength(AiToolReaders.maxSearchResults));
+    });
+
+    test('query_exercises 名称匹配大小写不敏感', () async {
+      final latin = AiToolExecutor(
+        repos: _fakeReposWithExercises(const [
+          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
+          ExerciseEntity(id: 10, name: 'Pull-Up', category: 'gym'),
+        ]),
+      );
+
+      // 库内是「Plank」，用小写关键词也应命中
+      final lower = await _executeJson(latin, const AiToolCall(
+        id: 'call_q7',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"query":"plank"}',
+      ));
+      expect(lower['count'], 1);
+      expect((lower['results'] as List).first['name'], 'Plank');
+
+      // 大写关键词同样命中
+      final upper = await _executeJson(latin, const AiToolCall(
+        id: 'call_q8',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"query":"PULL"}',
+      ));
+      expect(upper['count'], 1);
+      expect((upper['results'] as List).first['name'], 'Pull-Up');
+
+      // 关键词 + 分类同时给出时，两个条件都要满足
+      final combined = await _executeJson(latin, const AiToolCall(
+        id: 'call_q9',
+        name: AiToolSpecs.queryExercises,
+        argumentsJson: '{"query":"plank","category":"gym"}',
+      ));
+      expect(combined['count'], 0, reason: 'Plank 属徒手，按器械过滤应为空');
+    });
+
+    test('create_exercise 预览文案与确认要求', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+
+      final withDefaults = await executor.preview(const AiToolCall(
+        id: 'call_e1',
+        name: AiToolSpecs.createExercise,
+        argumentsJson:
+            '{"name":"保加利亚分腿蹲","category":"器械","muscle_group":"腿部","default_reps":12}',
+      ));
+      expect(withDefaults.label, '新增动作');
+      expect(withDefaults.detail, '新增动作：保加利亚分腿蹲（器械 · 腿部 · 默认 12 次）');
+      expect(withDefaults.needsConfirm, isTrue);
+      expect(withDefaults.isDestructive, isFalse);
+
+      final bare = await executor.preview(const AiToolCall(
+        id: 'call_e2',
+        name: AiToolSpecs.createExercise,
+        argumentsJson: '{"name":"臀桥","category":"徒手"}',
+      ));
+      expect(bare.detail, '新增动作：臀桥（徒手）');
+      expect(bare.needsConfirm, isTrue);
+    });
+
+    test('create_template 预览文案与确认要求', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      final preview = await executor.preview(const AiToolCall(
+        id: 'call_t1',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson:
+            '{"name":"下肢力量","difficulty":"中阶","focus":"全身","minutes":35,"items":[{"exercise_name":"深蹲","sets":4,"reps":12},{"exercise_name":"平板支撑","sets":3,"duration_sec":45}]}',
+      ));
+      expect(preview.label, '新建训练模板');
+      expect(preview.detail, '新建模板：下肢力量 · 中阶 · 2 个动作 · 约 35 分钟');
+      expect(preview.needsConfirm, isTrue);
+      expect(preview.isDestructive, isFalse);
+    });
+
+    test('create_template：动作名按库内 trim 精确匹配，大小写不敏感', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      // 库内是「深蹲」，给「 深蹲 」也应命中
+      final preview = await executor.preview(const AiToolCall(
+        id: 'call_t2',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson:
+            '{"name":"腿日","difficulty":"入门","focus":"全身","minutes":20,"items":[{"exercise_name":" 深蹲 "}]}',
+      ));
+      expect(preview.detail, '新建模板：腿日 · 入门 · 1 个动作 · 约 20 分钟');
+
+      final latin = AiToolExecutor(
+        repos: _fakeReposWithExercises(const [
+          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
+        ]),
+      );
+      final latinPreview = await latin.preview(const AiToolCall(
+        id: 'call_t3',
+        name: AiToolSpecs.createTemplate,
+        argumentsJson:
+            '{"name":"核心","difficulty":"入门","focus":"碎片","minutes":10,"items":[{"exercise_name":"plank"}]}',
+      ));
+      expect(latinPreview.needsConfirm, isTrue);
+    });
+
+    test('动作库里没有的动作：预览层就拒绝，不打扰用户确认', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      await _expectToolRejected(
+        () => executor.preview(const AiToolCall(
+          id: 'call_t4',
+          name: AiToolSpecs.createTemplate,
+          argumentsJson:
+              '{"name":"上肢","difficulty":"中阶","focus":"全身","minutes":30,"items":[{"exercise_name":"火箭推举","sets":3}]}',
+        )),
+        reason: '动作库里没有的动作必须拒绝',
+      );
+      await _expectToolRejected(
+        () => executor.execute(const AiToolCall(
+          id: 'call_t5',
+          name: AiToolSpecs.createTemplate,
+          argumentsJson:
+              '{"name":"上肢","difficulty":"中阶","focus":"全身","minutes":30,"items":[{"exercise_name":"火箭推举","sets":3}]}',
+        )),
+        reason: '执行层同样要拦下未知动作',
+      );
+    });
+
+    test('create_exercise 同名动作（trim 后一致）拒绝', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      await _expectToolRejected(
+        () => executor.execute(const AiToolCall(
+          id: 'call_e3',
+          name: AiToolSpecs.createExercise,
+          argumentsJson: '{"name":"深蹲","category":"器械"}',
+        )),
+        reason: '同名动作不能重复入库',
+      );
+    });
+
+    test('create_exercise 同名判定忽略大小写：preview 与 execute 都拒绝', () async {
+      // 库内是 "Plank"，请求 "plank" 属于同一个动作
+      final executor = AiToolExecutor(
+        repos: _fakeReposWithExercises(const [
+          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
+        ]),
+      );
+      const call = AiToolCall(
+        id: 'call_e4',
+        name: AiToolSpecs.createExercise,
+        argumentsJson: '{"name":" plank ","category":"徒手"}',
+      );
+
+      await _expectToolRejected(
+        () => executor.preview(call),
+        reason: '预览阶段就要拦下同名动作（不让用户点了确认才报错）',
+      );
+      await _expectToolRejected(
+        () => executor.execute(call),
+        reason: '执行层兜底再拦一次',
+      );
+
+      try {
+        await executor.preview(call);
+        fail('预览阶段应当抛 AiToolException');
+      } on AiToolException catch (e) {
+        expect(e.message, contains('动作库里已有"plank"'));
+      }
+    });
+  });
+}
+
+/// 执行工具并把结果解析成 Map
+Future<Map<String, dynamic>> _executeJson(
+    AiToolExecutor executor, AiToolCall call) async {
+  final raw = await executor.execute(call);
+  return jsonDecode(raw) as Map<String, dynamic>;
 }
 
 // ═══════════════════════ 测试替身（不碰数据库） ═══════════════════════
@@ -1017,7 +1595,37 @@ const _validArgs = <String, Map<String, dynamic>>{
   AiToolSpecs.deleteRecords: {'type': 'food'},
   AiToolSpecs.queryStats: {'range': 'week'},
   AiToolSpecs.searchFood: {'query': '牛肉面'},
+  AiToolSpecs.queryExercises: {'query': '深蹲'},
+  AiToolSpecs.createExercise: {
+    'name': '保加利亚分腿蹲',
+    'category': '器械',
+    'muscle_group': '腿部',
+    'default_reps': 12,
+  },
+  AiToolSpecs.createTemplate: {
+    'name': '下肢力量',
+    'difficulty': '中阶',
+    'focus': '全身',
+    'minutes': 35,
+    'items': [
+      {'exercise_name': '深蹲', 'sets': 4, 'reps': 12},
+      {'exercise_name': '平板支撑', 'sets': 3, 'duration_sec': 45},
+    ],
+  },
 };
+
+/// 假动作库的固定数据（供 query_exercises / create_template 解析动作名）
+const _fakeExercises = <ExerciseEntity>[
+  ExerciseEntity(id: 1, name: '深蹲', category: 'gym', muscleGroup: '腿部'),
+  ExerciseEntity(id: 2, name: '俯卧撑', category: 'bodyweight', muscleGroup: '胸部'),
+  ExerciseEntity(
+    id: 3,
+    name: '平板支撑',
+    category: 'bodyweight',
+    muscleGroup: '核心',
+    defaultDurationSec: 45,
+  ),
+];
 
 /// 全空数据：用于验证"没数据不许假删"
 AiToolRepos _fakeRepos() => AiToolRepos(
@@ -1027,6 +1635,8 @@ AiToolRepos _fakeRepos() => AiToolRepos(
       diet: _FakeDietRepo(const []),
       goal: _FakeGoalRepo(const []),
       settings: const _FakeSettingsRepo(),
+      exercise: _FakeExerciseRepo(const []),
+      template: _FakeTemplateRepo(const []),
     );
 
 /// 每类记录都有一条今天的数据：用于跑通所有预览
@@ -1062,8 +1672,23 @@ AiToolRepos _fakeReposWithData() {
       ),
     ]),
     settings: const _FakeSettingsRepo(),
+    exercise: _FakeExerciseRepo(_fakeExercises),
+    template: _FakeTemplateRepo(const []),
   );
 }
+
+/// 只关心动作库内容时用：其他仓储留空
+AiToolRepos _fakeReposWithExercises(List<ExerciseEntity> exercises) =>
+    AiToolRepos(
+      body: _FakeBodyRepo(const []),
+      water: _FakeWaterRepo(0),
+      workout: _FakeWorkoutRepo(const []),
+      diet: _FakeDietRepo(const []),
+      goal: _FakeGoalRepo(const []),
+      settings: const _FakeSettingsRepo(),
+      exercise: _FakeExerciseRepo(exercises),
+      template: _FakeTemplateRepo(const []),
+    );
 
 /// 写操作一旦被调用就抛错 —— 预览层绝不能写库
 Never _previewMustNotWrite(String op) =>
@@ -1248,7 +1873,6 @@ class _FakeGoalRepo implements GoalRepository {
 
 class _FakeSettingsRepo implements UserSettingsRepository {
   const _FakeSettingsRepo();
-
   @override
   Future<UserSettingsEntity?> get() async => null;
 
@@ -1284,4 +1908,95 @@ class _FakeSettingsRepo implements UserSettingsRepository {
     double? fatTargetG,
   }) async =>
       _previewMustNotWrite('settings.save');
+}
+
+/// 假动作库：只读方法返回固定数据，写方法一律抛错（预览阶段绝不能写库）
+class _FakeExerciseRepo implements ExerciseRepository {
+  _FakeExerciseRepo(this.rows);
+
+  final List<ExerciseEntity> rows;
+
+  @override
+  Future<List<ExerciseEntity>> getAll() async => rows;
+
+  @override
+  Future<List<ExerciseEntity>> getByCategory(String category) async =>
+      rows.where((e) => e.category == category).toList();
+
+  @override
+  Future<ExerciseEntity?> getById(int id) async {
+    for (final e in rows) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<ExerciseEntity>> search(String query) async {
+    final q = query.trim().toLowerCase();
+    return rows.where((e) => e.name.toLowerCase().contains(q)).toList();
+  }
+
+  @override
+  Future<ExerciseEntity> create(
+          String name, String category, String? muscleGroup) async =>
+      _previewMustNotWrite('exercise.create');
+
+  @override
+  Future<void> update(ExerciseEntity exercise) async =>
+      _previewMustNotWrite('exercise.update');
+
+  @override
+  Future<void> delete(int id) async => _previewMustNotWrite('exercise.delete');
+
+  @override
+  Future<void> saveDefaults(int id,
+          {int? defaultReps,
+          double? defaultWeightKg,
+          int? defaultDurationSec}) async =>
+      _previewMustNotWrite('exercise.saveDefaults');
+}
+
+/// 假模板仓储：只读方法返回固定数据，写方法一律抛错
+class _FakeTemplateRepo implements WorkoutTemplateRepository {
+  _FakeTemplateRepo(this.rows);
+
+  final List<WorkoutTemplateEntity> rows;
+
+  @override
+  Future<List<WorkoutTemplateEntity>> getAll() async => rows;
+
+  @override
+  Future<WorkoutTemplateEntity?> getById(int id) async {
+    for (final t in rows) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
+  @override
+  Future<int> create({
+    required String name,
+    required String difficulty,
+    required String focus,
+    required int minutes,
+    String? description,
+    required List<TemplateItemInput> items,
+  }) async =>
+      _previewMustNotWrite('template.create');
+
+  @override
+  Future<void> update({
+    required int id,
+    required String name,
+    required String difficulty,
+    required String focus,
+    required int minutes,
+    String? description,
+    required List<TemplateItemInput> items,
+  }) async =>
+      _previewMustNotWrite('template.update');
+
+  @override
+  Future<void> delete(int id) async => _previewMustNotWrite('template.delete');
 }

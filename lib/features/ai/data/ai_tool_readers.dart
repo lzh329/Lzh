@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 
-/// 只读工具：query_stats / search_food（无需用户确认，直接执行）
+/// 只读工具：query_stats / search_food / query_exercises（无需用户确认，直接执行）
 class AiToolReaders extends AiToolHandler {
   const AiToolReaders(super.repos);
 
@@ -11,8 +11,11 @@ class AiToolReaders extends AiToolHandler {
   static const maxSearchResults = 8;
 
   @override
-  Set<String> get toolNames =>
-      const {AiToolSpecs.queryStats, AiToolSpecs.searchFood};
+  Set<String> get toolNames => const {
+        AiToolSpecs.queryStats,
+        AiToolSpecs.searchFood,
+        AiToolSpecs.queryExercises,
+      };
 
   @override
   Future<AiToolPreview> preview(AiToolCall call) async {
@@ -33,6 +36,16 @@ class AiToolReaders extends AiToolHandler {
           detail: '搜索"$query"',
           needsConfirm: false,
         );
+      case AiToolSpecs.queryExercises:
+        final args = call.arguments;
+        final query = AiToolArgs.optionalExerciseQuery(args);
+        final category = AiToolArgs.optionalExerciseCategory(args);
+        return AiToolPreview(
+          call: call,
+          label: '查动作库',
+          detail: _exerciseDetail(query, category),
+          needsConfirm: false,
+        );
       default:
         unsupported(call);
     }
@@ -45,6 +58,12 @@ class AiToolReaders extends AiToolHandler {
         return _queryStats(AiToolArgs.range(call.arguments));
       case AiToolSpecs.searchFood:
         return _searchFood(AiToolArgs.searchQuery(call.arguments));
+      case AiToolSpecs.queryExercises:
+        final args = call.arguments;
+        return _queryExercises(
+          query: AiToolArgs.optionalExerciseQuery(args),
+          category: AiToolArgs.optionalExerciseCategory(args),
+        );
       default:
         unsupported(call);
     }
@@ -55,6 +74,44 @@ class AiToolReaders extends AiToolHandler {
         'month' => '本月',
         _ => '全部',
       };
+
+  /// 「搜索"深蹲"」/「查看动作库（器械）」/「查看动作库」
+  static String _exerciseDetail(String? query, String? category) {
+    if (query != null) return '搜索"$query"';
+    if (category != null) {
+      return '查看动作库（${AiExerciseCategories.labelOf(category)}）';
+    }
+    return '查看动作库';
+  }
+
+  /// 动作库查询：名称包含匹配（忽略大小写）+ 分类精确匹配，最多回传 8 条
+  Future<String> _queryExercises({String? query, String? category}) async {
+    final all = await repos.exercise.getAll();
+    final keyword = query?.toLowerCase();
+    final hits = all.where((e) {
+      if (category != null && e.category != category) return false;
+      if (keyword == null) return true;
+      return e.name.toLowerCase().contains(keyword);
+    }).take(maxSearchResults).toList();
+
+    return jsonEncode({
+      'ok': true,
+      'query': query,
+      'category': category,
+      'count': hits.length,
+      'results': [
+        for (final e in hits)
+          {
+            'id': e.id,
+            'name': e.name,
+            'category': e.category,
+            'muscle_group': e.muscleGroup,
+            'default_reps': e.defaultReps,
+            'default_duration_sec': e.defaultDurationSec,
+          },
+      ],
+    });
+  }
 
   Future<String> _searchFood(String query) async {
     final foods = await repos.diet.searchFoods(query: query);
