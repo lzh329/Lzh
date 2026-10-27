@@ -6,11 +6,26 @@ import 'package:http/testing.dart';
 
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
+import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
+import 'package:fittrack/features/ai/data/ai_tool_settings_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
+import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
+import 'package:fittrack/features/diet/domain/entities/diet_entity.dart';
+import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
+import 'package:fittrack/features/goal/domain/entities/goal_entity.dart';
+import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
+import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
+import 'package:fittrack/features/water/data/water_repository_impl.dart';
+import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
+import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
 void main() {
   group('AiService.parseSseLine', () {
@@ -316,4 +331,957 @@ void main() {
       expect(deltas.join(), '今天练腿');
     });
   });
+
+  // ═════════════ v1.3 新增 8 个工具（纯参数校验，不碰数据库） ═════════════
+
+  group('log_measurements 参数校验', () {
+    test('至少一项 + 各字段 30~200cm', () {
+      final m = AiToolArgs.measurements({'waist_cm': 80, 'hip_cm': 95.5});
+      expect(m.waistCm, 80);
+      expect(m.hipCm, 95.5);
+      expect(m.chestCm, isNull);
+      expect(m.label, '腰围 80cm · 臀围 95.5cm');
+
+      expect(() => AiToolArgs.measurements({}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.measurements({'waist_cm': 10}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.measurements({'chest_cm': 250}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.measurements({'hip_cm': 'abc'}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.measurements({'waist_cm': 30}).waistCm, 30);
+      expect(AiToolArgs.measurements({'waist_cm': 200}).waistCm, 200);
+    });
+
+    test('体重可选：缺失为 null，给了就校验 40~600 斤', () {
+      expect(AiToolArgs.optionalWeightKg({}), isNull);
+      expect(AiToolArgs.optionalWeightKg({'weight_jin': 161}), 80.5);
+      expect(() => AiToolArgs.optionalWeightKg({'weight_jin': 10}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.optionalWeightKg({'weight_jin': 700}),
+          throwsA(isA<AiToolException>()));
+    });
+  });
+
+  group('set_target_weight 参数校验', () {
+    test('目标体重按斤校验 40~600', () {
+      expect(AiToolArgs.targetWeightKg({'target_jin': 140}), 70);
+      expect(AiToolArgs.targetWeightKg({'target_jin': 40}), 20);
+      expect(AiToolArgs.targetWeightKg({'target_jin': 600}), 300);
+      expect(() => AiToolArgs.targetWeightKg({'target_jin': 30}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.targetWeightKg({'target_jin': 800}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.targetWeightKg({}),
+          throwsA(isA<AiToolException>()));
+      // 字段名是 target_jin，不能误读 weight_jin
+      expect(() => AiToolArgs.targetWeightKg({'weight_jin': 140}),
+          throwsA(isA<AiToolException>()));
+    });
+  });
+
+  group('update_profile 参数校验', () {
+    test('至少一项 + 身高 100~250 + 性别枚举 + 出生年范围', () {
+      final p = AiToolArgs.profile(
+          {'height_cm': 175, 'gender': 'male', 'birth_year': 1995});
+      expect(p.heightCm, 175);
+      expect(p.gender, 'male');
+      expect(p.birthYear, 1995);
+      expect(p.label, '身高 175cm · 男 · 1995 年生');
+
+      expect(() => AiToolArgs.profile({}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'height_cm': 90}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'height_cm': 300}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'gender': 'x'}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'birth_year': 1900}),
+          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.profile({'birth_year': DateTime.now().year - 5}),
+          throwsA(isA<AiToolException>()));
+      // 单独给性别也能过
+      expect(AiToolArgs.profile({'gender': 'female'}).gender, 'female');
+    });
+  });
+
+  group('set_diet_target 参数校验', () {
+    test('至少一项 + 热量 800~5000 + 宏量 0~500', () {
+      final t = AiToolArgs.dietTarget({'calories': 1800, 'protein_g': 120});
+      expect(t.calories, 1800);
+      expect(t.proteinG, 120);
+      expect(t.carbsG, isNull);
+      expect(t.label, '每日 1800 千卡 · 蛋白 120g');
+
+      expect(AiToolArgs.dietTarget({'calories': 800}).calories, 800);
+      expect(AiToolArgs.dietTarget({'calories': 5000}).calories, 5000);
+      expect(AiToolArgs.dietTarget({'fat_g': 0}).fatG, 0);
+      expect(AiToolArgs.dietTarget({'carbs_g': 500}).carbsG, 500);
+
+      expect(() => AiToolArgs.dietTarget({}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'calories': 700}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'calories': 6000}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'protein_g': 600}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'carbs_g': -1}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'fat_g': 501}),
+          throwsA(isA<AiToolException>()));
+    });
+  });
+
+  group('set_reminder 参数校验', () {
+    test('enabled 布尔解析（bool / 字符串 / 数字）', () {
+      expect(AiToolArgs.boolArg({'enabled': true}, 'enabled', '提醒'), isTrue);
+      expect(AiToolArgs.boolArg({'enabled': false}, 'enabled', '提醒'), isFalse);
+      expect(AiToolArgs.boolArg({'enabled': 'true'}, 'enabled', '提醒'), isTrue);
+      expect(
+          AiToolArgs.boolArg({'enabled': ' FALSE '}, 'enabled', '提醒'), isFalse);
+      expect(AiToolArgs.boolArg({'enabled': 1}, 'enabled', '提醒'), isTrue);
+      expect(AiToolArgs.boolArg({'enabled': 0}, 'enabled', '提醒'), isFalse);
+      expect(AiToolArgs.boolOf('maybe'), isNull);
+      expect(() => AiToolArgs.boolArg({}, 'enabled', '提醒'),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.boolArg({'enabled': 'maybe'}, 'enabled', '提醒'),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('小时 0~23、分钟 0~59，缺失为 null', () {
+      expect(AiToolArgs.optionalHour({}), isNull);
+      expect(AiToolArgs.optionalHour({'hour': 9}), 9);
+      expect(AiToolArgs.optionalHour({'hour': 0}), 0);
+      expect(AiToolArgs.optionalHour({'hour': 23}), 23);
+      expect(AiToolArgs.optionalMinute({'minute': 0}), 0);
+      expect(AiToolArgs.optionalMinute({'minute': 59}), 59);
+      expect(() => AiToolArgs.optionalHour({'hour': 24}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.optionalMinute({'minute': 60}),
+          throwsA(isA<AiToolException>()));
+    });
+  });
+
+  group('delete_records 参数校验与危险标记', () {
+    test('记录类型枚举（大小写不敏感）', () {
+      for (final t in ['weight', 'food', 'workout', 'water']) {
+        expect(AiToolArgs.recordType({'type': t}), t);
+      }
+      expect(AiToolArgs.recordType({'type': ' WEIGHT '}), 'weight');
+      expect(() => AiToolArgs.recordType({'type': 'sleep'}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.recordType({}), throwsA(isA<AiToolException>()));
+    });
+
+    test('delete_records 是唯一的危险工具', () {
+      expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.deleteRecords));
+      expect(AiToolSpecs.destructiveTools, hasLength(1));
+      expect(AiToolSpecs.isDestructive(AiToolSpecs.deleteRecords), isTrue);
+      expect(AiToolSpecs.isDestructive(AiToolSpecs.logWeight), isFalse);
+      expect(AiToolSpecs.isDestructive(AiToolSpecs.manageGoal), isFalse);
+    });
+
+    test('空记录提示按类型区分', () {
+      expect(AiRecordTypes.emptyOf('food').message, contains('饮食'));
+      expect(AiRecordTypes.emptyOf('water').message, contains('饮水'));
+      expect(AiRecordTypes.labelOf('workout'), '训练');
+    });
+  });
+
+  group('manage_goal 参数校验', () {
+    test('action 枚举', () {
+      expect(AiToolArgs.goalAction({'action': 'create'}), 'create');
+      expect(AiToolArgs.goalAction({'action': 'Complete'}), 'complete');
+      expect(AiToolArgs.goalAction({'action': 'delete'}), 'delete');
+      expect(() => AiToolArgs.goalAction({'action': 'update'}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalAction({}), throwsA(isA<AiToolException>()));
+    });
+
+    test('complete / delete 需要正整数 goal_id', () {
+      expect(AiToolArgs.goalId({'goal_id': 3}), 3);
+      expect(AiToolArgs.goalId({'goal_id': '3'}), 3);
+      expect(() => AiToolArgs.goalId({}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalId({'goal_id': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalId({'goal_id': -2}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalId({'goal_id': 'abc'}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('goal_id 严格整数：3.7 抛异常，不静默截断', () {
+      // 整数写法正常
+      expect(AiToolArgs.intOf(3), 3);
+      expect(AiToolArgs.intOf(3.0), 3);
+      expect(AiToolArgs.intOf('3'), 3);
+      expect(AiToolArgs.intOf('3.0'), 3);
+      expect(AiToolArgs.intOf('abc'), isNull);
+      // 带小数：抛异常，绝不能静默变成 3
+      expect(() => AiToolArgs.intOf(3.7), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.intOf('3.7'), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalId({'goal_id': 3.7}),
+          throwsA(isA<AiToolException>()));
+      // 其他数值参数保持旧的宽松行为（截断），不受影响
+      expect(AiToolArgs.cups({'cups': 3.7}), 3);
+      expect(AiToolArgs.minutes({'minutes': 30.5}), 30);
+    });
+
+    test('create 需要类型 + 正的目标值，可选分类与结束日期', () {
+      expect(AiToolArgs.goalType({'type': 'weight'}), 'weight');
+      expect(AiToolArgs.goalType({'type': 'FREQUENCY'}), 'frequency');
+      expect(() => AiToolArgs.goalType({'type': 'steps'}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.goalTargetValue({'target_value': 140}), 140);
+      expect(() => AiToolArgs.goalTargetValue({'target_value': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalTargetValue({}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.goalCategory({'category': ' 瘦肚子 '}), '瘦肚子');
+      expect(AiToolArgs.goalCategory({}), isNull);
+      expect(AiToolArgs.goalEndDate({'end_date': '2026-03-01'}),
+          DateTime(2026, 3, 1));
+      expect(AiToolArgs.goalEndDate({}), isNull);
+      expect(() => AiToolArgs.goalEndDate({'end_date': 'bad'}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('确认文案：create 带单位，complete/delete 带 id', () {
+      const weight =
+          AiGoalCommand(action: 'create', type: 'weight', targetValue: 140);
+      expect(weight.createDetail, '新建体重目标：140 斤');
+      const freq =
+          AiGoalCommand(action: 'create', type: 'frequency', targetValue: 3);
+      expect(freq.createDetail, '新建训练频率目标：3 次');
+      const custom =
+          AiGoalCommand(action: 'create', type: 'custom', targetValue: 12.5);
+      expect(custom.createDetail, '新建自定义目标：12.5');
+    });
+  });
+
+  group('search_food 参数校验', () {
+    test('关键词非空且 ≤20 字', () {
+      expect(AiToolArgs.searchQuery({'query': ' 牛肉面 '}), '牛肉面');
+      expect(() => AiToolArgs.searchQuery({}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.searchQuery({'query': '   '}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.searchQuery({'query': 'x' * 21}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.searchQuery({'query': 'x' * 20}).length, 20);
+    });
+  });
+
+  group('AiToolSpecs 工具清单', () {
+    test('13 个工具、名称唯一、读写两类正好覆盖全部', () {
+      final names = AiToolSpecs.defs
+          .map((d) => (d['function'] as Map)['name'] as String)
+          .toList();
+      expect(names, hasLength(13));
+      expect(names.toSet(), hasLength(13));
+      expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
+      expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
+          hasLength(13));
+      // 只读工具不重叠写工具
+      expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
+          isEmpty);
+      // 原有 5 个工具名不变
+      expect(
+          names,
+          containsAll([
+            'log_weight',
+            'log_water',
+            'query_stats',
+            'log_food',
+            'log_workout',
+          ]));
+      // 新增 8 个
+      expect(
+          names,
+          containsAll([
+            'log_measurements',
+            'set_target_weight',
+            'update_profile',
+            'set_diet_target',
+            'set_reminder',
+            'delete_records',
+            'manage_goal',
+            'search_food',
+          ]));
+    });
+
+    test('每个工具都有描述与 object 参数', () {
+      for (final d in AiToolSpecs.defs) {
+        final fn = d['function'] as Map;
+        expect((fn['description'] as String).isNotEmpty, isTrue);
+        final params = fn['parameters'] as Map;
+        expect(params['type'], 'object');
+        expect(params['properties'], isA<Map>());
+        expect(params['required'], isA<List>());
+      }
+    });
+
+    test('AiToolPreview 默认不是危险操作', () {
+      const call = AiToolCall(
+          id: 'call_1', name: 'log_weight', argumentsJson: '{"weight_jin":161}');
+      const preview = AiToolPreview(
+        call: call,
+        label: '记录体重',
+        detail: '161.0 斤 · 今天',
+        needsConfirm: true,
+      );
+      expect(preview.isDestructive, isFalse);
+      const dangerous = AiToolPreview(
+        call: call,
+        label: '删除记录',
+        detail: '删除今天的 1 条记录',
+        needsConfirm: true,
+        isDestructive: true,
+      );
+      expect(dangerous.isDestructive, isTrue);
+    });
+  });
+
+  group('提示词新增工具约定', () {
+    test('危险操作先说明后果 / 目标语义 / 不猜 goal_id', () {
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('先一句话说明后果'));
+      expect(prompt, contains('set_target_weight'));
+      expect(prompt, contains('manage_goal(action:create)'));
+      expect(prompt, contains('不要凭猜的 id'));
+    });
+  });
+
+  // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
+
+  group('工具清单一致性', () {
+    test('13 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
+      expect(_defToolNames(), {
+        AiToolSpecs.logWeight,
+        AiToolSpecs.logWater,
+        AiToolSpecs.logFood,
+        AiToolSpecs.logWorkout,
+        AiToolSpecs.logMeasurements,
+        AiToolSpecs.setTargetWeight,
+        AiToolSpecs.updateProfile,
+        AiToolSpecs.setDietTarget,
+        AiToolSpecs.setReminder,
+        AiToolSpecs.manageGoal,
+        AiToolSpecs.deleteRecords,
+        AiToolSpecs.queryStats,
+        AiToolSpecs.searchFood,
+      });
+    });
+
+    test('写 / 只读 / 危险三集合互斥，并集 = 全部工具', () {
+      final all = _defToolNames();
+      const write = AiToolSpecs.writeTools;
+      const readOnly = AiToolSpecs.readOnlyTools;
+      const destructive = AiToolSpecs.destructiveTools;
+
+      expect(write.intersection(readOnly), isEmpty, reason: '写工具不能出现在只读集合');
+      expect(destructive.intersection(readOnly), isEmpty,
+          reason: '危险工具不能是自动执行的只读工具');
+      expect(destructive.difference(write), isEmpty,
+          reason: '危险工具必须同时是写操作（必须走确认卡）');
+      expect({...write, ...readOnly, ...destructive}, all, reason: '三集合并集必须覆盖全部工具');
+      expect(write.length + readOnly.length, all.length, reason: '写 + 只读应正好划分全部工具');
+      expect(readOnly, hasLength(2), reason: '只允许 query_stats / search_food 自动执行');
+    });
+
+    test('四组 handler 白名单互不重叠，并集 = defs', () {
+      final repos = _fakeReposWithData();
+      final groups = <Set<String>>[
+        AiToolReaders(repos).toolNames,
+        AiToolWriters(repos).toolNames,
+        AiToolSettingsWriters(repos).toolNames,
+        AiToolAdminWriters(repos).toolNames,
+      ];
+      final union = <String>{};
+      for (final group in groups) {
+        expect(union.intersection(group), isEmpty, reason: '同一工具被两个处理器认领');
+        union.addAll(group);
+      }
+      expect(union, _defToolNames(), reason: '处理器覆盖的工具必须与 defs 完全一致');
+    });
+  });
+
+  group('AiToolExecutor 预览层安全不变量', () {
+    test('写工具 needsConfirm 全为 true，只读工具全为 false', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      for (final name in _defToolNames()) {
+        final preview = await executor.preview(AiToolCall(
+          id: 'call_$name',
+          name: name,
+          argumentsJson: jsonEncode(_validArgs[name]),
+        ));
+        expect(preview.label, isNotEmpty, reason: '$name 缺少确认卡标题');
+        expect(preview.detail, isNotEmpty, reason: '$name 缺少确认卡详情');
+        expect(preview.needsConfirm, AiToolSpecs.writeTools.contains(name),
+            reason: '$name 的 needsConfirm 与写工具集合不一致');
+        expect(preview.isDestructive, AiToolSpecs.destructiveTools.contains(name),
+            reason: '$name 的危险标记与 destructiveTools 不一致');
+      }
+    });
+
+    test('只有 delete_records 的预览是危险样式', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      for (final type in AiRecordTypes.all) {
+        final preview = await executor.preview(AiToolCall(
+          id: 'call_del_$type',
+          name: AiToolSpecs.deleteRecords,
+          argumentsJson: jsonEncode({'type': type}),
+        ));
+        expect(preview.needsConfirm, isTrue);
+        expect(preview.isDestructive, isTrue, reason: '删除 $type 必须是危险样式');
+        expect(preview.label, contains('删除'));
+      }
+    });
+
+    test('预览不写库（假仓储的写方法一旦被调用即失败）', () async {
+      final repos = _fakeReposWithData();
+      final executor = AiToolExecutor(repos: repos);
+      for (final name in _defToolNames()) {
+        await executor.preview(AiToolCall(
+          id: 'call_$name',
+          name: name,
+          argumentsJson: jsonEncode(_validArgs[name]),
+        ));
+      }
+    });
+
+    test('manage_goal：complete 不算危险，delete 是危险操作', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+
+      final complete = await executor.preview(const AiToolCall(
+        id: 'call_goal_complete',
+        name: AiToolSpecs.manageGoal,
+        argumentsJson: '{"action":"complete","goal_id":7}',
+      ));
+      expect(complete.needsConfirm, isTrue);
+      expect(complete.isDestructive, isFalse);
+      expect(complete.detail, contains('#7'));
+
+      final delete = await executor.preview(const AiToolCall(
+        id: 'call_goal_delete',
+        name: AiToolSpecs.manageGoal,
+        argumentsJson: '{"action":"delete","goal_id":7}',
+      ));
+      expect(delete.needsConfirm, isTrue);
+      expect(delete.isDestructive, isTrue, reason: '删除目标必须走危险样式');
+      expect(delete.label, contains('删除'));
+      expect(delete.detail, contains('#7'));
+    });
+
+    test('manage_goal(create) 仍是普通样式', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      final create = await executor.preview(const AiToolCall(
+        id: 'call_goal_create',
+        name: AiToolSpecs.manageGoal,
+        argumentsJson: '{"action":"create","type":"weight","target_value":140}',
+      ));
+      expect(create.needsConfirm, isTrue);
+      expect(create.isDestructive, isFalse);
+      expect(create.detail, '新建体重目标：140 斤');
+    });
+
+    test('危险标记的纯逻辑来源：只有 delete 动作', () {
+      expect(AiGoalActions.destructive, {AiGoalActions.delete});
+      expect(
+          const AiGoalCommand(action: AiGoalActions.delete, goalId: 3)
+              .isDestructive,
+          isTrue);
+      expect(
+          const AiGoalCommand(action: AiGoalActions.complete, goalId: 3)
+              .isDestructive,
+          isFalse);
+      // delete_records 仍是唯一按工具名判定的危险工具
+      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords});
+    });
+
+    test('未注册的工具名一律拦截（模型无法绕过白名单）', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      const call = AiToolCall(
+          id: 'call_x', name: 'drop_all_tables', argumentsJson: '{}');
+      await _expectToolRejected(() => executor.preview(call));
+      await _expectToolRejected(() => executor.execute(call));
+    });
+  });
+
+  group('delete_records 空数据时不假删', () {
+    test('四类记录都没有时抛异常，而不是返回 ok:true', () async {
+      final executor = AiToolExecutor(repos: _fakeRepos());
+      for (final type in AiRecordTypes.all) {
+        await _expectToolRejected(
+          () => executor.preview(AiToolCall(
+            id: 'call_empty_$type',
+            name: AiToolSpecs.deleteRecords,
+            argumentsJson: jsonEncode({'type': type}),
+          )),
+          reason: '空数据删除 $type 必须拒绝',
+        );
+      }
+    });
+
+    test('违法记录类型在预览层就被拦下', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      // 注意：大小写与首尾空格会被归一化，故 'Weight ' 属于合法值
+      for (final bad in ['sleep', '', 'all', '体重']) {
+        await _expectToolRejected(
+          () => executor.preview(AiToolCall(
+            id: 'call_bad',
+            name: AiToolSpecs.deleteRecords,
+            argumentsJson: jsonEncode({'type': bad}),
+          )),
+          reason: '非法记录类型 "$bad" 必须被拒绝',
+        );
+      }
+    });
+
+    test('饮水只能删除今天', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      await _expectToolRejected(
+        () => executor.preview(AiToolCall(
+          id: 'call_water',
+          name: AiToolSpecs.deleteRecords,
+          argumentsJson: jsonEncode({
+            'type': AiRecordTypes.water,
+            'date': AiToolFormat.ymd(yesterday),
+          }),
+        )),
+      );
+    });
+  });
+
+  group('manage_goal 预览层校验', () {
+    test('create 缺类型 / 缺目标值被拒绝', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      final bad = [
+        {'action': 'create', 'type': 'weight'},
+        {'action': 'create', 'target_value': 140},
+        {'action': 'create', 'type': 'weight', 'target_value': 0},
+        {'action': 'create', 'type': 'weight', 'target_value': -5},
+        {'action': 'create', 'type': 'steps', 'target_value': 140},
+      ];
+      for (final args in bad) {
+        await _expectToolRejected(
+          () => executor.preview(AiToolCall(
+            id: 'call_goal',
+            name: AiToolSpecs.manageGoal,
+            argumentsJson: jsonEncode(args),
+          )),
+          reason: '非法 create 参数 $args 必须被拒绝',
+        );
+      }
+    });
+
+    test('complete / delete 缺 goal_id 或 id 非正被拒绝', () async {
+      final executor = AiToolExecutor(repos: _fakeReposWithData());
+      final bad = [
+        {'action': 'complete'},
+        {'action': 'delete'},
+        {'action': 'delete', 'goal_id': 0},
+        {'action': 'complete', 'goal_id': -1},
+        {'action': 'rename', 'goal_id': 7},
+      ];
+      for (final args in bad) {
+        await _expectToolRejected(
+          () => executor.preview(AiToolCall(
+            id: 'call_goal',
+            name: AiToolSpecs.manageGoal,
+            argumentsJson: jsonEncode(args),
+          )),
+          reason: '非法参数 $args 必须被拒绝',
+        );
+      }
+    });
+  });
+
+  group('新增参数边界值', () {
+    test('围度 30~200 含端点，越界即拒绝', () {
+      expect(AiToolArgs.measurements({'waist_cm': 30}).waistCm, 30);
+      expect(AiToolArgs.measurements({'waist_cm': 200}).waistCm, 200);
+      expect(() => AiToolArgs.measurements({'waist_cm': 29.9}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.measurements({'waist_cm': 200.1}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('身高 100~250 含端点，越界即拒绝', () {
+      expect(AiToolArgs.profile({'height_cm': 100}).heightCm, 100);
+      expect(AiToolArgs.profile({'height_cm': 250}).heightCm, 250);
+      expect(() => AiToolArgs.profile({'height_cm': 99.5}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'height_cm': 250.5}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('出生年 1920 ~（今年-10）含端点', () {
+      final maxYear = DateTime.now().year - 10;
+      expect(AiToolArgs.profile({'birth_year': 1920}).birthYear, 1920);
+      expect(AiToolArgs.profile({'birth_year': maxYear}).birthYear, maxYear);
+      expect(() => AiToolArgs.profile({'birth_year': 1919}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.profile({'birth_year': maxYear + 1}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('宏量 0~500 / 热量 800~5000 含端点', () {
+      expect(AiToolArgs.dietTarget({'protein_g': 0}).proteinG, 0);
+      expect(AiToolArgs.dietTarget({'protein_g': 500}).proteinG, 500);
+      expect(() => AiToolArgs.dietTarget({'protein_g': -0.1}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'protein_g': 500.1}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'calories': 799.9}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.dietTarget({'calories': 5000.1}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('小时 0~23 / 分钟 0~59 含端点，负值与越界拒绝', () {
+      expect(AiToolArgs.optionalHour({'hour': 0}), 0);
+      expect(AiToolArgs.optionalHour({'hour': 23}), 23);
+      expect(AiToolArgs.optionalMinute({'minute': 0}), 0);
+      expect(AiToolArgs.optionalMinute({'minute': 59}), 59);
+      expect(() => AiToolArgs.optionalHour({'hour': -1}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.optionalMinute({'minute': -1}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('目标数值必须 > 0 且有上限', () {
+      expect(AiToolArgs.goalTargetValue({'target_value': 0.1}), 0.1);
+      expect(() => AiToolArgs.goalTargetValue({'target_value': 0}),
+          throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.goalTargetValue({'target_value': 200000}),
+          throwsA(isA<AiToolException>()));
+    });
+
+    test('目标结束日期允许未来，超过 5 年拒绝', () {
+      final sixYears = DateTime.now().add(const Duration(days: 365 * 6));
+      expect(() => AiToolArgs.goalEndDate(
+              {'end_date': AiToolFormat.ymd(sixYears)}),
+          throwsA(isA<AiToolException>()));
+      expect(AiToolArgs.goalEndDate({'end_date': '2026-06-01'}),
+          DateTime(2026, 6, 1));
+    });
+  });
+}
+
+// ═══════════════════════ 测试替身（不碰数据库） ═══════════════════════
+
+/// 断言工具调用被拦下：同时兼容同步抛出与异步 Future 失败
+Future<void> _expectToolRejected(
+  Future<Object?> Function() call, {
+  String? reason,
+}) async {
+  final suffix = reason == null ? '' : '：$reason';
+  try {
+    await call();
+  } on AiToolException {
+    return;
+  }
+  fail('应当抛出 AiToolException，但没有抛$suffix');
+}
+
+/// defs 里注册的工具名集合
+Set<String> _defToolNames() => AiToolSpecs.defs
+    .map((d) => (d['function'] as Map)['name'] as String)
+    .toSet();
+
+/// 每个工具一份合法参数，用于跑通预览层
+const _validArgs = <String, Map<String, dynamic>>{
+  AiToolSpecs.logWeight: {'weight_jin': 160},
+  AiToolSpecs.logWater: {'cups': 6},
+  AiToolSpecs.logFood: {
+    'food_name': '牛肉面',
+    'grams': 250,
+    'meal_type': 'lunch',
+    'calories_per_100g': 120,
+  },
+  AiToolSpecs.logWorkout: {'workout_type': '力量', 'minutes': 45},
+  AiToolSpecs.logMeasurements: {'waist_cm': 80},
+  AiToolSpecs.setTargetWeight: {'target_jin': 140},
+  AiToolSpecs.updateProfile: {'height_cm': 175},
+  AiToolSpecs.setDietTarget: {'calories': 1800},
+  AiToolSpecs.setReminder: {'enabled': true, 'hour': 9, 'minute': 0},
+  AiToolSpecs.manageGoal: {
+    'action': 'create',
+    'type': 'weight',
+    'target_value': 140,
+  },
+  AiToolSpecs.deleteRecords: {'type': 'food'},
+  AiToolSpecs.queryStats: {'range': 'week'},
+  AiToolSpecs.searchFood: {'query': '牛肉面'},
+};
+
+/// 全空数据：用于验证"没数据不许假删"
+AiToolRepos _fakeRepos() => AiToolRepos(
+      body: _FakeBodyRepo(const []),
+      water: _FakeWaterRepo(0),
+      workout: _FakeWorkoutRepo(const []),
+      diet: _FakeDietRepo(const []),
+      goal: _FakeGoalRepo(const []),
+      settings: const _FakeSettingsRepo(),
+    );
+
+/// 每类记录都有一条今天的数据：用于跑通所有预览
+AiToolRepos _fakeReposWithData() {
+  final today = DateTime.now();
+  return AiToolRepos(
+    body: _FakeBodyRepo([
+      BodyMetricEntity(id: 1, date: today, weightKg: 80, waistCm: 80),
+    ]),
+    water: _FakeWaterRepo(5),
+    workout: _FakeWorkoutRepo([
+      WorkoutEntity(id: 1, date: today, type: '力量', durationSec: 2700),
+    ]),
+    diet: _FakeDietRepo([
+      FoodLogEntity(
+        id: 1,
+        date: today,
+        foodId: 1,
+        grams: 250,
+        mealType: 'lunch',
+        foodName: '牛肉面',
+        caloriesPer100g: 120,
+      ),
+    ]),
+    goal: _FakeGoalRepo([
+      GoalEntity(
+        id: 7,
+        type: 'weight',
+        targetValue: 140,
+        currentValue: 150,
+        startDate: today,
+        createdAt: today,
+      ),
+    ]),
+    settings: const _FakeSettingsRepo(),
+  );
+}
+
+/// 写操作一旦被调用就抛错 —— 预览层绝不能写库
+Never _previewMustNotWrite(String op) =>
+    throw StateError('预览阶段不应写库：$op');
+
+class _FakeBodyRepo implements BodyMetricRepository {
+  _FakeBodyRepo(this.rows);
+
+  final List<BodyMetricEntity> rows;
+
+  @override
+  Future<List<BodyMetricEntity>> getAll({DateTime? from, DateTime? to}) async =>
+      rows;
+
+  @override
+  Future<BodyMetricEntity?> getLatest() async => rows.isEmpty ? null : rows.last;
+
+  @override
+  Future<BodyMetricEntity> create({
+    required DateTime date,
+    required double weightKg,
+    double? waistCm,
+    double? hipCm,
+    double? chestCm,
+    String? note,
+  }) async =>
+      _previewMustNotWrite('body.create');
+
+  @override
+  Future<void> update({
+    required int id,
+    required DateTime date,
+    required double weightKg,
+    double? waistCm,
+    double? hipCm,
+    double? chestCm,
+    String? note,
+  }) async =>
+      _previewMustNotWrite('body.update');
+
+  @override
+  Future<void> delete(int id) async => _previewMustNotWrite('body.delete');
+}
+
+class _FakeWaterRepo implements WaterRepository {
+  _FakeWaterRepo(this.cups);
+
+  final int cups;
+
+  @override
+  Future<int> getTodayCups() async => cups;
+
+  @override
+  Future<List<WaterLogEntry>> getHistory() async => const [];
+
+  @override
+  Future<void> incrementCup() async => _previewMustNotWrite('water.increment');
+
+  @override
+  Future<void> decrementCup() async => _previewMustNotWrite('water.decrement');
+
+  @override
+  Future<void> setTodayCups(int cups) async =>
+      _previewMustNotWrite('water.setTodayCups');
+}
+
+class _FakeWorkoutRepo implements WorkoutRepository {
+  _FakeWorkoutRepo(this.rows);
+
+  final List<WorkoutEntity> rows;
+
+  @override
+  Future<List<WorkoutEntity>> getAll({DateTime? from, DateTime? to}) async =>
+      rows;
+
+  @override
+  Future<WorkoutEntity?> getById(int id) async => null;
+
+  @override
+  Future<WorkoutEntity> createWorkout({
+    required DateTime date,
+    required String type,
+    int? planId,
+    String? note,
+    int? durationSec,
+    required List<NewSetData> sets,
+  }) async =>
+      _previewMustNotWrite('workout.create');
+
+  @override
+  Future<void> updateWorkout({
+    required int id,
+    String? note,
+    required List<NewSetData> sets,
+  }) async =>
+      _previewMustNotWrite('workout.update');
+
+  @override
+  Future<void> delete(int id) async => _previewMustNotWrite('workout.delete');
+}
+
+class _FakeDietRepo implements DietRepository {
+  _FakeDietRepo(this.logs);
+
+  final List<FoodLogEntity> logs;
+
+  @override
+  Future<List<FoodLogEntity>> getLogsByDate(DateTime date) async => logs;
+
+  @override
+  Future<double> getDailyCalories(DateTime date) async =>
+      logs.fold<double>(0, (sum, l) => sum + l.totalCalories);
+
+  @override
+  Future<List<FoodLibraryEntity>> searchFoods(
+          {String? query, String? category}) async =>
+      const [];
+
+  @override
+  Future<FoodLibraryEntity?> getFoodById(int id) async => null;
+
+  @override
+  Future<FoodLibraryEntity?> findFoodByName(String name) async => null;
+
+  @override
+  Future<void> addLog({
+    required DateTime date,
+    required int foodId,
+    required double grams,
+    required String mealType,
+  }) async =>
+      _previewMustNotWrite('diet.addLog');
+
+  @override
+  Future<void> deleteLog(int id) async => _previewMustNotWrite('diet.deleteLog');
+
+  @override
+  Future<int> addCustomFood({
+    required String name,
+    required double caloriesPer100g,
+    String category = 'other',
+  }) async =>
+      _previewMustNotWrite('diet.addCustomFood');
+}
+
+class _FakeGoalRepo implements GoalRepository {
+  _FakeGoalRepo(this.rows);
+
+  final List<GoalEntity> rows;
+
+  @override
+  Future<List<GoalEntity>> getAll() async => rows;
+
+  @override
+  Future<GoalEntity?> getById(int id) async {
+    for (final goal in rows) {
+      if (goal.id == id) return goal;
+    }
+    return null;
+  }
+
+  @override
+  Future<GoalEntity> create({
+    required String type,
+    String? category,
+    required double targetValue,
+    required DateTime startDate,
+    DateTime? endDate,
+  }) async =>
+      _previewMustNotWrite('goal.create');
+
+  @override
+  Future<void> updateProgress(int id, double currentValue) async =>
+      _previewMustNotWrite('goal.updateProgress');
+
+  @override
+  Future<void> complete(int id) async => _previewMustNotWrite('goal.complete');
+
+  @override
+  Future<void> delete(int id) async => _previewMustNotWrite('goal.delete');
+}
+
+class _FakeSettingsRepo implements UserSettingsRepository {
+  const _FakeSettingsRepo();
+
+  @override
+  Future<UserSettingsEntity?> get() async => null;
+
+  @override
+  Future<UserSettingsEntity> save({
+    double? heightCm,
+    double? targetWeightKg,
+    DateTime? birthDate,
+    String? gender,
+    String? activityLevel,
+    String? pinCode,
+    bool? lockEnabled,
+    double? speechRate,
+    double? speechPitch,
+    String? ttsVoice,
+    bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
+    String? themeMode,
+    int? defaultTrainingSec,
+    int? defaultRestSec,
+    int? restShortSec,
+    int? restLongSec,
+    bool? autoBackupEnabled,
+    String? aiApiKey,
+    String? aiStyle,
+    String? aiConstraints,
+    String? aiReplyLength,
+    double? aiTemperature,
+    int? dailyCalorieTarget,
+    double? proteinTargetG,
+    double? carbsTargetG,
+    double? fatTargetG,
+  }) async =>
+      _previewMustNotWrite('settings.save');
 }

@@ -68,6 +68,12 @@ class AiPromptBuilder {
       ..writeln('- 工具结果返回 ok:false（用户取消）时，不再重复请求，改为询问或换个建议')
       ..writeln('- 用户一次说多件事时，先处理最重要的一件，其他的问一句"要不要顺便记上"')
       ..writeln('- 不要假设工具已执行成功，只有拿到 ok:true 才能说"已经记好了"')
+      ..writeln('- 删除 / 修改已有记录或目标属于危险操作：先一句话说明后果再调用工具，'
+          '等用户在确认卡上点头后才算数，用户取消就换个建议，别重复请求')
+      ..writeln('- 用户说"定个目标 140 斤"→ set_target_weight；说"新建一个目标"→ '
+          'manage_goal(action:create)；围度、饮食目标、提醒、身体信息分别用 '
+          'log_measurements / set_diet_target / set_reminder / update_profile')
+      ..writeln('- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
       ..writeln()
       ..writeln('# 示例')
       ..writeAll(_examples, '\n')

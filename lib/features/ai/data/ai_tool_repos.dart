@@ -1,0 +1,41 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
+import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
+import 'package:fittrack/features/goal/domain/repositories/goal_repository.dart';
+import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
+import 'package:fittrack/features/water/data/water_repository_impl.dart'
+    show WaterRepository;
+import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
+
+/// 工具执行所需的仓储集合
+///
+/// 集中注入，避免每个处理器都摊开一长串构造参数。
+class AiToolRepos {
+  final BodyMetricRepository body;
+  final WaterRepository water;
+  final WorkoutRepository workout;
+  final DietRepository diet;
+  final GoalRepository goal;
+  final UserSettingsRepository settings;
+
+  const AiToolRepos({
+    required this.body,
+    required this.water,
+    required this.workout,
+    required this.diet,
+    required this.goal,
+    required this.settings,
+  });
+
+  /// 从 providers 构建（工具执行时即时读取，不做 watch）
+  factory AiToolRepos.fromRef(Ref ref) => AiToolRepos(
+        body: ref.read(bodyMetricRepoProvider),
+        water: ref.read(waterRepoProvider),
+        workout: ref.read(workoutRepoProvider),
+        diet: ref.read(dietRepoProvider),
+        goal: ref.read(goalRepoProvider),
+        settings: ref.read(userSettingsRepoProvider),
+      );
+}

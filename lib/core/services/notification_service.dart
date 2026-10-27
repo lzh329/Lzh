@@ -189,6 +189,11 @@ class NotificationService {
     } catch (_) {}
   }
 
+  /// 取消单个通知（AI 教练关闭某类提醒时用，不影响其他排期）
+  Future<void> cancelById(int id) async {
+    await _plugin.cancel(id);
+  }
+
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
   }

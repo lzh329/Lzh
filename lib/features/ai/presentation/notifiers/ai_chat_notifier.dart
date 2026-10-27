@@ -6,76 +6,22 @@ import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_side_effects.dart';
+import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_state.dart';
+import 'package:fittrack/features/ai/presentation/notifiers/ai_tool_context.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
-// ───────────────────── 状态 ─────────────────────
+export 'ai_chat_state.dart';
 
-class AiChatState {
-  /// 历史消息（含已完成的 user / assistant）
-  final List<AiMessage> messages;
-
-  /// 流式中的部分回复（打字机效果）
-  final String streamingText;
-
-  final bool isStreaming;
-
-  /// API Key 是否已配置（dart-define 或设置里）
-  final bool hasKey;
-
-  /// 最近一次错误（展示后清空）
-  final String? error;
-
-  /// 等待用户确认的工具调用（写操作闸门）
-  final AiToolPreview? pendingTool;
-
-  const AiChatState({
-    this.messages = const [],
-    this.streamingText = '',
-    this.isStreaming = false,
-    this.hasKey = false,
-    this.error,
-    this.pendingTool,
-  });
-
-  bool get isBusy => isStreaming || pendingTool != null;
-
-  AiChatState copyWith({
-    List<AiMessage>? messages,
-    String? streamingText,
-    bool? isStreaming,
-    bool? hasKey,
-    String? error,
-    AiToolPreview? pendingTool,
-    bool clearError = false,
-    bool clearStreaming = false,
-    bool clearPendingTool = false,
-  }) {
-    return AiChatState(
-      messages: messages ?? this.messages,
-      streamingText:
-          clearStreaming ? '' : (streamingText ?? this.streamingText),
-      isStreaming: isStreaming ?? this.isStreaming,
-      hasKey: hasKey ?? this.hasKey,
-      error: clearError ? null : (error ?? this.error),
-      pendingTool:
-          clearPendingTool ? null : (pendingTool ?? this.pendingTool),
-    );
-  }
-}
-
-// ───────────────────── Notifier ─────────────────────
-
+/// 嘎教练对话状态机：流式回复 + 工具回合（写操作必须由用户点头）
 class AiChatNotifier extends StateNotifier<AiChatState> {
   final Ref _ref;
 
   /// 最近一次用户输入（失败后供「重试」复用，不重复入库）
   String? _lastUserText;
 
-  /// 当前轮的工具上下文（assistant tool_calls + tool 结果），仅内存保存
-  List<AiMessage> _toolContext = [];
-
-  /// 本轮已执行的工具轮数（防止连环调用）
-  int _toolRound = 0;
+  /// 当前轮的工具上下文（assistant tool_calls + tool 结果）
+  final AiToolContext _tool = AiToolContext();
 
   late final AiToolExecutor _executor = AiToolExecutor.fromRef(_ref);
 
@@ -99,8 +45,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       return;
     }
     _lastUserText = content;
-    _toolContext = [];
-    _toolRound = 0;
+    _tool.reset();
     state = state.copyWith(
       messages: [...state.messages, AiMessage(role: 'user', content: content)],
       clearError: true,
@@ -112,8 +57,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 失败后重试上一条（用户消息已在历史里，不重复写入）
   Future<void> retryLast() async {
     if (_lastUserText == null || state.isBusy) return;
-    _toolContext = [];
-    _toolRound = 0;
+    _tool.reset();
     await _request();
   }
 
@@ -124,12 +68,11 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     state = state.copyWith(clearPendingTool: true, isStreaming: true);
     try {
       final result = await _executor.execute(preview.call);
-      _appendToolResult(preview.call, result);
-      _refreshData();
+      _tool.append(preview.call, result);
+      applyAiToolSideEffects(_ref, preview.call);
       await _request();
     } on AiToolException catch (e) {
-      state = state.copyWith(
-          isStreaming: false, error: '执行失败：${e.message}');
+      state = state.copyWith(isStreaming: false, error: '执行失败：${e.message}');
     } catch (e) {
       debugPrint('工具执行异常: $e');
       state = state.copyWith(isStreaming: false, error: '执行失败，请稍后再试');
@@ -141,8 +84,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     final preview = state.pendingTool;
     if (preview == null) return;
     state = state.copyWith(clearPendingTool: true, isStreaming: true);
-    _appendToolResult(
-        preview.call, '{"ok":false,"cancelled":"用户取消了这次操作"}');
+    _tool.append(preview.call, '{"ok":false,"cancelled":"用户取消了这次操作"}');
     await _request();
   }
 
@@ -163,7 +105,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         messages: [
           AiMessage(role: 'system', content: systemPrompt),
           ...state.messages,
-          ..._toolContext,
+          ..._tool.messages,
         ],
         onDelta: (delta) {
           state = state.copyWith(streamingText: state.streamingText + delta);
@@ -185,8 +127,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         isStreaming: false,
         clearStreaming: true,
       );
-      _toolContext = [];
-      _toolRound = 0;
+      _tool.reset();
     } on AiToolException catch (e) {
       state = state.copyWith(
           isStreaming: false, clearStreaming: true, error: e.message);
@@ -203,11 +144,12 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
   /// 处理模型请求的工具调用
   Future<void> _handleToolCall(AiToolCall call) async {
-    if (_toolRound >= 2) {
+    if (_tool.round >= 2) {
       throw const AiToolException('一次对话里操作次数过多，请分开说');
     }
-    _toolRound++;
-    final preview = _executor.preview(call); // 白名单 + 参数校验，非法直接抛
+    _tool.round++;
+    // 白名单 + 参数校验（delete_records 要先查库统计条数，故为异步），非法直接抛
+    final preview = await _executor.preview(call);
     if (preview.needsConfirm) {
       state = state.copyWith(
           isStreaming: false, clearStreaming: true, pendingTool: preview);
@@ -215,22 +157,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     }
     // 只读工具：直接执行并把结果回传模型
     final result = await _executor.execute(call);
-    _appendToolResult(call, result);
+    _tool.append(call, result);
     await _request();
-  }
-
-  void _appendToolResult(AiToolCall call, String result) {
-    _toolContext = [
-      ..._toolContext,
-      AiMessage(role: 'assistant', content: '', toolCalls: [call]),
-      AiMessage(role: 'tool', content: result, toolCallId: call.id),
-    ];
-  }
-
-  /// 写库后刷新首页 / 趋势相关数据
-  void _refreshData() {
-    _ref.invalidate(dashboardDataProvider);
-    _ref.invalidate(trendsDataProvider);
   }
 
   /// 保存用户填写的 API Key
@@ -244,7 +172,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 清空聊天记录（同时丢弃工具上下文）
   Future<void> clearHistory() async {
     await _ref.read(aiChatRepoProvider).clear();
-    _toolContext = [];
+    _tool.reset();
     state = state.copyWith(
         messages: [], clearStreaming: true, clearPendingTool: true);
   }
@@ -260,7 +188,6 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   }
 }
 
-final aiChatProvider =
-    StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
+final aiChatProvider = StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
   return AiChatNotifier(ref);
 });
