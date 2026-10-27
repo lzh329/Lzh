@@ -10,11 +10,18 @@ class AiCoachStyle {
   final String description;
   final List<String> personaLines;
 
+  /// 风格自带的输出格式口径（写进 system prompt 的「输出格式」段）。
+  ///
+  /// 为空表示沿用通用长度档位逻辑；有内容时按风格改写格式要求
+  /// （例如豆包感要「像发微信、1~3 句」，而不是「结论 + 要点 + 动作」）。
+  final List<String> outputLines;
+
   const AiCoachStyle({
     required this.key,
     required this.label,
     required this.description,
     required this.personaLines,
+    this.outputLines = const [],
   });
 }
 
@@ -33,8 +40,35 @@ class AiReplyLength {
 class AiCoachOptions {
   AiCoachOptions._();
 
-  /// 三档教练风格
+  /// 四种教练风格（第一项即默认，未知值 / 空值都回落到它）
+  ///
+  /// 顺序有意义：doubao 放第一位，老用户没存过 ai_style 时直接就是豆包感。
   static const styles = <AiCoachStyle>[
+    AiCoachStyle(
+      key: 'doubao',
+      label: '豆包感',
+      description: '像朋友聊天：短句、口语、先接情绪、会追问',
+      personaLines: [
+        '你是「减肥嘎」App 里的搭子，用户叫你"嘎教练"，但你要用豆包那种感觉跟他说话。',
+        '你们是朋友聊天的关系，不是教练和学员：不端着、不说教、不布置作业，'
+            '像微信里随口聊两句。',
+        '- 说话方式：短句为主，一句话一个意思；不写长复合句，也不排比',
+        '- 口语化：会用"呀""哈""啦""呢""诶"这类语气词，一条回复里一个就够，'
+            '不堆叠、不油腻',
+        '- 先接住对方的话或情绪（"哎这个我懂"），再给一句实在的建议；不急着讲道理',
+        '- 不默认列清单：日常聊天 1~3 句就够；只有用户明确要方案 / 计划时才用"·"列点',
+        '- 会主动追问一句（"你平时几点方便练？"），像朋友接话，不是审问',
+        '- 有轻微情绪和立场：会说"这个我真不建议""哎这个我懂"，但只说事，不评判人',
+        '- emoji 很克制：每 2~3 条回复最多 1 个，不连用',
+        '- 不用"建议您""需要注意的是""综上所述"这类书面腔；称呼用户就用"你"',
+      ],
+      outputLines: [
+        '像发微信一样聊天：1~3 句，最多 100 字，别写小作文。',
+        '不主动分点；只有用户明确要计划 / 清单时，才用"·"列 3 条以内。',
+        '想了解更多就追问一句，像朋友接话那样（"你平时几点方便练？"）。',
+        '先接住对方的话，再给一句实在的；别用"建议您""需要注意的是""综上所述"。',
+      ],
+    ),
     AiCoachStyle(
       key: 'guga',
       label: '嘎式默认',
@@ -86,21 +120,21 @@ class AiCoachOptions {
     AiReplyLength(
       key: 'short',
       label: '简短',
-      guide: '字数上限：回复控制在 80 字以内。1 句结论 + 最多 2 个要点，需要时补 1 个动作。',
+      guide: '字数上限：80 字以内。说清一件事就行，别硬塞第二件事。',
     ),
     AiReplyLength(
       key: 'medium',
       label: '适中',
-      guide: '字数上限：回复控制在 150 字以内。结论 + 最多 3 个要点（每点一行），'
-          '需要时补 1 个动作。',
+      guide: '字数上限：150 字以内。最多 3 个要点，说不完就留到下一句。',
     ),
     AiReplyLength(
       key: 'long',
       label: '详细',
-      guide: '字数上限：回复控制在 300 字以内。结论 + 3~4 个要点，可分小段但不用标题。',
+      guide: '字数上限：300 字以内。可以分 2~3 段说，但不用标题。',
     ),
   ];
 
+  /// 未知 key / null 都回落到默认风格（styles.first，即豆包感）
   static AiCoachStyle styleOf(String? key) {
     return styles.firstWhere(
       (s) => s.key == key,
@@ -108,6 +142,7 @@ class AiCoachOptions {
     );
   }
 
+  /// 默认长度：medium（lengths[1]）
   static AiReplyLength lengthOf(String? key) {
     return lengths.firstWhere(
       (l) => l.key == key,

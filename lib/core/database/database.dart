@@ -127,8 +127,8 @@ class UserSettings extends Table {
       boolean().withDefault(const Constant(true))();
   // AI 教练：智谱开放平台 API Key（--dart-define 优先，此处兜底）
   TextColumn get aiApiKey => text().nullable()();
-  // AI 教练调教设定：风格（guga/gentle/strict）、自定义约束（JSON 数组）、
-  // 回复长度（short/medium/long）、自由度 temperature
+  // AI 教练调教设定：风格（doubao/guga/gentle/strict，空值 = doubao）、
+  // 自定义约束（JSON 数组）、回复长度（short/medium/long）、自由度 temperature
   TextColumn get aiStyle => text().nullable()();
   TextColumn get aiConstraints => text().nullable()();
   TextColumn get aiReplyLength => text().nullable()();

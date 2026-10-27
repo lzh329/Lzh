@@ -135,10 +135,32 @@ void main() {
       expect(AiCoachOptions.decodeConstraints('{"a":1}'), isEmpty);
     });
 
-    test('未知风格/长度回落到默认档', () {
-      expect(AiCoachOptions.styleOf('unknown').key, 'guga');
-      expect(AiCoachOptions.styleOf(null).key, 'guga');
+    test('未知风格/长度回落到默认档（默认 = 豆包感）', () {
+      expect(AiCoachOptions.styleOf('unknown').key, 'doubao');
+      expect(AiCoachOptions.styleOf(null).key, 'doubao');
+      expect(AiCoachOptions.styleOf('').key, 'doubao');
       expect(AiCoachOptions.lengthOf('unknown').key, 'medium');
+      expect(AiCoachOptions.lengthOf(null).key, 'medium');
+    });
+
+    test('四种风格 key 唯一，且豆包感排第一位（默认位）', () {
+      expect(AiCoachOptions.styles, hasLength(4));
+      final keys = AiCoachOptions.styles.map((s) => s.key).toList();
+      expect(keys.toSet(), hasLength(4), reason: '风格 key 必须唯一');
+      expect(keys, ['doubao', 'guga', 'gentle', 'strict']);
+      expect(AiCoachOptions.styles.first.key, 'doubao',
+          reason: 'styles.first 就是 styleOf 的回落目标');
+      // 老三种风格仍然可以精确取到，不会被新默认吃掉
+      expect(AiCoachOptions.styleOf('guga').label, '嘎式默认');
+      expect(AiCoachOptions.styleOf('gentle').label, '温柔学姐');
+      expect(AiCoachOptions.styleOf('strict').label, '严厉硬核');
+      expect(AiCoachOptions.styleOf('doubao').label, '豆包感');
+      // 每张卡片的文案都不为空、长度可控（设置页不溢出）
+      for (final s in AiCoachOptions.styles) {
+        expect(s.description, isNotEmpty);
+        expect(s.description.length, lessThanOrEqualTo(24),
+            reason: '${s.key} 的 description 太长，设置页卡片会换行过多');
+      }
     });
   });
 
@@ -164,11 +186,23 @@ void main() {
       expect(prompt, isNot(contains('东北式幽默')));
     });
 
-    test('简短长度写入对应字数限制', () {
-      const settings = UserSettingsEntity(id: 1, aiReplyLength: 'short');
+    test('简短长度写入对应字数限制（非豆包风格走档位逻辑）', () {
+      const settings =
+          UserSettingsEntity(id: 1, aiStyle: 'guga', aiReplyLength: 'short');
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: settings);
       expect(prompt, contains('80 字以内'));
+    });
+
+    test('豆包风格不吃档位文案，只把档位当参考', () {
+      const settings =
+          UserSettingsEntity(id: 1, aiStyle: 'doubao', aiReplyLength: 'short');
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: settings);
+      expect(prompt, contains('100 字'));
+      expect(prompt, contains('「简短」'), reason: '档位仍作为偏好提示给模型');
+      expect(prompt, isNot(contains('80 字以内')),
+          reason: '豆包风格以 1~3 句 / 100 字为准，不再叠旧档位文案');
     });
 
     test('四种基础规则都在（防编造/医疗/极端节食/不用 Markdown）', () {
@@ -178,6 +212,109 @@ void main() {
       expect(prompt, contains('不做医疗诊断'));
       expect(prompt, contains('1200 千卡'));
       expect(prompt, contains('不用 Markdown'));
+    });
+  });
+
+  // ═════════════ v1.5：豆包感（像朋友聊天，不像教练上课） ═════════════
+
+  group('豆包感提示词', () {
+    final defaultPrompt =
+        AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+
+    test('默认风格就是豆包感（没存过设置的用户直接生效）', () {
+      expect(defaultPrompt, contains('豆包那种感觉'));
+      expect(defaultPrompt, contains('嘎教练'));
+      expect(defaultPrompt, isNot(contains('东北式幽默')),
+          reason: '默认不该再是嘎式人设');
+    });
+
+    test('人设关键词：语气词 / 追问 / 不长篇 / 先接情绪', () {
+      final doubao = AiCoachOptions.styleOf('doubao').personaLines.join('\n');
+      expect(doubao, contains('语气词'));
+      expect(doubao, contains('追问'));
+      expect(doubao, contains('短句'));
+      expect(doubao, contains('不默认列清单'));
+      expect(doubao, contains('先接住'));
+      expect(doubao, contains('说话方式'));
+      // 明确反对书面腔与教学腔
+      expect(doubao, contains('建议您'));
+      expect(doubao, contains('需要注意的是'));
+      expect(doubao, contains('综上所述'));
+      expect(doubao, contains('emoji'));
+    });
+
+    test('输出格式：1~3 句 / 100 字，且不主动分点', () {
+      expect(defaultPrompt, contains('1~3 句'));
+      expect(defaultPrompt, contains('100 字'));
+      expect(defaultPrompt, contains('不主动分点'));
+      expect(defaultPrompt, contains('追问一句'));
+      expect(defaultPrompt, contains('3 条以内'), reason: '只有要计划时才列点，且 ≤3 条');
+    });
+
+    test('不再硬塞「结论 + 要点 + 动作」，也不强制结尾给动作', () {
+      expect(defaultPrompt, isNot(contains('结尾必须给 1 个今天就能执行的动作')));
+      expect(defaultPrompt, isNot(contains('第一句直接给结论')));
+    });
+
+    test('few-shot 三组示例（闲聊 / 数据 / 记录），emoji 不超过 1 个', () {
+      expect(defaultPrompt, contains('用户：今天好累啊，不想动。'));
+      expect(defaultPrompt, contains('用户：我这周是不是很废？'));
+      expect(defaultPrompt, contains('用户：刚吃了碗牛肉面。'));
+      // 三个示例合计最多 1 个 emoji（克制，不刷屏）
+      final exampleStart = defaultPrompt.indexOf('# 示例');
+      final exampleBlock =
+          defaultPrompt.substring(exampleStart, defaultPrompt.indexOf('# 用户数据'));
+      final emojiCount = RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]',
+              unicode: true)
+          .allMatches(exampleBlock)
+          .length;
+      expect(emojiCount, lessThanOrEqualTo(1));
+      // 情绪类示例不列点（对话型只用短句，不用「·」）
+      final chatExample = exampleBlock.substring(
+          exampleBlock.indexOf('今天好累啊'), exampleBlock.indexOf('【示例 2'));
+      expect(chatExample, isNot(contains('· ')));
+      // 示例只是语气示范，数字以真实数据为准
+      expect(defaultPrompt, contains('真实数据一律以【用户数据】为准'));
+    });
+
+    test('安全边界四条仍在，工具规则未被破坏', () {
+      expect(defaultPrompt, contains('绝不编造'));
+      expect(defaultPrompt, contains('不做医疗诊断'));
+      expect(defaultPrompt, contains('不承诺减重速度'));
+      expect(defaultPrompt, contains('1200 千卡'));
+      // 17 工具相关约定照旧
+      expect(defaultPrompt, contains('set_target_weight'));
+      expect(defaultPrompt, contains('manage_goal(action:create)'));
+      expect(defaultPrompt, contains('不要凭猜的 id'));
+      expect(defaultPrompt, contains('建训练模板前先用 query_exercises 确认动作存在'));
+      expect(defaultPrompt, contains('先 create_exercise 加进动作库'));
+      expect(defaultPrompt, contains('帮我加个动作'));
+      expect(defaultPrompt, contains('create_missing_exercises'));
+      expect(defaultPrompt, contains('create_exercises'));
+      expect(defaultPrompt, contains('不要逐个调用工具'));
+      expect(defaultPrompt, contains('先一句话说明后果'));
+      expect(defaultPrompt, contains('用户发食物照片时'));
+      expect(defaultPrompt, contains('${AiToolLimits.maxCallsPerRound} 次工具调用'));
+      expect(defaultPrompt, contains('log_food'));
+      expect(defaultPrompt, contains('query_stats'));
+    });
+
+    test('去播报腔，但不复述用户问题这条要求保留', () {
+      expect(defaultPrompt, contains('根据你的数据'));
+      expect(defaultPrompt, contains('播报腔'));
+      expect(defaultPrompt, contains('也不用把用户的话再复述一遍'));
+    });
+
+    test('自定义约束优先级仍在最后注入', () {
+      final settings = UserSettingsEntity(
+        id: 1,
+        aiConstraints: AiCoachOptions.encodeConstraints(['别跟我客套']),
+      );
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: settings);
+      expect(prompt.indexOf('# 用户额外约束') > prompt.indexOf('# 用户数据'),
+          isTrue,
+          reason: '自定义约束必须放在最后，模型才更容易遵守');
     });
   });
 

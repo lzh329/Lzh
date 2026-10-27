@@ -6,6 +6,7 @@ import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_tool_context.dart';
+import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
 /// v1.4：AI 接口 400 修复 / 图片消息 / 提示词去死板的纯逻辑测试
@@ -174,7 +175,8 @@ void main() {
     final defaultPrompt =
         AiPromptBuilder.build(trends: const TrendsData(), settings: null);
 
-    test('三种风格都写了「说话方式」', () {
+    test('四种风格都写了「说话方式」', () {
+      expect(AiCoachOptions.styles, hasLength(4));
       for (final style in AiCoachOptions.styles) {
         final joined = style.personaLines.join('\n');
         expect(joined, contains('说话方式'), reason: '${style.key} 缺少说话方式');
@@ -202,13 +204,25 @@ void main() {
     });
 
     test('输出格式有弹性：口语为主，不套模板', () {
+      // 默认（豆包感）走「像发微信」的口径
       expect(defaultPrompt, contains('有弹性'));
-      expect(defaultPrompt, contains('2~4 句'));
-      expect(defaultPrompt, contains('不强求分点'));
+      expect(defaultPrompt, contains('1~3 句'));
+      expect(defaultPrompt, contains('不主动分点'));
       expect(defaultPrompt, contains('不要每条都用相同模板开头'));
       expect(defaultPrompt, contains('不要连续两条回复都用分点列表'));
       // 不再强制「结尾必须给动作」
       expect(defaultPrompt, isNot(contains('结尾必须给 1 个今天就能执行的动作')));
+
+      // 老风格仍保留弹性长度档位逻辑（2~4 句、不强求分点）
+      const gugaSettings = UserSettingsEntity(id: 1, aiStyle: 'guga');
+      final gugaPrompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: gugaSettings);
+      expect(gugaPrompt, contains('有弹性'));
+      expect(gugaPrompt, contains('2~4 句'));
+      expect(gugaPrompt, contains('不强求分点'));
+      expect(gugaPrompt, contains('先顺一下对方的话'),
+          reason: '不再机械地"第一句直接给结论"');
+      expect(gugaPrompt, isNot(contains('结尾必须给 1 个今天就能执行的动作')));
     });
 
     test('保留不用 Markdown，但允许「·」列表与空行分段', () {

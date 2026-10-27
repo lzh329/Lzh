@@ -30,7 +30,7 @@ class UserSettingsEntity {
   /// AI 教练：智谱 API Key（与 --dart-define 互补）
   final String? aiApiKey;
 
-  /// AI 教练风格：guga（嘎式默认）/ gentle（温柔）/ strict（严厉）
+  /// AI 教练风格：doubao（豆包感，默认）/ guga（嘎式）/ gentle（温柔）/ strict（严厉）
   final String? aiStyle;
 
   /// 用户自定义约束（JSON 数组字符串，每条一句规则）
