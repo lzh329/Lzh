@@ -75,6 +75,15 @@ void main() {
   });
 
   group('AiPromptBuilder.build', () {
+    test('明确声明视觉能力，避免模型自认不能识图', () {
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('# 你能做什么'));
+      expect(prompt, contains('你能直接看图'));
+      expect(prompt, contains('你能识图吗'));
+      expect(prompt, contains('食物照片'));
+    });
+
     test('空数据也能构建引导性 prompt', () {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
