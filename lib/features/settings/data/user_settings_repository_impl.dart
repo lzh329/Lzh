@@ -91,16 +91,14 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         autoBackupEnabled: autoBackupEnabled != null
             ? Value(autoBackupEnabled)
             : const Value(true),
-        aiApiKey:
-            aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
+        aiApiKey: aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
         aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
         aiConstraints:
             aiConstraints != null ? Value(aiConstraints) : const Value.absent(),
         aiReplyLength:
             aiReplyLength != null ? Value(aiReplyLength) : const Value.absent(),
-        aiTemperature: aiTemperature != null
-            ? Value(aiTemperature)
-            : const Value.absent(),
+        aiTemperature:
+            aiTemperature != null ? Value(aiTemperature) : const Value.absent(),
         aiPersonaCustom: aiPersonaCustom != null
             ? Value(aiPersonaCustom)
             : const Value.absent(),
@@ -164,9 +162,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             autoBackupEnabled: autoBackupEnabled != null
                 ? Value(autoBackupEnabled)
                 : const Value.absent(),
-            aiApiKey: aiApiKey != null
-                ? Value(aiApiKey)
-                : const Value.absent(),
+            aiApiKey: aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
             aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
             aiConstraints: aiConstraints != null
                 ? Value(aiConstraints)
@@ -198,6 +194,38 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
           ));
       return _rereadOrThrow();
     }
+  }
+
+  // ── 误报计数（v21 · user_settings.ai_health_override_count）──
+  //
+  // 只在这里碰这一列：自增走单条原子 UPDATE，绝不先读后写 —— 连续撤销两次
+  // （用户点得快 / 两个入口并发）时 read-modify-write 会丢一次计数。
+  // COALESCE 是保险：老库加列时若写入过 NULL，+1 不会变成 NULL。
+
+  @override
+  Future<void> incrementAiHealthOverrideCount() async {
+    final id = await _rowIdOrCreate();
+    await _db.customStatement(
+      'UPDATE user_settings SET ai_health_override_count = '
+      'COALESCE(ai_health_override_count, 0) + 1 WHERE id = ?',
+      <Object?>[id],
+    );
+  }
+
+  @override
+  Future<void> resetAiHealthOverrideCount() async {
+    final existing = await get();
+    if (existing == null) return; // 没有设置行 = 没有记过，本就是 0，不必建行
+    await _db.customStatement(
+      'UPDATE user_settings SET ai_health_override_count = 0 WHERE id = ?',
+      <Object?>[existing.id],
+    );
+  }
+
+  /// 设置行的 id；还没有行就先建一行（计数必须有落点）。
+  Future<int> _rowIdOrCreate() async {
+    final existing = await get();
+    return existing?.id ?? (await save()).id;
   }
 
   /// 写入后回读最新记录
@@ -244,5 +272,6 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,
         fatTargetG: row.fatTargetG,
+        aiHealthOverrideCount: row.aiHealthOverrideCount,
       );
 }

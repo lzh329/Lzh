@@ -40,7 +40,8 @@ void main() {
       expect(https.host, 'example.com');
       expect(https.query, 'b=1', reason: '查询串不能被裁掉');
 
-      final httpUrl = AiToolArgs.fetchUrl({'url': 'http://news.sina.com.cn/x.html'});
+      final httpUrl =
+          AiToolArgs.fetchUrl({'url': 'http://news.sina.com.cn/x.html'});
       expect(httpUrl.scheme, 'http');
       expect(httpUrl.host, 'news.sina.com.cn');
     });
@@ -57,8 +58,7 @@ void main() {
         expect(
           () => AiToolArgs.fetchUrl({'url': url}),
           throwsA(isA<AiToolException>()
-              .having((e) => e.message, 'message',
-                  contains('这个链接不能抓取'))),
+              .having((e) => e.message, 'message', contains('这个链接不能抓取'))),
           reason: '$url 不该被放行',
         );
       }
@@ -87,8 +87,8 @@ void main() {
       for (final url in bad) {
         expect(
           () => AiToolArgs.fetchUrl({'url': url}),
-          throwsA(isA<AiToolException>().having(
-              (e) => e.message, 'message', contains('内网或格式不支持'))),
+          throwsA(isA<AiToolException>()
+              .having((e) => e.message, 'message', contains('内网或格式不支持'))),
           reason: '$url 指向内网，必须拒绝',
         );
       }
@@ -96,12 +96,13 @@ void main() {
 
     test('公网 IP 与带端口的域名照常放行', () {
       expect(AiToolArgs.fetchUrl({'url': 'http://1.1.1.1/x'}).host, '1.1.1.1');
-      expect(AiToolArgs.fetchUrl({'url': 'https://mp.weixin.qq.com/s/abc'}).host,
+      expect(
+          AiToolArgs.fetchUrl({'url': 'https://mp.weixin.qq.com/s/abc'}).host,
           'mp.weixin.qq.com');
-      expect(AiToolArgs.fetchUrl({'url': 'https://example.com:8443/'}).port,
-          8443);
-      expect(AiToolArgs.fetchUrl({'url': 'http://172.32.0.1/'}).host,
-          '172.32.0.1',
+      expect(
+          AiToolArgs.fetchUrl({'url': 'https://example.com:8443/'}).port, 8443);
+      expect(
+          AiToolArgs.fetchUrl({'url': 'http://172.32.0.1/'}).host, '172.32.0.1',
           reason: '172.32 不在 172.16~31 私网段里');
     });
 
@@ -212,8 +213,8 @@ void main() {
             ],
           }));
 
-      final results = await WebToolsService.search(
-          apiKey: 'k', query: 'q', client: client);
+      final results =
+          await WebToolsService.search(apiKey: 'k', query: 'q', client: client);
 
       expect(results, hasLength(WebToolsService.maxResults));
       expect(results.length, 5);
@@ -285,8 +286,10 @@ void main() {
       final page = await WebToolsService.fetchPage(
           apiKey: 'k', url: 'https://example.com/long', client: client);
 
-      expect(page.content.length,
-          WebToolsService.maxContentChars + WebToolsService.truncatedMark.length);
+      expect(
+          page.content.length,
+          WebToolsService.maxContentChars +
+              WebToolsService.truncatedMark.length);
       expect(page.content.startsWith('a' * 100), isTrue);
       expect(page.content.endsWith(WebToolsService.truncatedMark), isTrue);
       expect(page.content, contains('内容已截断'));
@@ -317,9 +320,10 @@ void main() {
 
       expect(registered, hasLength(20), reason: '工具总数应为 20');
       expect(registered.toSet(), hasLength(20), reason: '工具名不能重复');
-      expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools},
-          registered.toSet(),
-          reason: '写 / 只读两集合必须正好划分已注册的工具');
+      expect({
+        ...AiToolSpecs.writeTools,
+        ...AiToolSpecs.readOnlyTools
+      }, registered.toSet(), reason: '写 / 只读两集合必须正好划分已注册的工具');
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty,
           reason: '同一工具不能既写又只读（否则可以绕过确认）');
@@ -405,13 +409,13 @@ void main() {
       ]) {
         await expectLater(
           handler.preview(call),
-          throwsA(isA<AiToolException>().having(
-              (e) => e.message, 'message', AiToolWebReaders.webDisabledMessage)),
+          throwsA(isA<AiToolException>().having((e) => e.message, 'message',
+              AiToolWebReaders.webDisabledMessage)),
         );
         await expectLater(
           handler.execute(call),
-          throwsA(isA<AiToolException>().having(
-              (e) => e.message, 'message', AiToolWebReaders.webDisabledMessage)),
+          throwsA(isA<AiToolException>().having((e) => e.message, 'message',
+              AiToolWebReaders.webDisabledMessage)),
         );
       }
       expect(called, 0, reason: '关闭联网后一次搜索请求都不应该发出去');
@@ -517,8 +521,8 @@ void main() {
           name: AiToolSpecs.webSearch,
           argumentsJson: '{"query":"金价"}',
         )),
-        throwsA(isA<AiToolException>().having(
-            (e) => e.message, 'message', contains('API Key'))),
+        throwsA(isA<AiToolException>()
+            .having((e) => e.message, 'message', contains('API Key'))),
       );
       expect(AiToolWebReaders.noKeyMessage, '还没配置 API Key');
     });
@@ -635,6 +639,14 @@ class _StubSettingsRepo implements UserSettingsRepository {
     double? fatTargetG,
   }) async =>
       throw UnimplementedError('联网工具不该写设置');
+
+  @override
+  Future<void> incrementAiHealthOverrideCount() async =>
+      throw UnimplementedError('联网工具不该改误报计数');
+
+  @override
+  Future<void> resetAiHealthOverrideCount() async =>
+      throw UnimplementedError('联网工具不该改误报计数');
 }
 
 // ═══════════ 不该被碰到的仓储 ═══════════

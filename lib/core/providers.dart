@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fittrack/core/database/database.dart';
+// hide DailyOverride：drift 生成的行类与 daily_override_repository 的实体同名，
+// 本文件两处都要用（AppDatabase / DailyOverride），不隐藏会报 ambiguous_import。
+import 'package:fittrack/core/database/database.dart' hide DailyOverride;
 import 'package:fittrack/core/database/db_replaced_marker.dart';
 import 'package:fittrack/core/database/daily_override_repository.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
@@ -30,6 +32,7 @@ import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
+import 'package:fittrack/core/services/sick_day_gate.dart';
 
 // ── 数据库 ──
 /// 全 App 唯一的数据库实例。
@@ -99,6 +102,69 @@ final dietRepoProvider = Provider<DietRepository>((ref) {
 final dailyOverrideRepoProvider = Provider<DailyOverrideRepository>((ref) {
   return DailyOverrideRepository(ref.watch(databaseProvider));
 });
+
+/// 生病闸门：按天覆盖的策略入口（数据层 + 误报计数都在里面）。
+final sickDayGateProvider = Provider<SickDayGate>((ref) {
+  return SickDayGate(
+    ref.watch(dailyOverrideRepoProvider),
+    ref.watch(userSettingsRepoProvider),
+  );
+});
+
+/// 今日生效的生病覆盖 —— 今日页横幅的唯一数据源。
+///
+/// 用 AsyncNotifier 而非 FutureProvider：apply / revoke 写库后立刻回读落 state，
+/// 不等下次启动、也不靠 invalidate 计数器。null = 今天没有覆盖。
+final sickDayOverrideProvider =
+    AsyncNotifierProvider<SickDayOverrideNotifier, DailyOverride?>(
+        SickDayOverrideNotifier.new);
+
+class SickDayOverrideNotifier extends AsyncNotifier<DailyOverride?> {
+  @override
+  Future<DailyOverride?> build() async {
+    return ref.watch(sickDayGateProvider).overrideFor(_today());
+  }
+
+  /// 生效 / 更新今日覆盖；只改传入的字段。
+  ///
+  /// `source` 非法（非 user / ai_health）时抛 ArgumentError：state 记为
+  /// AsyncError，同时把异常继续抛给调用方（AI 工具路径需要知道没写成）。
+  Future<void> apply({
+    int? calorieTargetOverride,
+    double? setsScale,
+    bool? reminderPaused,
+    required String source,
+  }) {
+    return _refresh(() => ref.read(sickDayGateProvider).apply(
+          date: _today(),
+          calorieTargetOverride: calorieTargetOverride,
+          setsScale: setsScale,
+          reminderPaused: reminderPaused,
+          source: source,
+        ));
+  }
+
+  /// 撤销今日覆盖，立刻回到「没有覆盖」的安全态（横幅随之消失）。
+  Future<void> revoke() {
+    return _refresh(() => ref.read(sickDayGateProvider).revoke(_today()));
+  }
+
+  /// 写库 → 回读 → 落 state。失败时 state 记 AsyncError 并继续抛给调用方。
+  Future<void> _refresh(Future<void> Function() write) async {
+    state = const AsyncLoading<DailyOverride?>();
+    try {
+      await write();
+      state =
+          AsyncData(await ref.read(sickDayGateProvider).overrideFor(_today()));
+    } catch (e, st) {
+      state = AsyncError<DailyOverride?>(e, st);
+      rethrow;
+    }
+  }
+
+  /// 只认「今天」：覆盖按天存储，昨天的数据不参与今日计算。
+  DateTime _today() => DateTime.now();
+}
 
 // ── 饮水 ──
 final waterRepoProvider = Provider<WaterRepository>((ref) {

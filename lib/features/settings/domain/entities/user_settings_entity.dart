@@ -57,6 +57,16 @@ class UserSettingsEntity {
   final double? carbsTargetG;
   final double? fatTargetG;
 
+  /// v21：AI 生病拦截被用户撤销的累计次数（误报计数）
+  ///
+  /// 只有 AI 触发（`source='ai_health'`）且被用户撤销才 +1；用户自己开自己关不算。
+  /// 单调不减、不自动衰减，由设置页手动清零。达到
+  /// [kSickDayFalsePositiveLimit]（定义在 `core/services/sick_day_gate.dart`）
+  /// 后 AI 不再自动调工具。此处不引 service 层，避免实体反向依赖策略。
+  ///
+  /// 读不到（还没有设置行）时按 0 处理 —— 「没记过」就是 0 次。
+  final int aiHealthOverrideCount;
+
   const UserSettingsEntity({
     required this.id,
     this.heightCm,
@@ -89,6 +99,7 @@ class UserSettingsEntity {
     this.proteinTargetG,
     this.carbsTargetG,
     this.fatTargetG,
+    this.aiHealthOverrideCount = 0,
   });
 
   int? get age {

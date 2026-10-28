@@ -2451,6 +2451,14 @@ class _FakeSettingsRepo implements UserSettingsRepository {
     double? fatTargetG,
   }) async =>
       _previewMustNotWrite('settings.save');
+
+  @override
+  Future<void> incrementAiHealthOverrideCount() async =>
+      _previewMustNotWrite('settings.incrementAiHealthOverrideCount');
+
+  @override
+  Future<void> resetAiHealthOverrideCount() async =>
+      _previewMustNotWrite('settings.resetAiHealthOverrideCount');
 }
 
 /// 假动作库：只读方法返回固定数据，写方法一律抛错（预览阶段绝不能写库）
