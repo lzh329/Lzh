@@ -17,7 +17,14 @@ abstract class DietRepository {
   Future<void> deleteLog(int id);
 
   // 每日汇总
+  /// 当日热量。
+  ///
+  /// **薄包装**：实现必须直接返回 [getDailyNutrition]().calories，
+  /// 不许自带 SQL —— 全 App 只有一个方法产出口径。
   Future<double> getDailyCalories(DateTime date);
+
+  /// 当日营养口径（热量 + 三态宏量），**一条 SQL** 出全部。
+  Future<DailyNutrition> getDailyNutrition(DateTime date);
 
   // AI 教练记录用：按名称精确查食物、新建自定义食物
   Future<FoodLibraryEntity?> findFoodByName(String name);

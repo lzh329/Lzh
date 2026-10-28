@@ -135,8 +135,7 @@ void main() {
     test('约束编解码往返一致', () {
       const items = ['别跟我客套', '  别提体重数字  '];
       final encoded = AiCoachOptions.encodeConstraints(items);
-      expect(AiCoachOptions.decodeConstraints(encoded),
-          ['别跟我客套', '别提体重数字']);
+      expect(AiCoachOptions.decodeConstraints(encoded), ['别跟我客套', '别提体重数字']);
     });
 
     test('非法或空值返回空列表', () {
@@ -179,8 +178,7 @@ void main() {
     test('自定义约束写进提示词且编号', () {
       final settings = UserSettingsEntity(
         id: 1,
-        aiConstraints:
-            AiCoachOptions.encodeConstraints(['别跟我客套', '别提体重数字']),
+        aiConstraints: AiCoachOptions.encodeConstraints(['别跟我客套', '别提体重数字']),
       );
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: settings);
@@ -235,8 +233,7 @@ void main() {
     test('默认风格就是豆包感（没存过设置的用户直接生效）', () {
       expect(defaultPrompt, contains('豆包那种感觉'));
       expect(defaultPrompt, contains('嘎教练'));
-      expect(defaultPrompt, isNot(contains('东北式幽默')),
-          reason: '默认不该再是嘎式人设');
+      expect(defaultPrompt, isNot(contains('东北式幽默')), reason: '默认不该再是嘎式人设');
     });
 
     test('人设关键词：语气词 / 追问 / 不长篇 / 先接情绪', () {
@@ -273,12 +270,12 @@ void main() {
       expect(defaultPrompt, contains('用户：刚吃了碗牛肉面。'));
       // 三个示例合计最多 1 个 emoji（克制，不刷屏）
       final exampleStart = defaultPrompt.indexOf('# 示例');
-      final exampleBlock =
-          defaultPrompt.substring(exampleStart, defaultPrompt.indexOf('# 用户数据'));
-      final emojiCount = RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]',
-              unicode: true)
-          .allMatches(exampleBlock)
-          .length;
+      final exampleBlock = defaultPrompt.substring(
+          exampleStart, defaultPrompt.indexOf('# 用户数据'));
+      final emojiCount =
+          RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]', unicode: true)
+              .allMatches(exampleBlock)
+              .length;
       expect(emojiCount, lessThanOrEqualTo(1));
       // 情绪类示例不列点（对话型只用短句，不用「·」）
       final chatExample = exampleBlock.substring(
@@ -323,8 +320,7 @@ void main() {
       );
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: settings);
-      expect(prompt.indexOf('# 用户额外约束') > prompt.indexOf('# 用户数据'),
-          isTrue,
+      expect(prompt.indexOf('# 用户额外约束') > prompt.indexOf('# 用户数据'), isTrue,
           reason: '自定义约束必须放在最后，模型才更容易遵守');
     });
   });
@@ -342,8 +338,10 @@ void main() {
 
     test('杯数限制 1~30', () {
       expect(AiToolArgs.cups({'cups': 6}), 6);
-      expect(() => AiToolArgs.cups({'cups': 0}), throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.cups({'cups': 50}), throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.cups({'cups': 0}), throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.cups({'cups': 50}), throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.cups({}), throwsA(isA<AiToolException>()));
     });
 
@@ -356,12 +354,13 @@ void main() {
           () => AiToolArgs.date(
               {'date': today.add(const Duration(days: 1)).toIso8601String()}),
           throwsA(isA<AiToolException>()));
-      expect(
-          () => AiToolArgs.date({'date': 'not-a-date'}),
+      expect(() => AiToolArgs.date({'date': 'not-a-date'}),
           throwsA(isA<AiToolException>()));
       expect(
-          () => AiToolArgs.date(
-              {'date': today.subtract(const Duration(days: 400)).toIso8601String()}),
+          () => AiToolArgs.date({
+                'date':
+                    today.subtract(const Duration(days: 400)).toIso8601String()
+              }),
           throwsA(isA<AiToolException>()));
     });
 
@@ -375,7 +374,8 @@ void main() {
       expect(AiToolArgs.foodName({'food_name': ' 牛肉面 '}), '牛肉面');
       expect(() => AiToolArgs.foodName({}), throwsA(isA<AiToolException>()));
       expect(AiToolArgs.grams({'grams': 250}), 250);
-      expect(() => AiToolArgs.grams({'grams': 0}), throwsA(isA<AiToolException>()));
+      expect(() => AiToolArgs.grams({'grams': 0}),
+          throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.grams({'grams': 5000}),
           throwsA(isA<AiToolException>()));
       expect(AiToolArgs.caloriesPer100g({'calories_per_100g': 116}), 116);
@@ -499,8 +499,8 @@ void main() {
       expect(m.chestCm, isNull);
       expect(m.label, '腰围 80cm · 臀围 95.5cm');
 
-      expect(() => AiToolArgs.measurements({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.measurements({}), throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.measurements({'waist_cm': 10}),
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.measurements({'chest_cm': 250}),
@@ -530,8 +530,8 @@ void main() {
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.targetWeightKg({'target_jin': 800}),
           throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.targetWeightKg({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.targetWeightKg({}), throwsA(isA<AiToolException>()));
       // 字段名是 target_jin，不能误读 weight_jin
       expect(() => AiToolArgs.targetWeightKg({'weight_jin': 140}),
           throwsA(isA<AiToolException>()));
@@ -556,8 +556,7 @@ void main() {
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.profile({'birth_year': 1900}),
           throwsA(isA<AiToolException>()));
-      expect(
-          () => AiToolArgs.profile({'birth_year': DateTime.now().year - 5}),
+      expect(() => AiToolArgs.profile({'birth_year': DateTime.now().year - 5}),
           throwsA(isA<AiToolException>()));
       // 单独给性别也能过
       expect(AiToolArgs.profile({'gender': 'female'}).gender, 'female');
@@ -737,7 +736,8 @@ void main() {
           .toList();
       expect(names, hasLength(20));
       expect(names.toSet(), hasLength(20));
-      expect(names.toSet(), {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
+      expect(names.toSet(),
+          {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
           hasLength(20));
       // 只读工具不重叠写工具
@@ -801,7 +801,9 @@ void main() {
 
     test('AiToolPreview 默认不是危险操作', () {
       const call = AiToolCall(
-          id: 'call_1', name: 'log_weight', argumentsJson: '{"weight_jin":161}');
+          id: 'call_1',
+          name: 'log_weight',
+          argumentsJson: '{"weight_jin":161}');
       const preview = AiToolPreview(
         call: call,
         label: '记录体重',
@@ -880,8 +882,10 @@ void main() {
           reason: '危险工具不能是自动执行的只读工具');
       expect(destructive.difference(write), isEmpty,
           reason: '危险工具必须同时是写操作（必须走确认卡）');
-      expect({...write, ...readOnly, ...destructive}, all, reason: '三集合并集必须覆盖全部工具');
-      expect(write.length + readOnly.length, all.length, reason: '写 + 只读应正好划分全部工具');
+      expect({...write, ...readOnly, ...destructive}, all,
+          reason: '三集合并集必须覆盖全部工具');
+      expect(write.length + readOnly.length, all.length,
+          reason: '写 + 只读应正好划分全部工具');
       expect(readOnly, hasLength(5),
           reason: '只允许 query_stats / search_food / query_exercises / '
               'web_search / fetch_url 自动执行');
@@ -934,7 +938,8 @@ void main() {
         expect(preview.detail, isNotEmpty, reason: '$name 缺少确认卡详情');
         expect(preview.needsConfirm, AiToolSpecs.writeTools.contains(name),
             reason: '$name 的 needsConfirm 与写工具集合不一致');
-        expect(preview.isDestructive, AiToolSpecs.destructiveTools.contains(name),
+        expect(
+            preview.isDestructive, AiToolSpecs.destructiveTools.contains(name),
             reason: '$name 的危险标记与 destructiveTools 不一致');
       }
     });
@@ -1176,8 +1181,9 @@ void main() {
 
     test('目标结束日期允许未来，超过 5 年拒绝', () {
       final sixYears = DateTime.now().add(const Duration(days: 365 * 6));
-      expect(() => AiToolArgs.goalEndDate(
-              {'end_date': AiToolFormat.ymd(sixYears)}),
+      expect(
+          () =>
+              AiToolArgs.goalEndDate({'end_date': AiToolFormat.ymd(sixYears)}),
           throwsA(isA<AiToolException>()));
       expect(AiToolArgs.goalEndDate({'end_date': '2026-06-01'}),
           DateTime(2026, 6, 1));
@@ -1200,7 +1206,8 @@ void main() {
         'Stretch': 'stretch',
       };
       for (final entry in cases.entries) {
-        expect(AiToolArgs.exerciseCategory({'category': entry.key}), entry.value,
+        expect(
+            AiToolArgs.exerciseCategory({'category': entry.key}), entry.value,
             reason: '分类 "${entry.key}" 应归一化为 ${entry.value}');
       }
       // 归一化结果一定落在数据库枚举内
@@ -1233,8 +1240,8 @@ void main() {
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.exerciseName({'name': 'x' * 31}),
           throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.exerciseName({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.exerciseName({}), throwsA(isA<AiToolException>()));
     });
 
     test('目标肌群可选、超长截断到 10 字', () {
@@ -1353,8 +1360,8 @@ void main() {
             throwsA(isA<AiToolException>()),
             reason: '非法侧重 "$bad" 必须拒绝');
       }
-      expect(() => AiToolArgs.templateFocus({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.templateFocus({}), throwsA(isA<AiToolException>()));
     });
 
     test('模板时长 5~180 含端点，4 与 181 拒绝', () {
@@ -1392,13 +1399,13 @@ void main() {
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.templateItems({'items': build(13)}),
           throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.templateItems({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.templateItems({}), throwsA(isA<AiToolException>()));
     });
 
     test('组数 1~10 / 次数 1~100 / 时长 5~600 含端点', () {
-      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 1}).sets,
-          1);
+      expect(
+          AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 1}).sets, 1);
       expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 10}).sets,
           10);
       expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 0}),
@@ -1406,10 +1413,9 @@ void main() {
       expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'sets': 11}),
           throwsA(isA<AiToolException>()));
 
-      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 1}).reps,
-          1);
       expect(
-          AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 100}).reps,
+          AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 1}).reps, 1);
+      expect(AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 100}).reps,
           100);
       expect(() => AiToolArgs.templateItem({'exercise_name': '深蹲', 'reps': 0}),
           throwsA(isA<AiToolException>()));
@@ -1418,19 +1424,16 @@ void main() {
           throwsA(isA<AiToolException>()));
 
       expect(
-          AiToolArgs.templateItem(
-                  {'exercise_name': '平板支撑', 'duration_sec': 5})
+          AiToolArgs.templateItem({'exercise_name': '平板支撑', 'duration_sec': 5})
               .durationSec,
           5);
       expect(
           AiToolArgs.templateItem(
-                  {'exercise_name': '平板支撑', 'duration_sec': 501})
-              .durationSec,
+              {'exercise_name': '平板支撑', 'duration_sec': 501}).durationSec,
           501);
       expect(
           AiToolArgs.templateItem(
-                  {'exercise_name': '平板支撑', 'duration_sec': 600})
-              .durationSec,
+              {'exercise_name': '平板支撑', 'duration_sec': 600}).durationSec,
           600);
       expect(
           () => AiToolArgs.templateItem(
@@ -1449,21 +1452,24 @@ void main() {
       expect(item.durationSec, isNull);
       expect(item.targetLabel, '3×10');
 
-      final timed =
-          AiToolArgs.templateItem({'exercise_name': '平板支撑', 'duration_sec': 45});
+      final timed = AiToolArgs.templateItem(
+          {'exercise_name': '平板支撑', 'duration_sec': 45});
       expect(timed.reps, isNull, reason: '计时类动作不补默认次数');
       expect(timed.durationSec, 45);
       expect(timed.targetLabel, '3×45s');
     });
 
     test('动作名缺失 / 过长、单项格式非法都拒绝', () {
-      expect(() => AiToolArgs.templateItem({}),
-          throwsA(isA<AiToolException>()));
+      expect(
+          () => AiToolArgs.templateItem({}), throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.templateItem({'exercise_name': '   '}),
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.templateItem({'exercise_name': 'x' * 31}),
           throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.templateItems({'items': ['深蹲']}),
+      expect(
+          () => AiToolArgs.templateItems({
+                'items': ['深蹲']
+              }),
           throwsA(isA<AiToolException>()));
     });
 
@@ -1522,11 +1528,13 @@ void main() {
     test('query_exercises 执行：名称包含匹配 + 分类过滤 + 最多 8 条', () async {
       final executor = AiToolExecutor(repos: _fakeReposWithData());
 
-      final byName = await _executeJson(executor, const AiToolCall(
-        id: 'call_q4',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"query":"支撑"}',
-      ));
+      final byName = await _executeJson(
+          executor,
+          const AiToolCall(
+            id: 'call_q4',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{"query":"支撑"}',
+          ));
       expect(byName['ok'], isTrue);
       expect(byName['count'], 1);
       final hit = (byName['results'] as List).first as Map<String, dynamic>;
@@ -1535,11 +1543,13 @@ void main() {
       expect(hit['muscle_group'], '核心');
       expect(hit['default_duration_sec'], 45);
 
-      final byCategory = await _executeJson(executor, const AiToolCall(
-        id: 'call_q5',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"category":"徒手"}',
-      ));
+      final byCategory = await _executeJson(
+          executor,
+          const AiToolCall(
+            id: 'call_q5',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{"category":"徒手"}',
+          ));
       expect(byCategory['count'], 2);
 
       // 12 个动作只回传前 8 个
@@ -1549,11 +1559,13 @@ void main() {
             ExerciseEntity(id: i, name: '动作$i', category: 'gym'),
         ]),
       );
-      final capped = await _executeJson(many, const AiToolCall(
-        id: 'call_q6',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{}',
-      ));
+      final capped = await _executeJson(
+          many,
+          const AiToolCall(
+            id: 'call_q6',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{}',
+          ));
       expect(capped['count'], 8);
       expect(capped['results'], hasLength(AiToolReaders.maxSearchResults));
     });
@@ -1567,29 +1579,35 @@ void main() {
       );
 
       // 库内是「Plank」，用小写关键词也应命中
-      final lower = await _executeJson(latin, const AiToolCall(
-        id: 'call_q7',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"query":"plank"}',
-      ));
+      final lower = await _executeJson(
+          latin,
+          const AiToolCall(
+            id: 'call_q7',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{"query":"plank"}',
+          ));
       expect(lower['count'], 1);
       expect((lower['results'] as List).first['name'], 'Plank');
 
       // 大写关键词同样命中
-      final upper = await _executeJson(latin, const AiToolCall(
-        id: 'call_q8',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"query":"PULL"}',
-      ));
+      final upper = await _executeJson(
+          latin,
+          const AiToolCall(
+            id: 'call_q8',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{"query":"PULL"}',
+          ));
       expect(upper['count'], 1);
       expect((upper['results'] as List).first['name'], 'Pull-Up');
 
       // 关键词 + 分类同时给出时，两个条件都要满足
-      final combined = await _executeJson(latin, const AiToolCall(
-        id: 'call_q9',
-        name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"query":"plank","category":"gym"}',
-      ));
+      final combined = await _executeJson(
+          latin,
+          const AiToolCall(
+            id: 'call_q9',
+            name: AiToolSpecs.queryExercises,
+            argumentsJson: '{"query":"plank","category":"gym"}',
+          ));
       expect(combined['count'], 0, reason: 'Plank 属徒手，按器械过滤应为空');
     });
 
@@ -1783,11 +1801,16 @@ void main() {
     });
 
     test('create_missing_exercises 默认 false，可解析 true / "true" / 1', () {
-      expect(AiToolArgs.template(args([
-        {'exercise_name': '开合跳'},
-      ])).createMissingExercises, isFalse);
+      expect(
+          AiToolArgs.template(args([
+            {'exercise_name': '开合跳'},
+          ])).createMissingExercises,
+          isFalse);
       for (final v in <Object>[true, 'true', 1, '是']) {
-        final a = args([{'exercise_name': '开合跳'}])..['create_missing_exercises'] = v;
+        final a = args([
+          {'exercise_name': '开合跳'}
+        ])
+          ..['create_missing_exercises'] = v;
         expect(AiToolArgs.template(a).createMissingExercises, isTrue,
             reason: '$v 应解析成 true');
       }
@@ -1809,8 +1832,7 @@ void main() {
         argumentsJson: args,
       ));
       expect(preview.label, '新建训练模板');
-      expect(preview.detail,
-          '新建模板：下肢力量 · 中阶 · 3 个动作 · 约 35 分钟（含新建 2 个动作）');
+      expect(preview.detail, '新建模板：下肢力量 · 中阶 · 3 个动作 · 约 35 分钟（含新建 2 个动作）');
       expect(preview.needsConfirm, isTrue, reason: '批量也不许跳过确认卡');
     });
 
@@ -1839,14 +1861,16 @@ void main() {
     test('执行：先建缺失动作再建模板，item 映射到新建动作的 id', () async {
       final exercise = _MutableExerciseRepo(_fakeExercises);
       final template = _MutableTemplateRepo();
-      final executor =
-          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+      final executor = AiToolExecutor(
+          repos: _mutableRepos(exercise: exercise, template: template));
 
-      final result = await _executeJson(executor, const AiToolCall(
-        id: 'call_b4',
-        name: AiToolSpecs.createTemplate,
-        argumentsJson: args,
-      ));
+      final result = await _executeJson(
+          executor,
+          const AiToolCall(
+            id: 'call_b4',
+            name: AiToolSpecs.createTemplate,
+            argumentsJson: args,
+          ));
 
       expect(result['ok'], isTrue);
       expect(result['template_id'], 1);
@@ -1866,18 +1890,20 @@ void main() {
     test('同名缺失动作去重：忽略大小写，只建一个', () async {
       final exercise = _MutableExerciseRepo(const []);
       final template = _MutableTemplateRepo();
-      final executor =
-          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+      final executor = AiToolExecutor(
+          repos: _mutableRepos(exercise: exercise, template: template));
 
-      final result = await _executeJson(executor, const AiToolCall(
-        id: 'call_b5',
-        name: AiToolSpecs.createTemplate,
-        argumentsJson: '{"name":"核心","difficulty":"入门","focus":"全身",'
-            '"minutes":15,"create_missing_exercises":true,"items":['
-            '{"exercise_name":"Plank","category":"徒手"},'
-            '{"exercise_name":" plank ","category":"器械"},'
-            '{"exercise_name":"平板支撑","category":"徒手"}]}',
-      ));
+      final result = await _executeJson(
+          executor,
+          const AiToolCall(
+            id: 'call_b5',
+            name: AiToolSpecs.createTemplate,
+            argumentsJson: '{"name":"核心","difficulty":"入门","focus":"全身",'
+                '"minutes":15,"create_missing_exercises":true,"items":['
+                '{"exercise_name":"Plank","category":"徒手"},'
+                '{"exercise_name":" plank ","category":"器械"},'
+                '{"exercise_name":"平板支撑","category":"徒手"}]}',
+          ));
 
       expect(result['created_exercises'], ['Plank', '平板支撑']);
       expect(exercise.rows, hasLength(2), reason: '同名动作只能建一个');
@@ -1888,8 +1914,8 @@ void main() {
     test('二次校验：预览之后别处已把动作加进库，执行时复用、不重复建', () async {
       final exercise = _MutableExerciseRepo(const []);
       final template = _MutableTemplateRepo();
-      final executor =
-          AiToolExecutor(repos: _mutableRepos(exercise: exercise, template: template));
+      final executor = AiToolExecutor(
+          repos: _mutableRepos(exercise: exercise, template: template));
 
       const call = AiToolCall(
         id: 'call_b6',
@@ -1924,10 +1950,11 @@ void main() {
     test('边界：1 个可以，10 个可以，11 个拒绝，0 个拒绝', () {
       expect(AiToolArgs.exercises(batch(['动作1'])), hasLength(1));
       expect(
-          AiToolArgs.exercises(
-              batch([for (var i = 1; i <= 10; i++) '动作$i'])),
+          AiToolArgs.exercises(batch([for (var i = 1; i <= 10; i++) '动作$i'])),
           hasLength(10));
-      expect(() => AiToolArgs.exercises(batch([for (var i = 1; i <= 11; i++) '动作$i'])),
+      expect(
+          () => AiToolArgs.exercises(
+              batch([for (var i = 1; i <= 11; i++) '动作$i'])),
           throwsA(isA<AiToolException>()));
       expect(() => AiToolArgs.exercises(batch(const [])),
           throwsA(isA<AiToolException>()));
@@ -1964,13 +1991,15 @@ void main() {
       final exercise = _MutableExerciseRepo(_fakeExercises);
       final executor = AiToolExecutor(repos: _mutableRepos(exercise: exercise));
 
-      final result = await _executeJson(executor, const AiToolCall(
-        id: 'call_be2',
-        name: AiToolSpecs.createExercises,
-        argumentsJson: '{"exercises":[{"name":"深蹲","category":"器械"},'
-            '{"name":"开合跳","category":"有氧","default_duration_sec":60},'
-            '{"name":"提膝下压","category":"徒手"}]}',
-      ));
+      final result = await _executeJson(
+          executor,
+          const AiToolCall(
+            id: 'call_be2',
+            name: AiToolSpecs.createExercises,
+            argumentsJson: '{"exercises":[{"name":"深蹲","category":"器械"},'
+                '{"name":"开合跳","category":"有氧","default_duration_sec":60},'
+                '{"name":"提膝下压","category":"徒手"}]}',
+          ));
 
       expect(result['ok'], isTrue);
       expect(result['created_count'], 2);
@@ -2181,8 +2210,7 @@ AiToolRepos _fakeReposWithExercises(List<ExerciseEntity> exercises) =>
     );
 
 /// 写操作一旦被调用就抛错 —— 预览层绝不能写库
-Never _previewMustNotWrite(String op) =>
-    throw StateError('预览阶段不应写库：$op');
+Never _previewMustNotWrite(String op) => throw StateError('预览阶段不应写库：$op');
 
 class _FakeBodyRepo implements BodyMetricRepository {
   _FakeBodyRepo(this.rows);
@@ -2194,7 +2222,8 @@ class _FakeBodyRepo implements BodyMetricRepository {
       rows;
 
   @override
-  Future<BodyMetricEntity?> getLatest() async => rows.isEmpty ? null : rows.last;
+  Future<BodyMetricEntity?> getLatest() async =>
+      rows.isEmpty ? null : rows.last;
 
   @override
   Future<BodyMetricEntity> create({
@@ -2290,7 +2319,25 @@ class _FakeDietRepo implements DietRepository {
 
   @override
   Future<double> getDailyCalories(DateTime date) async =>
-      logs.fold<double>(0, (sum, l) => sum + l.totalCalories);
+      (await getDailyNutrition(date)).calories;
+
+  @override
+  Future<DailyNutrition> getDailyNutrition(DateTime date) async {
+    final withMacros = logs.where((l) => l.hasMacros).length;
+    final coverage = logs.isEmpty ? 0.0 : withMacros / logs.length;
+    double sumOf(double? Function(FoodLogEntity) pick) => logs
+        .where((l) => l.hasMacros)
+        .fold<double>(0, (sum, l) => sum + (pick(l)! * l.grams / 100));
+    return DailyNutrition(
+      calories: logs.fold<double>(0, (sum, l) => sum + l.totalCalories),
+      proteinG: coverage == 0 ? null : sumOf((l) => l.proteinPer100g),
+      fatG: coverage == 0 ? null : sumOf((l) => l.fatPer100g),
+      carbsG: coverage == 0 ? null : sumOf((l) => l.carbsPer100g),
+      macroCoverage: coverage,
+      logCount: logs.length,
+      macroLogCount: withMacros,
+    );
+  }
 
   @override
   Future<List<FoodLibraryEntity>> searchFoods(
@@ -2313,7 +2360,8 @@ class _FakeDietRepo implements DietRepository {
       _previewMustNotWrite('diet.addLog');
 
   @override
-  Future<void> deleteLog(int id) async => _previewMustNotWrite('diet.deleteLog');
+  Future<void> deleteLog(int id) async =>
+      _previewMustNotWrite('diet.deleteLog');
 
   @override
   Future<int> addCustomFood({
@@ -2450,7 +2498,8 @@ class _FakeExerciseRepo implements ExerciseRepository {
 }
 
 /// 假模板仓储：只读方法返回固定数据，写方法一律抛错
-class _FakeTemplateRepo implements WorkoutTemplateRepository {  _FakeTemplateRepo(this.rows);
+class _FakeTemplateRepo implements WorkoutTemplateRepository {
+  _FakeTemplateRepo(this.rows);
 
   final List<WorkoutTemplateEntity> rows;
 

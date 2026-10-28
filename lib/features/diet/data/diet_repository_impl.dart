@@ -77,6 +77,9 @@ class DietRepositoryImpl implements DietRepository {
         mealType: log.mealType,
         foodName: food.name,
         caloriesPer100g: food.caloriesPer100g,
+        proteinPer100g: food.proteinPer100g,
+        fatPer100g: food.fatPer100g,
+        carbsPer100g: food.carbsPer100g,
       );
     }).toList();
   }
@@ -103,12 +106,67 @@ class DietRepositoryImpl implements DietRepository {
 
   @override
   Future<double> getDailyCalories(DateTime date) async {
-    final logs = await getLogsByDate(date);
-    double total = 0;
-    for (final l in logs) {
-      total += l.totalCalories;
-    }
-    return total;
+    // 薄包装：口径只有 getDailyNutrition 一处产出，不许在这里再写一遍求和
+    return (await getDailyNutrition(date)).calories;
+  }
+
+  @override
+  Future<DailyNutrition> getDailyNutrition(DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    // **一条 SQL** 出全部口径。
+    //
+    // 三处细节都是有意为之：
+    // 1. 宏量用 `SUM(CASE WHEN ... IS NOT NULL THEN ... END)`：全缺时 SUM 为
+    //    NULL（不是 0）—— 正好让"未知"和"真的是 0"在类型上就分开；
+    // 2. `macroLogCount` 要求**三项齐备**才算一条有营养数据，
+    //    和 `FoodLogEntity.hasMacros` 同一个判据；
+    // 3. 热量用 COALESCE 兜 0：热量永远能算出来，是"缺失"对不上的量。
+    final rows = await _db.customSelect(
+      '''
+      SELECT
+        COALESCE(SUM(fl.grams / 100.0 * fo.calories_per100g), 0) AS calories,
+        SUM(CASE WHEN fo.protein_per100g IS NOT NULL
+                 THEN fl.grams / 100.0 * fo.protein_per100g END) AS protein_g,
+        SUM(CASE WHEN fo.fat_per100g IS NOT NULL
+                 THEN fl.grams / 100.0 * fo.fat_per100g END) AS fat_g,
+        SUM(CASE WHEN fo.carbs_per100g IS NOT NULL
+                 THEN fl.grams / 100.0 * fo.carbs_per100g END) AS carbs_g,
+        COUNT(*) AS log_count,
+        SUM(CASE WHEN fo.protein_per100g IS NOT NULL
+                  AND fo.fat_per100g IS NOT NULL
+                  AND fo.carbs_per100g IS NOT NULL
+                 THEN 1 ELSE 0 END) AS macro_log_count
+      FROM food_log fl
+      INNER JOIN food_library fo ON fo.id = fl.food_id
+      WHERE fl.date >= ? AND fl.date < ?
+      ''',
+      variables: [
+        Variable.withDateTime(startOfDay),
+        Variable.withDateTime(endOfDay),
+      ],
+    ).get();
+
+    if (rows.isEmpty) return DailyNutrition.empty;
+    final row = rows.first;
+    final logCount = (row.data['log_count'] as num?)?.toInt() ?? 0;
+    if (logCount == 0) return DailyNutrition.empty;
+
+    final macroLogCount = (row.data['macro_log_count'] as num?)?.toInt() ?? 0;
+    final coverage = macroLogCount / logCount;
+
+    // coverage == 0 → 宏量必须为 null（而不是 0）：0 代表"真的是 0"
+    return DailyNutrition(
+      calories: (row.data['calories'] as num?)?.toDouble() ?? 0,
+      proteinG:
+          coverage == 0 ? null : (row.data['protein_g'] as num?)?.toDouble(),
+      fatG: coverage == 0 ? null : (row.data['fat_g'] as num?)?.toDouble(),
+      carbsG: coverage == 0 ? null : (row.data['carbs_g'] as num?)?.toDouble(),
+      macroCoverage: coverage,
+      logCount: logCount,
+      macroLogCount: macroLogCount,
+    );
   }
 
   @override
