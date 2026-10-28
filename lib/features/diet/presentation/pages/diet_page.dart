@@ -87,10 +87,7 @@ class _DietPageState extends ConsumerState<DietPage> {
 
               // 热量总卡
               _CalorieSummaryCard(
-                totalCal: data.totalCal,
-                protein: data.totalProtein,
-                carbs: data.totalCarbs,
-                fat: data.totalFat,
+                nutrition: data.nutrition,
                 targetCal: ref
                     .watch(userSettingsProvider)
                     .valueOrNull
@@ -316,24 +313,15 @@ class _DietPageState extends ConsumerState<DietPage> {
 
   Future<_DietDayData> _loadDay(DietRepository repo, DateTime date) async {
     final logs = await repo.getLogsByDate(date);
-    double cal = 0, protein = 0, fat = 0, carbs = 0;
-    for (final l in logs) {
-      cal += l.totalCalories;
-    }
-    // Get full food data for macro calculation
-    for (final l in logs) {
-      final food = await repo.getFoodById(l.foodId);
-      if (food != null) {
-        protein += (food.proteinPer100g ?? 0) * l.grams / 100;
-        fat += (food.fatPer100g ?? 0) * l.grams / 100;
-        carbs += (food.carbsPer100g ?? 0) * l.grams / 100;
-      }
-    }
+    // 口径唯一来源：一条 SQL 出热量 + 三态宏量。
+    //
+    // 这里原来对**每条记录**再 getFoodById（N+1），然后用 `?? 0` 把缺失的
+    // 宏量兜成 0 —— 那就是「AI 记的饮食蛋白恒为 0g」的真正原因：
+    // 食物库没有同名食物时根本没有宏量数据，兜 0 后看起来像"算出来了，结果是 0"，
+    // 比显示「—」更伤信任。**任何情况下都不许再用 0 代表缺失。**
+    final nutrition = await repo.getDailyNutrition(date);
     return _DietDayData(
-      totalCal: cal,
-      totalProtein: protein,
-      totalFat: fat,
-      totalCarbs: carbs,
+      nutrition: nutrition,
       allLogs: logs,
       filteredLogs: _mealFilter == 'all'
           ? logs
@@ -557,19 +545,15 @@ class _DietPageState extends ConsumerState<DietPage> {
 
 /// 热量总卡（v2）：大字摄入 + 进度 + 三大营养素
 class _CalorieSummaryCard extends StatelessWidget {
-  final double totalCal;
-  final double protein;
-  final double carbs;
-  final double fat;
+  final DailyNutrition nutrition;
   final int? targetCal;
 
   const _CalorieSummaryCard({
-    required this.totalCal,
-    required this.protein,
-    required this.carbs,
-    required this.fat,
+    required this.nutrition,
     this.targetCal,
   });
+
+  double get totalCal => nutrition.calories;
 
   @override
   Widget build(BuildContext context) {
@@ -644,13 +628,17 @@ class _CalorieSummaryCard extends StatelessWidget {
               children: [
                 _Nutrient(
                   label: '蛋白',
-                  value: protein,
+                  value: nutrition.proteinG,
                   color: AppColors.primaryText,
                 ),
-                _Nutrient(label: '碳水', value: carbs, color: _amber),
-                _Nutrient(label: '脂肪', value: fat, color: _orange),
+                _Nutrient(label: '碳水', value: nutrition.carbsG, color: _amber),
+                _Nutrient(label: '脂肪', value: nutrition.fatG, color: _orange),
               ],
             ),
+            if (nutrition.isPartial || nutrition.hasNoMacroData) ...[
+              const SizedBox(height: 8),
+              _MacroHint(nutrition: nutrition),
+            ],
           ],
         ),
       ),
@@ -660,7 +648,10 @@ class _CalorieSummaryCard extends StatelessWidget {
 
 class _Nutrient extends StatelessWidget {
   final String label;
-  final double value;
+
+  /// **null = 未知**，显示「—」。绝不能把 null 兜成 0：
+  /// 0 会被读成「算过了，结果是 0 克」，比「没数据」伤信任得多。
+  final double? value;
   final Color color;
 
   const _Nutrient({
@@ -672,6 +663,7 @@ class _Nutrient extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final v = value;
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,19 +679,57 @@ class _Nutrient extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                value.toStringAsFixed(0),
+                v == null ? '—' : v.toStringAsFixed(0),
                 style: TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w600, color: color),
               ),
-              Text(
-                'g',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
-              ),
+              if (v != null)
+                Text(
+                  'g',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textTertiary, fontSize: 10),
+                ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 宏量不全时的说明条。
+///
+/// 存在的理由：三态里「部分有」和「全缺」都会让三大营养素看起来偏低，
+/// 不明说的话用户会以为是 App 算错了（或者更糟——以为自己蛋白质摄入 0g）。
+class _MacroHint extends StatelessWidget {
+  final DailyNutrition nutrition;
+
+  const _MacroHint({required this.nutrition});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final String text;
+    if (nutrition.hasNoMacroData) {
+      text = '这天记了 ${nutrition.logCount} 条，但都没有营养数据，'
+          '三大营养素显示「—」而不是 0g';
+    } else {
+      text = '${nutrition.logCount} 条里只有 ${nutrition.macroLogCount} 条有营养数据，'
+          '三大营养素只统计已知部分，可能偏低';
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, size: 12, color: AppColors.textTertiary),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -811,18 +841,18 @@ class _DayDeficit {
 }
 
 class _DietDayData {
-  final double totalCal;
-  final double totalProtein;
-  final double totalFat;
-  final double totalCarbs;
+  /// 当日营养口径（**唯一来源**，一条 SQL 算出）
+  final DailyNutrition nutrition;
+
+  double get totalCal => nutrition.calories;
+  double? get totalProtein => nutrition.proteinG;
+  double? get totalFat => nutrition.fatG;
+  double? get totalCarbs => nutrition.carbsG;
   final List<FoodLogEntity> allLogs;
   final List<FoodLogEntity> filteredLogs;
 
   const _DietDayData({
-    this.totalCal = 0,
-    this.totalProtein = 0,
-    this.totalFat = 0,
-    this.totalCarbs = 0,
+    this.nutrition = DailyNutrition.empty,
     this.allLogs = const [],
     this.filteredLogs = const [],
   });
