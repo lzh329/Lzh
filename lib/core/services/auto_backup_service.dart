@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../database/db_replaced_marker.dart';
+
 /// 数据库自动备份服务
 ///
 /// - 备份存放在应用文档目录 `backups/` 下（时间戳命名）
@@ -73,9 +75,27 @@ class AutoBackupService {
 
   /// 启动时检查是否需要自动备份
   ///
-  /// 返回：'disabled' / 'skipped' / 'backed-up'（异常内部吞掉，返回 'error'）
-  static Future<String> runIfNeeded({required bool enabled}) async {
+  /// 返回：`disabled` / `sealed` / `skipped` / `backed-up` / `error`
+  ///
+  /// [isDbReplaced] 可注入，默认读 `db_replaced` 标记。
+  static Future<String> runIfNeeded({
+    required bool enabled,
+    Future<bool> Function()? isDbReplaced,
+  }) async {
     if (!enabled) return 'disabled';
+
+    // 库可能刚被换掉（或正在换）：**根本不启动**这次备份。
+    //
+    // 注意这不是"捕获异常打日志"——`sealed` 态下打开库会抛，但那时已经
+    // 白跑一趟；更要紧的是恢复/退回流程中间那段窗口里，备份会读到半新半旧的
+    // 数据并把它写成"官方备份"，那比不备份危险得多。
+    try {
+      final replaced = await (isDbReplaced ?? DbReplacedMarker.exists)();
+      if (replaced) return 'sealed';
+    } catch (_) {
+      return 'sealed'; // 判断不出来就按"别备份"处理
+    }
+    if (DatabaseSeal.sealed) return 'sealed';
     try {
       final last = await lastBackupAt();
       if (last != null &&

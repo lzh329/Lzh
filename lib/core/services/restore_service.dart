@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../database/database.dart' show AppDatabase, kSchemaVersion;
 import '../database/database_health.dart';
+import '../database/db_replaced_marker.dart';
 import 'backup_service.dart';
 
 /// 恢复被**中止**（不是崩溃）。`reason` 可直接展示给用户。
@@ -192,7 +193,26 @@ class RestoreService {
       }
 
       // ── Step 4：原子替换 ──
-      // 失败路径只允许"重命名保留"，绝不 delete 真库。
+      //
+      // 顺序写死，不可颠倒：
+      //   写标记(fsync) → close 连接 → rename → 置 sealed → 新库独立打开校验 → 清标记
+      //
+      // 为什么标记必须在 rename **之前**写：rename 之后到写标记之间，没有任何
+      // 东西阻止同进程继续用旧句柄写，代价是静默丢数据。
+      // 为什么 sealed 在 rename **之后**：真正的保护是"rename 前 close 连接"
+      // （连接一关，任何还持有旧引用的 notifier/定时器再写都会拿到
+      // "database is closed"，而不是静默写进被替换的文件）；sealed 负责的是
+      // 用户体验 + 阻止重开后旧 provider 继续用缓存数据。两层各管一段。
+      final safetyName = p.join(
+        (backupDir ?? await _defaultBackupDir()).path,
+        '$preRestorePrefix-${BackupService.stamp(at)}.sqlite',
+      );
+
+      await DbReplacedMarker.write(
+        preRestore: safetyName,
+        baseDir: docs,
+      );
+
       if (closeDatabase != null) {
         try {
           await closeDatabase();
@@ -200,10 +220,8 @@ class RestoreService {
           // 库可能本来就没打开成功
         }
       }
-      final safetyName = p.join(
-        (backupDir ?? await _defaultBackupDir()).path,
-        '$preRestorePrefix-${BackupService.stamp(at)}.sqlite',
-      );
+
+      // 失败路径只允许"重命名保留"，绝不 delete 真库。
       if (await target.exists()) {
         await target.rename(safetyName);
       }
@@ -219,6 +237,14 @@ class RestoreService {
           } catch (_) {}
         }
       }
+
+      DatabaseSeal.seal();
+
+      // 新库独立打开校验：**不走 provider**（此刻 sealed，走 provider 会被自己挡住）
+      await _verifyReopened(target);
+
+      await DbReplacedMarker.clear(baseDir: docs);
+      DatabaseSeal.unseal();
 
       // 照片：覆盖式导入
       if (await tmpPhotos.exists()) {
@@ -356,6 +382,22 @@ class RestoreService {
       } catch (_) {}
     }
     return counts;
+  }
+
+  /// 替换后独立打开一次新库，确认它能用（不是"rename 成了"就算完成）。
+  ///
+  /// 用独立连接，不走 `databaseProvider` —— 此刻已 sealed。
+  static Future<void> _verifyReopened(File dbFile) async {
+    try {
+      await _integrityCheck(dbFile);
+    } catch (e) {
+      // 新库打不开是**严重**情况（真库已被 rename 掉），但标记仍在，
+      // 下次启动会重试消解；这里不能假装成功。
+      throw RestoreAborted(
+        '数据已经替换，但新库打不开。原来的数据已另存为 ${p.basename(dbFile.path)}.backup，'
+        '重新打开 App 会再试一次。',
+      );
+    }
   }
 
   /// `pre-restore` 只保留最近 [keepPreRestore] 份。

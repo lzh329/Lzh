@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/services/backup_service.dart';
+import 'package:fittrack/core/database/db_replaced_marker.dart';
 import 'package:fittrack/core/services/restore_service.dart';
 
 /// 建一个真实库并写入 [count] 条 body_metrics
@@ -82,6 +83,7 @@ void main() {
   });
 
   tearDown(() async {
+    DatabaseSeal.reset();
     try {
       if (await root.exists()) await root.delete(recursive: true);
     } catch (_) {}
@@ -297,6 +299,60 @@ void main() {
       expect(File('${dbFile.path}-wal').existsSync(), isFalse);
       expect(File('${dbFile.path}-shm').existsSync(), isFalse);
       expect(await dbRowCount(dbFile), 3);
+    });
+  });
+
+  group('db_replaced 标记与封存', () {
+    test('恢复成功后标记已清、封存已解除（顺序：写标记→close→rename→seal→校验→清标记）', () async {
+      final archivePath =
+          await makeArchive(count: 3, counts: {'body_metrics': 3});
+      await dbFile.delete();
+      await seedDb(dbFile, count: 1);
+
+      var closedCalled = 0;
+      await RestoreService.restoreArchive(
+        archivePath: archivePath,
+        dbPath: dbFile.path,
+        photosDir: photos,
+        backupDir: backups,
+        docsDir: docs,
+        closeDatabase: () async => closedCalled++,
+      );
+
+      expect(closedCalled, 1, reason: '真正的保护是 rename 前 close 连接');
+      expect(
+        await DbReplacedMarker.exists(baseDir: docs),
+        isFalse,
+        reason: '新库校验通过后才清标记；成功后不该残留',
+      );
+      expect(DatabaseSeal.sealed, isFalse, reason: '成功后必须解除封存');
+    });
+
+    test('恢复失败（校验链中止）不写标记、不封存', () async {
+      final archivePath = await makeArchive(count: 3);
+      await dbFile.delete();
+      await seedDb(dbFile, count: 1);
+      await rewriteManifest(archivePath, (m) {
+        m['schemaVersion'] = kSchemaVersion + 5;
+      });
+
+      await expectLater(
+        RestoreService.restoreArchive(
+          archivePath: archivePath,
+          dbPath: dbFile.path,
+          photosDir: photos,
+          backupDir: backups,
+          docsDir: docs,
+        ),
+        throwsA(isA<RestoreAborted>()),
+      );
+
+      expect(
+        await DbReplacedMarker.exists(baseDir: docs),
+        isFalse,
+        reason: '失败路径不写标记：没换过库就不该让用户以为换过',
+      );
+      expect(DatabaseSeal.sealed, isFalse);
     });
   });
 
