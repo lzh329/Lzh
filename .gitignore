@@ -6,6 +6,7 @@ build/
 .idea/
 .vscode/
 *.lock
+!pubspec.lock
 *.g.dart
 *.freezed.dart
 
