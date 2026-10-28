@@ -84,18 +84,25 @@ enum MarkerVerdict {
   /// 库版本**高于**当前 schemaVersion（用户装过更新版本的 App 又装回旧版）
   /// → 绝不能当僵尸删掉：删了就会把版本号写回旧值，数据更难救。
   newerData,
+
+  /// 文件头**读不出来**（不是合法 SQLite / 长度不足 / 文件不存在）。
+  ///
+  /// 这一档必须和 [genuine] 分开：读不出 `user_version` 通常意味着这压根不是
+  /// 合法 sqlite（损坏 / 被替换），说成"升级没完成"会误导用户一直点重试；
+  /// 更要紧的是——我们**无法验证**记录还在，所以不能说「你的记录都还在」。
+  unreadable,
 }
 
 /// 判定 marker 是否可信（纯函数，便于单测）。
 ///
 /// [userVersion] 为 `DatabaseFileHealth.readUserVersion` 的结果，
-/// null 表示读不出来（当作真失败处理 —— 宁可多给一次「再试一次」的机会，
-/// 也不能在库真的坏掉时假装健康）。
+/// null 表示读不出来 → [MarkerVerdict.unreadable]（单独一档，见该枚举注释）。
 MarkerVerdict judgeMarker({
   required int? userVersion,
   required int schemaVersion,
 }) {
-  if (userVersion == null) return MarkerVerdict.genuine;
+  // 文件头读不出 → 不是"升级失败"，是"这库不像一个可读的 SQLite"
+  if (userVersion == null) return MarkerVerdict.unreadable;
   if (userVersion == schemaVersion) return MarkerVerdict.zombie;
   if (userVersion > schemaVersion) return MarkerVerdict.newerData;
   return MarkerVerdict.genuine;

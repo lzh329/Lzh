@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:fittrack/core/database/database_health.dart';
 import 'package:fittrack/core/database/migration_failure_marker.dart';
+import 'package:fittrack/core/services/backup_service.dart';
 import 'package:fittrack/core/services/database_recovery_service.dart';
 import 'package:fittrack/core/theme/app_theme.dart';
 
@@ -65,6 +66,14 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
   /// 库版本比 App 新：既不能当僵尸删掉，也不能让用户点「恢复」把新数据盖掉。
   bool get _newerData => widget.verdict == MarkerVerdict.newerData;
 
+  /// ④ 档：文件头读不出，或压根没发生过升级尝试（attemptCount == 0）。
+  ///
+  /// 这一档**不能说**「你的记录都还在」—— 读不出 `user_version` 时我们无法
+  /// 验证记录还在，那是没有依据的安慰，比不说更糟。② 才可以说，因为版本号读得
+  /// 出来说明库至少结构可读。
+  bool get _conservative =>
+      widget.verdict == MarkerVerdict.unreadable || _attempts == 0;
+
   void _toast(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -95,15 +104,33 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
     }
   }
 
-  /// 把当前库复制出去（**不删原文件**），用于排查。
-  Future<void> _exportBrokenDatabase() async {
+  /// 先存一份数据 = **完整备份包**（zip：整库快照 + photos/ + manifest）。
+  ///
+  /// 不用 CSV、也不只 copy `.sqlite`：照片在 `documents/photos/` 是独立文件，
+  /// 只给 db 会让用户在最重要的时候少一半数据 —— 而我们的承诺是「记录都还在」。
+  ///
+  /// 降级态调 `createArchive(allowOpenDatabase: ...)`：
+  /// - 库结构还能读 → `VACUUM INTO` 出干净快照；
+  /// - 打不开 → 整组 raw copy（db + 存在才带的 -wal/-shm/-journal）。
+  /// 无论哪条都要做，所以先试快照、失败自动降级，不让用户自己判断。
+  Future<void> _exportArchive() async {
     setState(() => _busy = true);
     try {
-      final path = await DatabaseRecoveryService.exportBrokenDatabase();
-      await Share.shareXFiles([XFile(path)], text: '减肥嘎 数据库排查文件');
-      _toast('已导出：$path');
+      BackupArchive? archive;
+      try {
+        archive = await BackupService.createArchive();
+      } catch (_) {
+        // 连 VACUUM 都起不来时，退回纯文件搬运（不打开库）
+        archive = await BackupService.createArchive(allowOpenDatabase: false);
+      }
+      await Share.shareXFiles(
+        [XFile(archive.path)],
+        text: '减肥嘎 完整备份（数据库 + 照片）',
+      );
+      final how = archive.dbSource == 'snapshot' ? '已做一致性快照' : '原样打包';
+      _toast('已存好：${archive.photoCount} 张照片（$how）');
     } catch (_) {
-      _toast('导出失败，可以稍后再试');
+      _toast('存数据失败，可以稍后再试。先别卸载 App。');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -141,8 +168,11 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
               // ── 产品定稿文案：第一句必须出现「记录都还在」 ──
               Text(
                 _newerData
-                    ? '这个数据是更新版本的 App 创建的，当前版本打不开它。你的记录都还在，更新 App 就能继续用。'
-                    : '数据升级没完成，你的记录都还在。新功能暂时用不了，可以再试一次。',
+                    ? '这份数据是更新版本的减肥嘎存的，当前版本读不了。'
+                        '装上最新的安装包再打开即可，数据不会丢。'
+                    : (_conservative
+                        ? '数据打不开，先别卸载。可以再试一次，或先把现在能拿到的数据存一份。'
+                        : '数据升级没完成，你的记录都还在。新功能暂时用不了，可以再试一次。'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
@@ -172,7 +202,11 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
   /// 换成「先备份」，而不是催他点第 4 次。但不禁用「再试一次」—— 空间不足这类
   /// 偶发问题清完就好了，禁用等于判死刑。
   List<Widget> _buildActions() {
-    final backupAsPrimary = _escalated || _newerData;
+    // ③ 数据比 App 新：主按钮只能是「先存一份数据」（没有商店可跳，
+    //   重试也永远不会成功，所以这一档**不出现「再试一次」**）
+    // ④ 保守档：主按钮是「再试一次」（唯一有意义的动作）
+    // ② 真失败：1~3 次「从备份恢复」为主，第 3 次之后「先存一份数据」上位
+    final backupAsPrimary = _newerData || (!_conservative && _escalated);
 
     final restoreButton = FilledButton.icon(
       onPressed: _busy ? null : _restoreFromBackup,
@@ -183,7 +217,7 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
     );
 
     final exportButton = OutlinedButton.icon(
-      onPressed: _busy ? null : _exportBrokenDatabase,
+      onPressed: _busy ? null : _exportArchive,
       icon: const Icon(Icons.save_alt_rounded),
       label: Text(backupAsPrimary ? '还不行，先把数据存一份' : '先存一份数据'),
     );
@@ -193,6 +227,15 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
       child: Text(_busy ? '处理中…' : '再试一次'),
     );
 
+    if (_newerData) {
+      // 无「再试一次」：版本不匹配时重试永远失败，留个注定失败的按钮
+      // 只会让用户反复点然后认定 App 坏了
+      return [
+        exportButton,
+        const SizedBox(height: 12),
+        restoreButton,
+      ];
+    }
     if (backupAsPrimary) {
       return [
         exportButton,
@@ -200,6 +243,19 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
         restoreButton,
         const SizedBox(height: 8),
         retryButton,
+      ];
+    }
+    if (_conservative) {
+      return [
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _restart,
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(_busy ? '处理中…' : '再试一次'),
+        ),
+        const SizedBox(height: 12),
+        exportButton,
+        const SizedBox(height: 12),
+        restoreButton,
       ];
     }
     return [

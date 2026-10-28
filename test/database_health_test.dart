@@ -117,11 +117,30 @@ void main() {
       );
     });
 
-    test('读不出来（null）→ genuine，宁可多给一次重试也不假装健康', () {
+    test('读不出来（null）→ unreadable（不是"升级失败"，是压根不像 SQLite）', () {
       expect(
-        judgeMarker(userVersion: null, schemaVersion: 20),
-        MarkerVerdict.genuine,
+        judgeMarker(userVersion: null, schemaVersion: 21),
+        MarkerVerdict.unreadable,
+        reason: '读不出 user_version 就无法验证记录还在，不能说"升级没完成"',
       );
+    });
+
+    test('真实坏文件（非 sqlite magic / 长度不足）→ unreadable', () async {
+      final bad =
+          File(p.join(Directory.systemTemp.path, 'ft_bad_header.sqlite'));
+      await bad.writeAsBytes(List.filled(200, 65));
+      final version = await DatabaseFileHealth.readUserVersion(bad);
+      expect(version, isNull);
+      expect(
+        judgeMarker(userVersion: version, schemaVersion: 21),
+        MarkerVerdict.unreadable,
+      );
+
+      final short = File(p.join(Directory.systemTemp.path, 'ft_short.sqlite'));
+      await short.writeAsBytes([0, 1, 2]);
+      expect(await DatabaseFileHealth.readUserVersion(short), isNull);
+      await bad.delete();
+      await short.delete();
     });
   });
 }

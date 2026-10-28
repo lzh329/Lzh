@@ -110,11 +110,15 @@ Future<Widget> buildStartupRoot({
         MigrationFailureMarker(
           fromVersion: -1,
           targetVersion: schemaVersion,
-          failingStep: 'openDatabase',
-          attemptCount: 1,
+          failingStep: 'open',
+          // 0 = 没有发生过升级尝试：全新库第一次打不开时不能说"升级没完成"
+          attemptCount: 0,
           at: DateTime.now(),
         );
-    return DatabaseFailureApp(marker: failure);
+    // 从来没升级过（attemptCount == 0）或文件头读不出 → 走 ④ 的保守文案
+    final verdict =
+        marker == null ? MarkerVerdict.unreadable : MarkerVerdict.genuine;
+    return DatabaseFailureApp(marker: failure, verdict: verdict);
   }
 
   // ── 5) 通知初始化失败不影响启动 ──

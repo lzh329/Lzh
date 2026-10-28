@@ -44,8 +44,10 @@ void main() {
       );
       expect(root, isA<DatabaseFailureApp>());
       final app = root as DatabaseFailureApp;
-      expect(app.marker.failingStep, 'openDatabase');
+      expect(app.marker.failingStep, 'open');
       expect(app.marker.targetVersion, 20);
+      expect(app.marker.attemptCount, 0, reason: '没发生过升级尝试，不能说"升级没完成"');
+      expect(app.verdict, MarkerVerdict.unreadable);
     });
 
     test('marker 真实 + 库版本落后 → 降级页', () async {
@@ -153,6 +155,27 @@ void main() {
       final retry =
           tester.widget<TextButton>(find.widgetWithText(TextButton, '再试一次'));
       expect(retry.onPressed, isNotNull);
+    });
+
+    testWidgets('④ attemptCount == 0：用保守文案（含「先别卸载」），主按钮是再试一次', (tester) async {
+      await pumpPage(
+        tester,
+        marker: _marker(attemptCount: 0),
+        verdict: MarkerVerdict.unreadable,
+      );
+      expect(find.textContaining('先别卸载'), findsOneWidget);
+      expect(
+        find.textContaining('你的记录都还在'),
+        findsNothing,
+        reason: '读不出 user_version 时无法验证记录还在，不许说这句话',
+      );
+      expect(find.textContaining('先把现在能拿到的数据存一份'), findsOneWidget);
+    });
+
+    testWidgets('② 真失败（版本读得出）才说「你的记录都还在」', (tester) async {
+      await pumpPage(tester, marker: _marker(attemptCount: 1));
+      expect(find.textContaining('你的记录都还在'), findsOneWidget);
+      expect(find.textContaining('先别卸载'), findsNothing);
     });
 
     testWidgets('库版本比 App 新：文案改「更新版本」且给出覆盖警告', (tester) async {
