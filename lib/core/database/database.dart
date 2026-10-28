@@ -4,6 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 
+import 'migration_helper.dart';
+
 part 'database.g.dart';
 
 // ───────────────────── 表定义 ─────────────────────
@@ -241,6 +243,10 @@ class AiStyleMigration {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// 仅用于测试：注入自定义 [QueryExecutor]（例如 `NativeDatabase.memory()`），
+  /// 避免单测触碰真实用户数据库文件。
+  AppDatabase.withExecutor(super.executor);
+
   @override
   int get schemaVersion => 20; // v20: AI 教练「联网搜索」开关（ai_web_search_enabled）
 
@@ -252,57 +258,75 @@ class AppDatabase extends _$AppDatabase {
           await _seedFoodLibrary(this);
           await _seedWorkoutTemplates(this);
         },
+        // ⚠️ drift 的 onUpgrade **不在事务里**（全包唯一事务在 alterTable() 内部）。
+        // 因此下面每个迁移块里的建表 / 加列一律走 migration_helper.dart 的
+        // createTableIfAbsent / addColumnIfAbsent：先查 sqlite_master /
+        // PRAGMA table_info，已存在就跳过。这样即使上一次迁移只跑了一半
+        // （DDL 成功但 user_version 未推进），下次启动重跑也能收敛，不会因为
+        // "table already exists" / "duplicate column name" 启动即死。
+        // 注意：这不解决原子性 —— 失败仍可能留下半迁移数据，但重跑不再崩。
         onUpgrade: (m, from, to) async {
           // Baseline migration (consolidates v2→v9 into single block)
           if (from < 10) {
-            if (from < 2) await m.createTable(userSettings);
+            if (from < 2) await createTableIfAbsent(m, userSettings);
             if (from < 3) {
-              await m.addColumn(userSettings, userSettings.birthDate);
-              await m.addColumn(userSettings, userSettings.gender);
-              await m.addColumn(userSettings, userSettings.activityLevel);
+              await addColumnIfAbsent(m, userSettings, userSettings.birthDate);
+              await addColumnIfAbsent(m, userSettings, userSettings.gender);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.activityLevel);
             }
             if (from < 4) {
-              await m.createTable(foodLibrary);
-              await m.createTable(foodLog);
+              await createTableIfAbsent(m, foodLibrary);
+              await createTableIfAbsent(m, foodLog);
               await _seedFoodLibrary(this);
             }
-            if (from < 5) await m.createTable(waterLog);
+            if (from < 5) await createTableIfAbsent(m, waterLog);
             if (from < 6) {
-              await m.addColumn(userSettings, userSettings.pinCode);
-              await m.addColumn(userSettings, userSettings.lockEnabled);
+              await addColumnIfAbsent(m, userSettings, userSettings.pinCode);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.lockEnabled);
             }
             if (from < 7) {
-              await m.addColumn(userSettings, userSettings.speechRate);
-              await m.addColumn(userSettings, userSettings.speechPitch);
-              await m.addColumn(userSettings, userSettings.ttsVoice);
+              await addColumnIfAbsent(m, userSettings, userSettings.speechRate);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.speechPitch);
+              await addColumnIfAbsent(m, userSettings, userSettings.ttsVoice);
             }
             if (from < 8) {
-              await m.addColumn(userSettings, userSettings.reminderEnabled);
-              await m.addColumn(userSettings, userSettings.reminderHour);
-              await m.addColumn(userSettings, userSettings.reminderMinute);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.reminderEnabled);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.reminderHour);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.reminderMinute);
             }
             if (from < 9) {
-              await m.addColumn(exercises, exercises.defaultReps);
-              await m.addColumn(exercises, exercises.defaultWeightKg);
-              await m.addColumn(exercises, exercises.defaultDurationSec);
-              await m.addColumn(userSettings, userSettings.themeMode);
-              await m.addColumn(userSettings, userSettings.defaultTrainingSec);
-              await m.addColumn(userSettings, userSettings.defaultRestSec);
+              await addColumnIfAbsent(m, exercises, exercises.defaultReps);
+              await addColumnIfAbsent(m, exercises, exercises.defaultWeightKg);
+              await addColumnIfAbsent(
+                  m, exercises, exercises.defaultDurationSec);
+              await addColumnIfAbsent(m, userSettings, userSettings.themeMode);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.defaultTrainingSec);
+              await addColumnIfAbsent(
+                  m, userSettings, userSettings.defaultRestSec);
             }
           }
           // v11: neck_cm + goal_category + diet targets
           if (from < 11) {
-            await m.addColumn(bodyMetrics, bodyMetrics.neckCm);
-            await m.addColumn(goals, goals.category);
-            await m.addColumn(userSettings, userSettings.dailyCalorieTarget);
-            await m.addColumn(userSettings, userSettings.proteinTargetG);
-            await m.addColumn(userSettings, userSettings.carbsTargetG);
-            await m.addColumn(userSettings, userSettings.fatTargetG);
+            await addColumnIfAbsent(m, bodyMetrics, bodyMetrics.neckCm);
+            await addColumnIfAbsent(m, goals, goals.category);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.dailyCalorieTarget);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.proteinTargetG);
+            await addColumnIfAbsent(m, userSettings, userSettings.carbsTargetG);
+            await addColumnIfAbsent(m, userSettings, userSettings.fatTargetG);
           }
           // v12: 训练模板
           if (from < 12) {
-            await m.createTable(workoutTemplates);
-            await m.createTable(workoutTemplateExercises);
+            await createTableIfAbsent(m, workoutTemplates);
+            await createTableIfAbsent(m, workoutTemplateExercises);
             await _seedWorkoutTemplates(this);
           }
           // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
@@ -314,24 +338,28 @@ class AppDatabase extends _$AppDatabase {
           }
           // v14: 循环模式休息时长持久化（动作间 / 轮间）
           if (from < 14) {
-            await m.addColumn(userSettings, userSettings.restShortSec);
-            await m.addColumn(userSettings, userSettings.restLongSec);
+            await addColumnIfAbsent(m, userSettings, userSettings.restShortSec);
+            await addColumnIfAbsent(m, userSettings, userSettings.restLongSec);
           }
           // v15: 自动备份开关
           if (from < 15) {
-            await m.addColumn(userSettings, userSettings.autoBackupEnabled);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.autoBackupEnabled);
           }
           // v16: AI 教练 —— 聊天记录表 + API Key 设置列
           if (from < 16) {
-            await m.createTable(aiChatMessages);
-            await m.addColumn(userSettings, userSettings.aiApiKey);
+            await createTableIfAbsent(m, aiChatMessages);
+            await addColumnIfAbsent(m, userSettings, userSettings.aiApiKey);
           }
           // v17: AI 教练调教设定
           if (from < 17) {
-            await m.addColumn(userSettings, userSettings.aiStyle);
-            await m.addColumn(userSettings, userSettings.aiConstraints);
-            await m.addColumn(userSettings, userSettings.aiReplyLength);
-            await m.addColumn(userSettings, userSettings.aiTemperature);
+            await addColumnIfAbsent(m, userSettings, userSettings.aiStyle);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.aiConstraints);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.aiReplyLength);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.aiTemperature);
           }
           // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
           if (from < 18) {
@@ -339,11 +367,13 @@ class AppDatabase extends _$AppDatabase {
           }
           // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
           if (from < 19) {
-            await m.addColumn(userSettings, userSettings.aiPersonaCustom);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.aiPersonaCustom);
           }
           // v20: AI 教练「联网搜索」开关（老用户默认开，保持原有行为）
           if (from < 20) {
-            await m.addColumn(userSettings, userSettings.aiWebSearchEnabled);
+            await addColumnIfAbsent(
+                m, userSettings, userSettings.aiWebSearchEnabled);
           }
         },
       );
@@ -416,6 +446,10 @@ Future<void> _seedExercises(AppDatabase db) async {
 
 /// 内置食物库种子数据（每100g热量kcal）
 Future<void> _seedFoodLibrary(AppDatabase db) async {
+  // 幂等：v4 迁移块重跑时表已建好，种子已灌过就不再重复插入
+  final existing = await db.select(db.foodLibrary).get();
+  if (existing.isNotEmpty) return;
+
   final foods = [
     // 主食
     ('白米饭', 116, 2.6, 0.3, 25.9, 'staple'),
@@ -575,6 +609,10 @@ const _templateSeeds = [
 
 /// 写入推荐训练模板（动作按名称匹配动作库）
 Future<void> _seedWorkoutTemplates(AppDatabase db) async {
+  // 幂等：v12 迁移块重跑时表已建好，模板已灌过就不再重复插入
+  final existingTemplates = await db.select(db.workoutTemplates).get();
+  if (existingTemplates.isNotEmpty) return;
+
   final exercises = await db.select(db.exercises).get();
   final idByName = {for (final e in exercises) e.name: e.id};
 
