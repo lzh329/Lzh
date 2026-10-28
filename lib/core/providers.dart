@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/database/db_replaced_marker.dart';
+import 'package:fittrack/core/database/daily_override_repository.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/exercise/data/exercise_repository_impl.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
@@ -90,6 +91,13 @@ final userSettingsProvider = FutureProvider<UserSettingsEntity?>((ref) async {
 // ── 饮食 ──
 final dietRepoProvider = Provider<DietRepository>((ref) {
   return DietRepositoryImpl(ref.watch(databaseProvider));
+});
+
+// ── 按日覆盖（v21）──
+// 横跨饮食/训练/提醒三个域，不属于任何单一 feature，故仓库放在 core/database。
+// 本期只有"生病闸门"会用，UI 与策略都不在这里。
+final dailyOverrideRepoProvider = Provider<DailyOverrideRepository>((ref) {
+  return DailyOverrideRepository(ref.watch(databaseProvider));
 });
 
 // ── 饮水 ──
