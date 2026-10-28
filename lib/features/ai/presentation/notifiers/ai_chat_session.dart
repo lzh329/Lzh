@@ -74,6 +74,10 @@ class AiChatSession {
         AiMessage(role: 'user', content: payload.content),
       ],
       clearError: true,
+      // 用户用打字代替了点确认/取消 → 旧确认卡就地作废。
+      // 不清的话它永远挂在输入框上方（2026-10-28 真实事故），而且工具上下文
+      // 已被 reset，这张卡就算被点确认也接不上原来的轮次。
+      clearPendingTool: true,
     ));
     // 数据库只存文本，图片用「[图片]」占位
     await _ref.read(aiChatRepoProvider).add('user', payload.historyText);

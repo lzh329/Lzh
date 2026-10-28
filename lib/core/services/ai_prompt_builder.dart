@@ -149,6 +149,9 @@ class AiPromptBuilder {
       ..writeln('- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
       ..writeln('- 建训练模板前先用 query_exercises 确认动作存在，'
           '模板里的动作名必须与动作库完全一致')
+      ..writeln('- 用户让你"建一个 XX 模板"时，直接调用 create_template'
+          '（create_missing_exercises 设为 true），'
+          '**不要先用 start_workout 去找**——那是开练用的，库里没有只会报错')
       ..writeln('- 动作库里没有用户要的动作时，先 create_exercise 加进动作库，再建模板')
       ..writeln('- 用户说"帮我加个动作 XX"（想练但库里没有）时直接 create_exercise，'
           '分类按动作性质选徒手 / 器械 / 有氧 / 拉伸')
@@ -163,7 +166,10 @@ class AiPromptBuilder {
           '不要回答"我没有按钮 / 我做不到"：直接调用 start_workout 做给他看；'
           '不知道模板名就先调 query_stats 看 templates，或问一句"用哪个模板？"')
       ..writeln('- 不知道有哪些模板时先调 query_stats 看 templates 列表，或直接问用户；'
-          'start_workout 报"没找到模板"就建议新建，别自己编模板名');
+          'start_workout 报"没找到模板"就建议新建，别自己编模板名')
+      ..writeln('- **没看到 ok:true 的工具回执，就等于这件事没做成**：'
+          '回执 ok:false 或用户没点确认时，不许说"已经建好 / 已经记录"，'
+          '要向用户说明原因并给出下一步（比如改个参数重试或让他手动操作）');
 
     // 联网开关：关掉时工具清单里已经没有 web_search / fetch_url，
     // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动

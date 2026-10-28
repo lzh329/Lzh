@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 
 /// 一次对话里的工具上下文（assistant tool_calls + tool 结果），仅内存保存
 ///
-/// 只有拿到 ok:true 的真实结果才会进入这里，模型据此继续回答。
+/// 真实结果（ok:true）与**失败回执**（ok:false）都会进入这里，模型据此继续
+/// 回答。失败必须回执：工具失败如果只变成一个 toast，模型完全不知情，下一轮
+/// 就会凭空说"已经建好了"——用户在模板页却什么也找不到（2026-10-28 真实事故：
+/// AI 声称建好模板，模板页没有）。
 class AiToolContext {
   /// 本轮已执行的工具轮数（防止连环调用）
   int round = 0;
@@ -11,6 +16,10 @@ class AiToolContext {
   List<AiMessage> _messages = const [];
 
   List<AiMessage> get messages => _messages;
+
+  /// 失败回执的标准形状：模型看到 ok:false + 原因，才会纠正而不是幻觉成功
+  static String failureReceipt(String message) =>
+      jsonEncode({'ok': false, 'error': message});
 
   /// 追加一轮「工具调用 + 工具结果」
   ///

@@ -18,6 +18,15 @@ import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
 export 'ai_chat_state.dart';
 
+/// 跑一轮模型请求的入口（生产走 [AiChatRoundResult.run]，测试注入假实现）
+typedef AiChatRoundRunner = Future<AiChatRoundResult> Function({
+  required String apiKey,
+  required List<AiMessage> messages,
+  required void Function(String delta) onDelta,
+  double temperature,
+  bool webEnabled,
+});
+
 /// 嘎教练对话状态机：流式回复 + 工具回合（写操作必须由用户点头）
 ///
 /// 会话事务（发送 / 重试 / 历史 / Key）在 [AiChatSession]。
@@ -26,6 +35,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
   /// 当前轮的工具上下文（assistant tool_calls + tool 结果）
   final AiToolContext _tool = AiToolContext();
+
+  /// 测试注入点；null = 生产路径
+  final AiChatRoundRunner? _roundRunnerOverride;
 
   late final AiToolExecutor _executor = AiToolExecutor.fromRef(_ref);
 
@@ -40,7 +52,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     requestRound: _request,
   );
 
-  AiChatNotifier(this._ref) : super(const AiChatState()) {
+  AiChatNotifier(this._ref, {AiChatRoundRunner? roundRunner})
+      : _roundRunnerOverride = roundRunner,
+        super(const AiChatState()) {
     _session.load();
   }
 
@@ -68,7 +82,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       applyAiToolSideEffects(_ref, preview.call);
       await _request();
     } on AiToolException catch (e) {
-      state = state.copyWith(isStreaming: false, error: '执行失败：${e.message}');
+      // 失败也要回执进上下文并继续一轮：模型知道"没做成、为什么"才会向用户
+      // 解释或换方式重试。只弹 toast 的话模型不知情，下一轮会幻觉"已建好"。
+      _tool.append(preview.call, AiToolContext.failureReceipt(e.message));
+      await _request();
     } catch (e) {
       debugPrint('工具执行异常: $e');
       state = state.copyWith(isStreaming: false, error: '执行失败，请稍后再试');
@@ -117,7 +134,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       state = state.copyWith(
           isStreaming: true, clearStreaming: true, clearError: true);
 
-      final round = await AiChatRoundResult.run(
+      final round = await (_roundRunnerOverride ?? AiChatRoundResult.run)(
         apiKey: AiService.resolveKey(settings?.aiApiKey) ?? '',
         temperature: (settings?.aiTemperature ?? AiService.defaultTemperature)
             .clamp(0.3, 1.0),
@@ -140,8 +157,19 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
             isStreaming: false, clearStreaming: true, error: round.error);
         return;
       }
+      // 模型随工具调用说出口的正文也要落进历史：否则对话里只剩一条孤零零的
+      // 用户消息，工具一旦失败，用户面对的就是"发出去没回音"
       if (round.toolCalls.isNotEmpty) {
-        await _handleToolCall(round.toolCalls.first);
+        if (round.content.trim().isNotEmpty) {
+          await _ref.read(aiChatRepoProvider).add('assistant', round.content);
+          state = state.copyWith(
+            messages: [
+              ...state.messages,
+              AiMessage(role: 'assistant', content: round.content),
+            ],
+          );
+        }
+        await _handleToolCalls(round.toolCalls);
         return;
       }
       await _ref.read(aiChatRepoProvider).add('assistant', round.content);
@@ -166,21 +194,34 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   }
 
   /// 处理模型请求的工具调用（次数上限只防死循环，写操作仍逐次确认）
-  Future<void> _handleToolCall(AiToolCall call) async {
-    if (_tool.round >= AiToolLimits.maxCallsPerRound) {
-      throw const AiToolException(AiToolLimits.overLimitMessage);
+  ///
+  /// 一轮可能带多个调用：只读的依次执行；遇到需要确认的写操作就停下等用户
+  /// 点头，剩下的等下一轮。**失败的调用同样回执（ok:false + 原因）**——这是
+  /// 2026-10-28「AI 说建好了模板但模板页没有」事故的根修：失败如果只变成
+  /// 一个 toast，模型不知情，下一轮就会幻觉成功。
+  Future<void> _handleToolCalls(List<AiToolCall> calls) async {
+    for (final call in calls) {
+      if (_tool.round >= AiToolLimits.maxCallsPerRound) {
+        // 超限：把回执留给模型（下次用户发消息时它知道为什么中断），本轮终止
+        _tool.append(
+            call, AiToolContext.failureReceipt(AiToolLimits.overLimitMessage));
+        state = state.copyWith(isStreaming: false, clearStreaming: true);
+        return;
+      }
+      _tool.round++;
+      try {
+        final preview = await _executor.preview(call);
+        if (preview.needsConfirm) {
+          state = state.copyWith(
+              isStreaming: false, clearStreaming: true, pendingTool: preview);
+          return;
+        }
+        final result = await _executor.execute(call);
+        _tool.append(call, result);
+      } on AiToolException catch (e) {
+        _tool.append(call, AiToolContext.failureReceipt(e.message));
+      }
     }
-    _tool.round++;
-    // 白名单 + 参数校验（delete_records 要先查库统计条数，故为异步），非法直接抛
-    final preview = await _executor.preview(call);
-    if (preview.needsConfirm) {
-      state = state.copyWith(
-          isStreaming: false, clearStreaming: true, pendingTool: preview);
-      return;
-    }
-    // 只读工具：直接执行并把结果回传模型
-    final result = await _executor.execute(call);
-    _tool.append(call, result);
     await _request();
   }
 
