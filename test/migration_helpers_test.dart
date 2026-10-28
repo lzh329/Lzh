@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fittrack/core/database/database.dart' show kSchemaVersion;
 import 'package:fittrack/core/database/migration_helpers.dart';
 
 void main() {
@@ -127,15 +128,17 @@ void main() {
       }
     });
 
+    // 全仓**唯一**一条版本号字面量断言。bump schema 时它必红 —— 这是故意的：
+    // 一条 `expect(db.schemaVersion, kSchemaVersion)` 是恒真的，等于占着
+    // "有测试保护"的位置却没有保护，比没有断言更糟。
+    test('kSchemaVersion 字面量守卫：改 schema 必须同步此断言并补迁移用例', () {
+      expect(kSchemaVersion, 21, reason: '改 schema 必须同步此断言，并补迁移用例');
+    });
+
     test(
-      'schemaVersion 单点定义且值为 21（改版本号时只需改这一处 + 本断言）',
+      'schemaVersion 单点定义（AppDatabase 引常量，不另写字面量）',
       () {
         // 空白无关：dart format 可能把 `=>` 折行，不能依赖换行与缩进
-        expect(
-          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*21\s*;').hasMatch(source),
-          isTrue,
-          reason: '版本号唯一事实来源是 kSchemaVersion 常量',
-        );
         expect(
           RegExp(r'int\s+get\s+schemaVersion\s*=>\s*kSchemaVersion\s*;')
               .hasMatch(source),

@@ -112,6 +112,8 @@ void main() {
       expect(result.dbFiles, ['fittrack.sqlite']);
       expect(result.journalMode, anyOf('delete', 'wal', 'unknown'));
       expect(result.dbSha256.length, 64);
+      expect(result.dbBytes, greaterThan(0));
+      expect(result.degraded, isFalse);
 
       final archive = readArchive(File(result.path));
       final names = archive.files.map((f) => f.name).toSet();
@@ -130,6 +132,13 @@ void main() {
       expect(manifest['dbFiles'], ['fittrack.sqlite']);
       expect(manifest['dbSha256'], result.dbSha256);
       expect(manifest['tableCounts'], {'body_metrics': 1});
+      expect(manifest['degraded'], isFalse);
+      expect(manifest['dbBytes'], result.dbBytes);
+      expect(
+          manifest['dbBytes'],
+          File(p.join(root.path, 'extracted.sqlite')).existsSync()
+              ? isPositive
+              : isPositive);
       expect(manifest['schemaVersion'], kSchemaVersion);
     });
 
@@ -167,8 +176,13 @@ void main() {
       );
 
       expect(result.dbSource, 'rawCopy');
+      expect(result.degraded, isTrue);
       expect(result.dbFiles,
           containsAll(['fittrack.sqlite', 'fittrack.sqlite-wal']));
+      // dbBytes 是**整组**合计，不是只算主文件
+      final groupBytes = await File(dbFile.path).length() +
+          await File('${dbFile.path}-wal').length();
+      expect(result.dbBytes, groupBytes, reason: '用户看到的"我的库多大"应该是整组合计');
 
       final archive = readArchive(File(result.path));
       final names = archive.files.map((f) => f.name).toSet();
@@ -179,6 +193,7 @@ void main() {
         archive.files.firstWhere((f) => f.name == 'manifest.json').content
             as List<int>,
       )) as Map<String, dynamic>;
+      expect(manifest['degraded'], isTrue);
       expect(manifest.containsKey('tableCounts'), isFalse,
           reason: '打不开库就没法统计行数，该字段留空 → 恢复侧按"缺失就警告放行"处理');
     });
@@ -195,6 +210,27 @@ void main() {
 
       expect(result.dbSource, 'rawCopy', reason: '库结构读不出来时级联到文件搬运，而不是直接失败');
       expect(File(result.path).existsSync(), isTrue);
+    });
+
+    test('收集范围是显式白名单：包内不含 zip 自身，也不含 backups/ 里的历史备份', () async {
+      await seedDatabase(dbFile);
+      // 输出目录里预先放一个"历史备份"，它绝不能被套进新包
+      await File(p.join(out.path, 'old_backup.zip')).writeAsBytes([1, 2, 3]);
+      await File(p.join(out.path, 'stray.txt')).writeAsString('x');
+
+      final result = await BackupService.createArchive(
+        dbPath: dbFile.path,
+        photosDir: photos,
+        outputDir: out,
+      );
+
+      final names =
+          readArchive(File(result.path)).files.map((f) => f.name).toSet();
+      expect(names.any((n) => n.endsWith('.zip')), isFalse,
+          reason: '自包含会让包越备越大，dbBytes 也跟着失真');
+      expect(names.any((n) => n.contains('old_backup')), isFalse);
+      expect(names.contains('stray.txt'), isFalse);
+      expect(names, {'fittrack.sqlite', 'manifest.json'});
     });
 
     test('数据库文件不存在时抛异常（不静默产出一个空包）', () async {

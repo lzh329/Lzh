@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:drift/native.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +27,13 @@ class BackupArchive {
   final String journalMode;
   final String dbSha256;
 
+  /// db 组总字节：单文件快照时等于主库大小，raw copy 时是整组合计。
+  /// 用户看到的「我的库多大」应该是整组，不是只算主文件。
+  final int dbBytes;
+
+  /// 是否在降级态打包（库打不开 → 无从做一致性快照、也无 tableCounts）
+  final bool degraded;
+
   const BackupArchive({
     required this.path,
     required this.dbSource,
@@ -34,6 +41,8 @@ class BackupArchive {
     required this.photoCount,
     required this.journalMode,
     required this.dbSha256,
+    required this.dbBytes,
+    required this.degraded,
   });
 }
 
@@ -120,10 +129,11 @@ class BackupService {
     final header = await _readHeader(dbFile);
     final journalMode = journalModeFromHeader(header);
 
-    final archive = Archive();
     final staging = await Directory.systemTemp.createTemp('fittrack_archive');
     var dbSource = 'rawCopy';
     final dbFiles = <String>[];
+    // 待入包文件：(zip 内路径, 磁盘文件)
+    final entries = <MapEntry<String, File>>[];
 
     try {
       // ── 1) 首选：VACUUM INTO 干净快照（库结构可读时的最佳结果）──
@@ -134,8 +144,7 @@ class BackupService {
         if (snapshotted) {
           dbSource = 'snapshot';
           dbFiles.add('fittrack.sqlite');
-          await _addFileToArchive(
-              archive, File(snapshotPath), 'fittrack.sqlite');
+          entries.add(MapEntry('fittrack.sqlite', File(snapshotPath)));
         }
       }
 
@@ -143,6 +152,10 @@ class BackupService {
       //
       // 降级态走这条：此时没有写入者，原样搬是安全的。
       // 不做 VACUUM 的好处是：即使库损坏也能把"现场"带出去排查。
+      //
+      // 收集范围是**显式白名单**（db 组 + photos/），绝不用"递归 documents
+      // 再排除"的排除法：黑名单迟早漏，而漏一次就是自包含 —— zip 把自己、
+      // 把历史备份一起套进去，包越备越大，dbBytes 也跟着失真。
       if (!snapshotted) {
         final groupDir = Directory(p.join(staging.path, 'raw'));
         await groupDir.create(recursive: true);
@@ -153,8 +166,14 @@ class BackupService {
           final copy = File(p.join(groupDir.path, name));
           await file.copy(copy.path);
           dbFiles.add(name);
-          await _addFileToArchive(archive, copy, name);
+          entries.add(MapEntry(name, copy));
         }
+      }
+
+      // db 组总字节（快照 = 主库大小；raw copy = 整组合计）
+      var dbBytes = 0;
+      for (final entry in entries) {
+        dbBytes += await entry.value.length();
       }
 
       // ── 3) 照片（不在库里，必须单独打包）──
@@ -162,40 +181,51 @@ class BackupService {
       if (await photos.exists()) {
         await for (final entity in photos.list(followLinks: false)) {
           if (entity is! File) continue;
-          await _addFileToArchive(
-              archive, entity, 'photos/${p.basename(entity.path)}');
+          entries.add(MapEntry('photos/${p.basename(entity.path)}', entity));
           photoCount++;
         }
       }
 
       // ── 4) manifest ──
-      final dbHash = await _sha256(File(
-        snapshotted
-            ? p.join(staging.path, 'fittrack.sqlite')
-            : p.join(staging.path, 'raw', 'fittrack.sqlite'),
-      ));
+      final dbHash = await _sha256(entries.first.value);
       final manifest = <String, dynamic>{
         'archiveVersion': archiveVersion,
         'createdAt': at.toIso8601String(),
         'schemaVersion': kSchemaVersion,
         'journalMode': journalMode,
         'dbSource': dbSource,
+        'degraded': !snapshotted,
         'dbFiles': dbFiles,
+        'dbBytes': dbBytes,
         'photoCount': photoCount,
         'dbSha256': dbHash,
         // 打不开库时留空：恢复侧按「字段缺失 → 警告放行」处理
         if (tableCounts != null) 'tableCounts': tableCounts,
       };
-      final manifestBytes = Uint8List.fromList(
-          utf8.encode(const JsonEncoder.withIndent('  ').convert(manifest)));
-      archive.addFile(
-          ArchiveFile('manifest.json', manifestBytes.length, manifestBytes));
+      final manifestFile = File(p.join(staging.path, 'manifest.json'));
+      await manifestFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(manifest),
+        flush: true,
+      );
+      entries.add(MapEntry('manifest.json', manifestFile));
 
-      // ── 5) 写 zip ──
+      // ── 5) 流式写 zip ──
+      //
+      // 必须用 ZipFileEncoder 逐条写盘，**不能** Archive + ArchiveFile(bytes)：
+      // 后者把所有文件读进内存，几百张照片就是几百 MB 峰值，低端机直接 OOM ——
+      // 而且这种崩溃只在用户攒了一年照片后才出现，测试环境永远看不到。
       await out.create(recursive: true);
       final zipFile = File(p.join(out.path, archiveFileName(at)));
-      final bytes = ZipEncoder().encode(archive) ?? const <int>[];
-      await zipFile.writeAsBytes(bytes, flush: true);
+      if (await zipFile.exists()) await zipFile.delete();
+      final encoder = ZipFileEncoder();
+      encoder.create(zipFile.path);
+      try {
+        for (final entry in entries) {
+          await encoder.addFile(entry.value, entry.key);
+        }
+      } finally {
+        encoder.close();
+      }
 
       return BackupArchive(
         path: zipFile.path,
@@ -204,6 +234,8 @@ class BackupService {
         photoCount: photoCount,
         journalMode: journalMode,
         dbSha256: dbHash,
+        dbBytes: dbBytes,
+        degraded: !snapshotted,
       );
     } finally {
       try {
@@ -267,14 +299,5 @@ class BackupService {
     } catch (_) {
       return '';
     }
-  }
-
-  static Future<void> _addFileToArchive(
-    Archive archive,
-    File file,
-    String name,
-  ) async {
-    final bytes = await file.readAsBytes();
-    archive.addFile(ArchiveFile(name, bytes.length, Uint8List.fromList(bytes)));
   }
 }

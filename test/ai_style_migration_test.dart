@@ -12,12 +12,5 @@ void main() {
       expect(sql, isNot(contains("'gentle'")));
       expect(sql, isNot(contains("'strict'")));
     });
-
-    test('schemaVersion 为 21（v21 新增两张表 + 计数列 + 9 条索引）', () {
-      final db = AppDatabase();
-      expect(db.schemaVersion, kSchemaVersion);
-      // 不触发任何查询，直接关闭（LazyDatabase 不会打开 sqlite 文件）
-      db.close();
-    });
   });
 }

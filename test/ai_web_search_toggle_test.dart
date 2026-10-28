@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/features/ai/domain/ai_tool_specs.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -42,15 +41,16 @@ void main() {
       expect(names, contains(AiToolSpecs.queryExercises));
       expect(AiToolSpecs.writeTools.difference(names.toSet()), isEmpty,
           reason: '写工具一个都不能少');
-      expect(
-          names.toSet(),
-          {...AiToolSpecs.writeTools,
-           ...AiToolSpecs.readOnlyTools.difference(AiToolSpecs.webTools)});
+      expect(names.toSet(), {
+        ...AiToolSpecs.writeTools,
+        ...AiToolSpecs.readOnlyTools.difference(AiToolSpecs.webTools)
+      });
     });
 
     test('defs 本身仍是 20 个全集（执行器与老测试依赖它不变）', () {
       expect(AiToolSpecs.defs, hasLength(20));
-      expect(AiToolSpecs.webTools, {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl});
+      expect(
+          AiToolSpecs.webTools, {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl});
       // 裁剪不修改原表，关闭两次结果一致（无副作用）
       final first = namesOf(AiToolSpecs.defsFor(webEnabled: false));
       final second = namesOf(AiToolSpecs.defsFor(webEnabled: false));
@@ -99,15 +99,6 @@ void main() {
       final prompt = AiPromptBuilder.build(trends: const TrendsData());
       expect(prompt, contains('先用 web_search 搜'));
       expect(prompt, isNot(contains('联网已关闭')));
-    });
-  });
-
-  group('schema 版本', () {
-    test('schemaVersion 为当前版本（v21）', () {
-      final db = AppDatabase();
-      expect(db.schemaVersion, kSchemaVersion);
-      // 不触发任何查询，直接关闭（LazyDatabase 不会打开 sqlite 文件）
-      db.close();
     });
   });
 }

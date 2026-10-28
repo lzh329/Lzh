@@ -266,7 +266,10 @@ class DailyOverrides extends Table {
   TextColumn get macroJudgement =>
       text().withDefault(const Constant('normal'))();
 
-  /// 来源：user（用户主动）/ ai（AI 判定降级）/ sleep（睡眠数据）
+  /// 来源：`user`（用户主动）/ `ai_health`（AI 生病闸门判定降级）。
+  ///
+  /// `sleep` 为**预留值，本期不写入**（还没有睡眠数据来源）。
+  /// 本期只有 AI 生病闸门会写这张表。
   TextColumn get source => text()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

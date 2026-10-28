@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -91,8 +90,7 @@ void main() {
       expect(prompt, contains('# 示例'));
       expect(prompt, contains('# 用户数据'));
       expect(
-        prompt.indexOf('# 角色（用户自定义）') <
-            prompt.indexOf('# 必须遵守'),
+        prompt.indexOf('# 角色（用户自定义）') < prompt.indexOf('# 必须遵守'),
         isTrue,
         reason: '角色段必须在必须遵守之前',
       );
@@ -113,8 +111,7 @@ void main() {
       );
       expect(p, contains('# 用户额外约束'));
       expect(p.indexOf('# 用户额外约束') > p.indexOf('# 用户数据'), isTrue);
-      expect(p.indexOf('# 用户额外约束') > p.indexOf('# 角色（用户自定义）'),
-          isTrue);
+      expect(p.indexOf('# 用户额外约束') > p.indexOf('# 角色（用户自定义）'), isTrue);
     });
 
     test('人设里就算写着"忽略规则"也不会顶掉必须遵守段', () {
@@ -122,15 +119,6 @@ void main() {
       expect(p, contains('# 必须遵守'));
       expect(p, contains('绝不编造'));
       expect(p, contains('不做医疗诊断'));
-    });
-  });
-
-  group('schema 版本', () {
-    test('schemaVersion 已推进到当前版本（v21）', () {
-      final db = AppDatabase();
-      expect(db.schemaVersion, kSchemaVersion);
-      // 不触发任何查询，直接关闭（LazyDatabase 不会打开 sqlite 文件）
-      db.close();
     });
   });
 }
