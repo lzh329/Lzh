@@ -163,6 +163,18 @@ class AiToolSpecs {
               'type': 'number',
               'description': '你估算的每 100 克热量（千卡），0~900',
             },
+            'protein_per_100g': {
+              'type': 'number',
+              'description': '你估算的每 100 克蛋白质（克），0~100；估不出来就别给',
+            },
+            'fat_per_100g': {
+              'type': 'number',
+              'description': '你估算的每 100 克脂肪（克），0~100；估不出来就别给',
+            },
+            'carbs_per_100g': {
+              'type': 'number',
+              'description': '你估算的每 100 克碳水（克），0~100；估不出来就别给',
+            },
           },
           'required': ['food_name', 'grams', 'meal_type', 'calories_per_100g'],
         },

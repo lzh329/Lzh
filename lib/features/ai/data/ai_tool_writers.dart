@@ -134,12 +134,23 @@ class AiToolWriters extends AiToolHandler {
     final grams = AiToolArgs.grams(args);
     final cal = AiToolArgs.caloriesPer100g(args);
     final meal = AiToolArgs.mealType(args);
+    // 三大营养素可选：模型估不出来就是 null（写库为 NULL → UI 显示「—」）
+    final protein = AiToolArgs.optionalProteinPer100g(args);
+    final fat = AiToolArgs.optionalFatPer100g(args);
+    final carbs = AiToolArgs.optionalCarbsPer100g(args);
     // 食物库有同名就用现成的，没有则按模型估算值新建自定义食物
+    //
+    // 命中现成食物时不传宏量、也不覆盖它已有的宏量：库里的数据比模型估的更可信。
     var food = await repos.diet.findFoodByName(name);
     var created = false;
     if (food == null) {
-      final id = await repos.diet
-          .addCustomFood(name: name, caloriesPer100g: cal);
+      final id = await repos.diet.addCustomFood(
+        name: name,
+        caloriesPer100g: cal,
+        proteinPer100g: protein,
+        fatPer100g: fat,
+        carbsPer100g: carbs,
+      );
       food = await repos.diet.getFoodById(id);
       created = true;
     }
@@ -151,6 +162,10 @@ class AiToolWriters extends AiToolHandler {
       grams: grams,
       mealType: meal,
     );
+    // 三项齐备才算"这顿的营养是已知的"
+    final macrosKnown = food.proteinPer100g != null &&
+        food.fatPer100g != null &&
+        food.carbsPer100g != null;
     return jsonEncode({
       'ok': true,
       'food': food.name,
@@ -158,6 +173,10 @@ class AiToolWriters extends AiToolHandler {
       'meal_type': meal,
       'kcal_estimated': (food.caloriesPer100g * grams / 100).round(),
       'new_food_created': created,
+      'macros_known': macrosKnown,
+      if (!macrosKnown)
+        'macro_note': '这顿的三大营养素是未知的（蛋白 / 脂肪 / 碳水显示不出来），'
+            '不要对用户说它们是多少，只说热量就行',
     });
   }
 

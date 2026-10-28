@@ -165,6 +165,19 @@ class AiToolArgs {
     return c;
   }
 
+  /// 每 100 克三大营养素（**可选**）：缺省返回 null，绝不返回 0
+  ///
+  /// 0 只在这个数真的是 0 时才出现（比如植物油的碳水）。缺就留空，
+  /// 让 UI 显示「—」；拿 0 兜底会被当成"算过了、结果是 0 克"。
+  static double? optionalProteinPer100g(Map<String, dynamic> args) =>
+      _optionalRange(args, 'protein_per_100g', '蛋白', min: 0, max: 100);
+
+  static double? optionalFatPer100g(Map<String, dynamic> args) =>
+      _optionalRange(args, 'fat_per_100g', '脂肪', min: 0, max: 100);
+
+  static double? optionalCarbsPer100g(Map<String, dynamic> args) =>
+      _optionalRange(args, 'carbs_per_100g', '碳水', min: 0, max: 100);
+
   /// 餐次：非法或缺失时按当前时间推断
   static String mealType(Map<String, dynamic> args) {
     final raw = args['meal_type'];

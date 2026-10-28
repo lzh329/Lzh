@@ -2367,6 +2367,9 @@ class _FakeDietRepo implements DietRepository {
   Future<int> addCustomFood({
     required String name,
     required double caloriesPer100g,
+    double? proteinPer100g,
+    double? fatPer100g,
+    double? carbsPer100g,
     String category = 'other',
   }) async =>
       _previewMustNotWrite('diet.addCustomFood');

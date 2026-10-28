@@ -28,9 +28,17 @@ abstract class DietRepository {
 
   // AI 教练记录用：按名称精确查食物、新建自定义食物
   Future<FoodLibraryEntity?> findFoodByName(String name);
+
+  /// 新建自定义食物。
+  ///
+  /// 三大营养素**可选且默认为 null**：null = 未知（UI 显示「—」），
+  /// 只有模型真的估出来才传值 —— 绝不许用 0 冒充"没估出来"。
   Future<int> addCustomFood({
     required String name,
     required double caloriesPer100g,
+    double? proteinPer100g,
+    double? fatPer100g,
+    double? carbsPer100g,
     String category = 'other',
   });
 }

@@ -192,11 +192,18 @@ class DietRepositoryImpl implements DietRepository {
   Future<int> addCustomFood({
     required String name,
     required double caloriesPer100g,
+    double? proteinPer100g,
+    double? fatPer100g,
+    double? carbsPer100g,
     String category = 'other',
   }) async {
+    // 宏量不传就写 NULL（= 未知），绝不兜 0 —— 0 会被当成"算过了、结果是 0"
     return _db.into(_db.foodLibrary).insert(FoodLibraryCompanion.insert(
           name: name.trim(),
           caloriesPer100g: caloriesPer100g,
+          proteinPer100g: Value(proteinPer100g),
+          fatPer100g: Value(fatPer100g),
+          carbsPer100g: Value(carbsPer100g),
           category: category,
           isCustom: const Value(true),
         ));
