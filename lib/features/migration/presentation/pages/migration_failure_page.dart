@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/database/database_health.dart';
 import 'package:fittrack/core/database/migration_failure_marker.dart';
 import 'package:fittrack/core/services/backup_service.dart';
+import 'package:fittrack/core/services/restore_service.dart';
 import 'package:fittrack/core/services/database_recovery_service.dart';
 import 'package:fittrack/core/theme/app_theme.dart';
 
@@ -57,6 +58,25 @@ class DatabaseFailurePage extends StatefulWidget {
 
 class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
   bool _busy = false;
+
+  /// 「回到恢复前的数据」的来源。null = 没有可退回的点 → 按钮不渲染
+  /// （不给一个点了没反应的入口）。
+  String? _preRestorePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreRestore();
+  }
+
+  Future<void> _loadPreRestore() async {
+    try {
+      _preRestorePath = await RestoreService.latestPreRestore();
+    } catch (_) {
+      _preRestorePath = null;
+    }
+    if (mounted) setState(() {});
+  }
 
   int get _attempts => widget.marker.attemptCount;
 
@@ -131,6 +151,54 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
       _toast('已存好：${archive.photoCount} 张照片（$how）');
     } catch (_) {
       _toast('存数据失败，可以稍后再试。先别卸载 App。');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 回到恢复前的数据 = 再走一次完整校验链的恢复。
+  ///
+  /// `pre-restore` 文件没人保证完整（磁盘错误 / 写到一半被杀），所以绝不能用
+  /// 一条"直接覆盖"的快路径 —— 那等于用可能坏掉的数据二次毁现场，
+  /// 而用户此刻已经没有第三份了。
+  Future<void> _rollbackToPreRestore() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('回到恢复前的数据'),
+        content: const Text(
+          '会用恢复前的那份数据替换现在的内容。刚才恢复的数据会被覆盖，但备份包还在。\n'
+          '被覆盖的那份数据不会留副本。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认退回'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _busy = true);
+    try {
+      await RestoreService.restoreFromPreRestore(
+        preRestorePath: _preRestorePath!,
+      );
+      // 退回成功后必须显式清 marker —— 不清的话下次启动又进降级页。
+      // 僵尸 marker 自愈能兜住，但不能让第二条路径去修第一条路径的遗漏。
+      await MigrationFailureMarker.clear();
+      _toast('退回完成。请把 App 关掉再打开一次，让数据重新加载。');
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      _restart();
+    } catch (e) {
+      final reason = e is RestoreAborted ? e.reason : null;
+      _toast(reason ?? '退回没成功，那份恢复前的数据打不开了。你现在的记录没被动过，先把数据存一份。');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -245,6 +313,14 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
         retryButton,
       ];
     }
+    final rollbackButton = _preRestorePath == null
+        ? null
+        : OutlinedButton.icon(
+            onPressed: _busy ? null : _rollbackToPreRestore,
+            icon: const Icon(Icons.history_rounded),
+            label: const Text('回到恢复前的数据'),
+          );
+
     if (_conservative) {
       return [
         OutlinedButton.icon(
@@ -256,12 +332,20 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
         exportButton,
         const SizedBox(height: 12),
         restoreButton,
+        if (rollbackButton != null) ...[
+          const SizedBox(height: 12),
+          rollbackButton,
+        ],
       ];
     }
     return [
       restoreButton,
       const SizedBox(height: 12),
       exportButton,
+      if (rollbackButton != null) ...[
+        const SizedBox(height: 12),
+        rollbackButton,
+      ],
     ];
   }
 

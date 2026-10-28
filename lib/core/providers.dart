@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/core/database/db_replaced_marker.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/exercise/data/exercise_repository_impl.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
@@ -30,7 +31,17 @@ import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 
 // ── 数据库 ──
-final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+/// 全 App 唯一的数据库实例。
+///
+/// 封存态（库文件已被恢复流程替换、当前连接不可再信任）下直接抛错：
+/// 让调用方拿到一个明确的"请重启"，而不是继续读一个已被 rename 的旧库 ——
+/// 后者会表现为"数据莫名其妙回到恢复前"，比报错难查得多。
+final databaseProvider = Provider<AppDatabase>((ref) {
+  if (DatabaseSeal.sealed) {
+    throw StateError(DatabaseSeal.message);
+  }
+  return AppDatabase();
+});
 
 /// AI 教练聊天记录仓库
 final aiChatRepoProvider = Provider<AiChatRepository>((ref) {

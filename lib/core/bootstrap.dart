@@ -34,6 +34,7 @@ import '../app.dart';
 import '../features/migration/presentation/pages/migration_failure_page.dart';
 import 'database/database.dart';
 import 'database/database_health.dart';
+import 'database/db_replaced_marker.dart';
 import 'database/migration_failure_marker.dart';
 import 'services/notification_service.dart';
 
@@ -68,6 +69,12 @@ Future<int?> _defaultProbeUserVersion() async {
 Future<Widget> buildStartupRoot({
   Future<MigrationFailureMarker?> Function() readMarker =
       MigrationFailureMarker.read,
+
+  /// 换库标记是否存在（「可能换过库，打开后重建」）
+  Future<bool> Function() dbReplacedExists = DbReplacedMarker.exists,
+
+  /// 新库打开成功后清标记
+  Future<void> Function() clearDbReplaced = DbReplacedMarker.clear,
   UserVersionProbe probeUserVersion = _defaultProbeUserVersion,
   DatabaseOpener openDatabase = _defaultOpenDatabase,
   Future<void> Function() initNotifications = _defaultInitNotifications,
@@ -102,10 +109,31 @@ Future<Widget> buildStartupRoot({
     }
   }
 
+  // ── 3.5) 换库标记：可能换过库 → 必须强制重建连接 ──
+  //
+  // 顺序依据：标记在 rename 之前写入（且 fsync），所以"标记在"意味着
+  // "库文件可能已经换了、但当时没确认新库可用"。这里打开成功才算确认。
+  var replacedPending = false;
+  try {
+    replacedPending = await dbReplacedExists();
+  } catch (_) {
+    replacedPending = false;
+  }
+  if (replacedPending) {
+    DatabaseSeal.seal(); // 重建前先封存，杜绝"读着旧库"的中间态
+  }
+
   // ── 4) 打开数据库；失败同样进降级页 ──
   try {
     await openDatabase();
+    if (replacedPending) {
+      // 新库打开成功 → 才算确认换库完成
+      await clearDbReplaced();
+    }
+    DatabaseSeal.unseal();
   } catch (_) {
+    // 消解失败：**保留标记**，下次启动自然重试；进降级页而不是白屏
+
     final failure = marker ??
         MigrationFailureMarker(
           fromVersion: -1,

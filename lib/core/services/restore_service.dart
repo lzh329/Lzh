@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:drift/native.dart';
@@ -7,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/database.dart' show AppDatabase, kSchemaVersion;
+import '../database/database_health.dart';
 import 'backup_service.dart';
 
 /// 恢复被**中止**（不是崩溃）。`reason` 可直接展示给用户。
@@ -245,13 +247,127 @@ class RestoreService {
     }
   }
 
+  /// 从 `pre-restore-*.sqlite` 退回。
+  ///
+  /// **不走第二套逻辑**：先把它打成一个最小 zip（只含库 + 现算的 manifest），
+  /// 再交给 [restoreArchive] 走同一条校验链。理由：`pre-restore` 文件没人保证
+  /// 完整（磁盘错误 / 写到一半被杀），如果它坏了，用一条没校验的路径覆盖真库
+  /// 等于用坏数据二次毁现场 —— 而用户此刻已经没有第三份了。
+  static Future<RestoreResult> restoreFromPreRestore({
+    required String preRestorePath,
+    String? dbPath,
+    Directory? photosDir,
+    Directory? backupDir,
+    DateTime? now,
+    FreeSpaceProbe? freeSpace,
+    Future<void> Function()? closeDatabase,
+    Directory? docsDir,
+  }) async {
+    final source = File(preRestorePath);
+    if (!await source.exists()) {
+      throw const RestoreAborted('恢复前的那份数据已经不在了');
+    }
+    final docs = docsDir ?? await getApplicationDocumentsDirectory();
+    final tempDir =
+        await Directory.systemTemp.createTemp('fittrack_pre_restore');
+    final tempZip = File(p.join(tempDir.path, 'pre-restore.zip'));
+    try {
+      // 现算 manifest：版本从文件头读，行数从库里数（都走"不打开迁移"的路径）
+      final header = await _readHeader(source);
+      final schemaVersion =
+          DatabaseFileHealth.parseUserVersion(header ?? Uint8List(0));
+      final counts = await _tableCountsForManifest(source);
+
+      final encoder = ZipFileEncoder();
+      encoder.create(tempZip.path);
+      try {
+        await encoder.addFile(source, dbFileName);
+        final manifest = File(p.join(tempDir.path, 'manifest.json'));
+        await manifest.writeAsString(
+          jsonEncode(<String, dynamic>{
+            'archiveVersion': BackupService.archiveVersion,
+            'createdAt': DateTime.now().toIso8601String(),
+            'schemaVersion': schemaVersion,
+            'dbSource': 'preRestore',
+            'dbFiles': [dbFileName],
+            'photoCount': 0,
+            if (counts.isNotEmpty) 'tableCounts': counts,
+          }),
+          flush: true,
+        );
+        await encoder.addFile(manifest, 'manifest.json');
+      } finally {
+        encoder.close();
+      }
+
+      return await restoreArchive(
+        archivePath: tempZip.path,
+        dbPath: dbPath ?? p.join(docs.path, dbFileName),
+        photosDir: photosDir,
+        backupDir: backupDir,
+        now: now,
+        freeSpace: freeSpace,
+        closeDatabase: closeDatabase,
+        docsDir: docs,
+      );
+    } finally {
+      try {
+        if (await tempDir.exists()) await tempDir.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
+  static Future<Uint8List?> _readHeader(File file) async {
+    try {
+      final handle = await file.open();
+      try {
+        return Uint8List.fromList(await handle.read(64));
+      } finally {
+        await handle.close();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 给 pre-restore 现算各表行数（表名取自库自身，避免依赖 schema 常量）
+  static Future<Map<String, int>> _tableCountsForManifest(File dbFile) async {
+    final db = AppDatabase.withExecutor(
+      NativeDatabase(dbFile, enableMigrations: false),
+    );
+    final counts = <String, int>{};
+    try {
+      final rows = await db
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+          .get();
+      for (final row in rows) {
+        final name = row.read<String>('name');
+        if (name.startsWith('sqlite_')) continue;
+        final count = await db
+            .customSelect('SELECT COUNT(*) AS c FROM "$name"')
+            .getSingle();
+        counts[name] = (count.data['c'] as num).toInt();
+      }
+    } catch (_) {
+      return {};
+    } finally {
+      try {
+        await db.close();
+      } catch (_) {}
+    }
+    return counts;
+  }
+
   /// `pre-restore` 只保留最近 [keepPreRestore] 份。
   ///
   /// 清理时机是「恢复成功之后的收尾」，而不是恢复当下 —— B13b 要能退回去。
   static Future<void> prunePreRestore({Directory? backupDir}) async {
     final dir = backupDir ?? await _defaultBackupDir();
     if (!await dir.exists()) return;
-    for (final suffix in ['.sqlite', '.zip']) {
+    // 先清 .zip，再清 .sqlite：`.zip` 只是给用户手动导出用的，
+    // `.sqlite` 是「回到恢复前的数据」的唯一来源 —— 清理顺序必须保证
+    // 前者先走，后者**至少留 1 份**。
+    for (final suffix in ['.zip', '.sqlite']) {
       final files = (await dir.list().toList())
           .whereType<File>()
           .where((f) =>
@@ -259,7 +375,11 @@ class RestoreService {
               f.path.endsWith(suffix))
           .toList();
       files.sort((a, b) => b.path.compareTo(a.path));
-      for (var i = keepPreRestore; i < files.length; i++) {
+      // .sqlite 至少留 1 份：它没了「回到恢复前的数据」按钮就不能显示
+      final limit = suffix == '.sqlite'
+          ? (keepPreRestore < 1 ? 1 : keepPreRestore)
+          : keepPreRestore;
+      for (var i = limit; i < files.length; i++) {
         try {
           await files[i].delete();
         } catch (_) {}
@@ -452,6 +572,25 @@ class RestoreService {
 
   static Object _asAbort(Object error) {
     if (error is RestoreAborted) return error;
+    if (_isNoSpace(error)) {
+      // 空间不足只会发生在 rename 之前（解压/写盘阶段），此时原库完好。
+      // 这是本流程最"便宜"的一种失败：白跑一趟，数据一点没伤。
+      return const RestoreAborted(
+        '手机空间不够，恢复没有开始，你原来的数据没动。清一点空间再试。',
+      );
+    }
     return RestoreAborted('恢复失败，你的原数据没有被改动（$error）');
+  }
+
+  /// 识别 ENOSPC（errno 28）/ "No space left on device"。
+  ///
+  /// 不引第三方依赖（`dart:io` 没有剩余空间 API），靠捕获写盘异常兜底 ——
+  /// 这比一个"看起来检查了其实没检查"的前置探测更诚实：真的写不下去时才会触发。
+  static bool _isNoSpace(Object error) {
+    if (error is! FileSystemException) return false;
+    final code = error.osError?.errorCode;
+    if (code == 28) return true; // POSIX ENOSPC
+    final message = '${error.osError?.message ?? ''} ${error.message}';
+    return message.toLowerCase().contains('no space');
   }
 }

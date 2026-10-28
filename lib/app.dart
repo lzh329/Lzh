@@ -5,9 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'features/migration/presentation/pages/database_sealed_page.dart';
 import 'core/providers.dart';
 import 'features/plan/domain/entities/plan_day_entity.dart';
 import 'features/settings/domain/entities/user_settings_entity.dart';
+import 'core/database/db_replaced_marker.dart';
+import 'core/services/database_resolver.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/auto_backup_service.dart';
 
@@ -18,10 +21,15 @@ class FitTrackApp extends ConsumerStatefulWidget {
   ConsumerState<FitTrackApp> createState() => _FitTrackAppState();
 }
 
-class _FitTrackAppState extends ConsumerState<FitTrackApp> {
+class _FitTrackAppState extends ConsumerState<FitTrackApp>
+    with WidgetsBindingObserver {
+  /// 封存页详情（null = 未封存）
+  String? _sealedDetail;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 启动期读设置（提醒 / 主题）。
     //
     // 历史实现把这次读取放在 main.dart，在 runApp 之前 `await` 一个数据库查询
@@ -29,6 +37,42 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
     // 一个永不关闭的 AppDatabase 实例。现在统一在这里、走 databaseProvider 读，
     // 并且**读失败就用默认值把首帧渲染出来**，绝不阻塞启动。
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 恢复流程可能把库换掉，而用户没有杀进程就回到前台：
+    // 这里消解一次（与 bootstrap 共用同一套单飞逻辑，连发两次只重建一次）。
+    if (state == AppLifecycleState.resumed) _resolveIfReplaced();
+  }
+
+  Future<void> _resolveIfReplaced() async {
+    if (!await DbReplacedMarker.exists()) return;
+    final ok = await DatabaseResolver.resolveFromDocuments(
+      closeCurrent: () async {
+        try {
+          await ref.read(databaseProvider).close();
+        } catch (_) {}
+      },
+      reopen: () async {
+        ref.invalidate(databaseProvider);
+        // 触发一次真实查询：drift 会在这里重连（必要时重跑迁移）
+        await ref.read(databaseProvider).customSelect('SELECT 1').get();
+      },
+    );
+    if (!mounted) return;
+    if (!ok) {
+      // 保留标记，进封存页（下次 resume / 下次启动自然重试）
+      setState(() => _sealedDetail = DatabaseSeal.message);
+    } else {
+      setState(() => _sealedDetail = null);
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -119,6 +163,10 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
   @override
   Widget build(BuildContext context) {
     initializeDateFormatting('zh_CN');
+    if (_sealedDetail != null) {
+      // 封存态：不可返回的全屏页，只给"退出"一条出路
+      return DatabaseSealedPage(detail: _sealedDetail);
+    }
     return _LockGate(
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
