@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 /// 数据库自动备份服务
@@ -29,11 +30,17 @@ class AutoBackupService {
   }
 
   /// 备份目录里的历史备份（按文件名时间戳倒序）
+  ///
+  /// ⚠️ 只认 `fittrack_backup_` 前缀。同目录下的 `pre-restore-*.sqlite`
+  /// （恢复前安全副本）与 `broken-*.sqlite`（排查用坏库导出）**不算额度、
+  /// 永不参与清理** —— 否则用户恢复几次后，安全网正好在他最需要的时候被轮转掉。
   static Future<List<File>> listBackups() async {
     final dir = await backupDir();
     final files = (await dir.list().toList())
         .whereType<File>()
-        .where((f) => f.path.endsWith('.sqlite'))
+        .where((f) =>
+            f.path.endsWith('.sqlite') &&
+            p.basename(f.path).startsWith('fittrack_backup_'))
         .toList();
     files.sort((a, b) => b.path.compareTo(a.path));
     return files;

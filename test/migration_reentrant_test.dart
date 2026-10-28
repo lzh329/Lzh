@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/core/database/database_health.dart';
 
 /// 用真实（临时文件 / 内存）sqlite 验证「迁移可重入」：
 ///
@@ -103,6 +104,80 @@ void main() {
       if (await dir.exists()) {
         await dir.delete(recursive: true);
       }
+    }
+  });
+
+  // ── 用例 B（PM/lead 指定）：DDL 中途失败 → user_version 不推进 → 重开自愈 ──
+  //
+  // 这是「半迁移」的真实成因：迁移块里前几条语句成功、后一条失败，
+  // user_version 停在旧值。改造前重跑会在已完成的语句上抛
+  // "duplicate column name" 直接死掉；改造后靠幂等助手跳过已完成部分并收敛。
+  //
+  // 故障注入方式：用一个 BEFORE INSERT 触发器让 v12 的种子写入必然失败
+  // （等价于迁移途中遇到磁盘满 / 约束冲突），不需要为此改动生产代码。
+  test('用例 B：v12 种子写入失败 → user_version 不推进 → 故障移除后重开自愈', () async {
+    final dir = await Directory.systemTemp.createTemp('fittrack_use_case_b');
+    final file = File(p.join(dir.path, 'half_failed.sqlite'));
+    try {
+      // 1) 先造一个完整的 v20 库
+      var db = AppDatabase.withExecutor(NativeDatabase(file));
+      await db.customSelect('SELECT 1').get();
+      final templatesBefore = (await db.select(db.workoutTemplates).get()).length;
+      expect(templatesBefore, greaterThan(0));
+
+      // 2) 人为制造「v12 迁移块跑到一半失败」的现场：
+      //    user_version 退回 11 + 模板行清空（等价于种子还没写进去）
+      //    + 一个必失败的触发器（等价于迁移途中 INSERT 失败）
+      await db.customStatement('PRAGMA user_version = 11');
+      await db.customStatement('DELETE FROM workout_templates');
+      await db.customStatement(
+        'CREATE TRIGGER fail_seed BEFORE INSERT ON workout_templates '
+        "BEGIN SELECT RAISE(ABORT, 'simulated disk full'); END",
+      );
+      await db.close();
+
+      // 3) 重开 → 迁移在 v12 块的种子写入处抛异常
+      db = AppDatabase.withExecutor(NativeDatabase(file));
+      await expectLater(
+        db.customSelect('SELECT 1').get(),
+        throwsA(anything),
+        reason: '种子写入失败会让整个迁移块中断，这正是半迁移现场',
+      );
+      try {
+        await db.close();
+      } catch (_) {
+        // 打开失败后 close 可能自己抛，吞掉
+      }
+
+      // 4) 关键断言：user_version 没有被推进（读文件头，不打开库）
+      expect(
+        await DatabaseFileHealth.readUserVersion(file),
+        11,
+        reason: '迁移失败时 user_version 必须停在旧值，否则下次不会再重试',
+      );
+
+      // 5) 移除故障后重开 → 迁移收敛、不抛、种子不重复
+      db = AppDatabase.withExecutor(NativeDatabase(
+        file,
+        setup: (raw) => raw.execute('DROP TRIGGER IF EXISTS fail_seed'),
+      ));
+      await db.customSelect('SELECT 1').get();
+
+      expect(await DatabaseFileHealth.readUserVersion(file), 20);
+      expect(
+        (await db.select(db.workoutTemplates).get()).length,
+        templatesBefore,
+        reason: '重跑后模板数量必须与原库一致（不重复、不丢失）',
+      );
+      final exercises =
+          await db.select(db.workoutTemplateExercises).get();
+      expect(exercises, isNotEmpty, reason: '模板动作明细也应补齐');
+      await db.close();
+    } finally {
+      // Windows 上打开失败后文件句柄可能仍被占用，清理失败不能算测试失败
+      try {
+        if (await dir.exists()) await dir.delete(recursive: true);
+      } catch (_) {}
     }
   });
 }

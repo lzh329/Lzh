@@ -7,22 +7,12 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/providers.dart';
 import 'features/plan/domain/entities/plan_day_entity.dart';
+import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/auto_backup_service.dart';
 
 class FitTrackApp extends ConsumerStatefulWidget {
-  final bool initialReminderEnabled;
-  final int initialReminderHour;
-  final int initialReminderMinute;
-  final String? initialThemeMode;
-
-  const FitTrackApp({
-    super.key,
-    this.initialReminderEnabled = false,
-    this.initialReminderHour = 8,
-    this.initialReminderMinute = 0,
-    this.initialThemeMode,
-  });
+  const FitTrackApp({super.key});
 
   @override
   ConsumerState<FitTrackApp> createState() => _FitTrackAppState();
@@ -32,18 +22,40 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp> {
   @override
   void initState() {
     super.initState();
+    // 启动期读设置（提醒 / 主题）。
+    //
+    // 历史实现把这次读取放在 main.dart，在 runApp 之前 `await` 一个数据库查询
+    // 且没有 try/catch —— 迁移一失败就白屏（降级页永远看不到），同时还多开了
+    // 一个永不关闭的 AppDatabase 实例。现在统一在这里、走 databaseProvider 读，
+    // 并且**读失败就用默认值把首帧渲染出来**，绝不阻塞启动。
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    UserSettingsEntity? settings;
+    try {
+      settings = await ref.read(userSettingsRepoProvider).get();
+    } catch (_) {
+      settings = null; // 读不到就用默认值启动，绝不让首帧挂掉
+    }
+
     // 初始化提醒状态
     initReminderState(
       ref,
-      enabled: widget.initialReminderEnabled,
-      hour: widget.initialReminderHour,
-      minute: widget.initialReminderMinute,
+      enabled: settings?.reminderEnabled ?? false,
+      hour: settings?.reminderHour ?? 8,
+      minute: settings?.reminderMinute ?? 0,
     );
     // 初始化主题模式
-    initThemeMode(ref, themeMode: widget.initialThemeMode);
+    initThemeMode(ref, themeMode: settings?.themeMode);
+
     // 如果提醒已启用，排入通知
-    if (widget.initialReminderEnabled) {
-      _scheduleOnStart();
+    if (settings?.reminderEnabled ?? false) {
+      try {
+        await _scheduleOnStart();
+      } catch (_) {
+        // 排通知失败不影响启动
+      }
     }
     // 每周自动备份数据库（开关在「数据管理」页，默认开）
     _runAutoBackup();

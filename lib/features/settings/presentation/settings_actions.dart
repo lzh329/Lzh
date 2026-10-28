@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/database_recovery_service.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 
@@ -245,21 +246,10 @@ Future<void> backupDatabase(BuildContext context) async {
 
 Future<void> restoreDatabase(BuildContext context) async {
   try {
-    // 优先用自动备份目录里的 latest 镜像，其次兼容旧位置（应用文档根目录）
-    final docs = await getApplicationDocumentsDirectory();
-    final candidates = [
-      File('${docs.path}/backups/fittrack_backup_latest.sqlite'),
-      File('${docs.path}/fittrack_backup_latest.sqlite'),
-    ];
-    File? backupFile;
-    for (final f in candidates) {
-      if (await f.exists()) {
-        backupFile = f;
-        break;
-      }
-    }
-
-    if (backupFile == null) {
+    // 统一走 DatabaseRecoveryService：恢复前强制备份 + 清 WAL 残留，
+    // 避免设置页与降级页两套行为分叉。
+    final backupPath = await DatabaseRecoveryService.findRestorableBackup();
+    if (backupPath == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -270,17 +260,18 @@ Future<void> restoreDatabase(BuildContext context) async {
       return;
     }
 
-    final dbPath = await getDbPath();
-    await backupFile.copy(dbPath);
+    final safetyCopy =
+        await DatabaseRecoveryService.restoreFromBackup(backupPath: backupPath);
+    final name = safetyCopy.split(Platform.pathSeparator).last;
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('数据库已恢复，请重启应用')),
+        SnackBar(content: Text('数据库已恢复，请重启应用（旧数据已另存为 $name）')),
       );
     }
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('恢复失败: $e')),
+        const SnackBar(content: Text('恢复失败，你的原数据没有被改动')),
       );
     }
   }

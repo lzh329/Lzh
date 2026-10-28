@@ -246,3 +246,62 @@
 2. **任何阶段全绿才前进**：check.sh 红 = 停下修，不带着问题往下走
 3. **三次失败即暂停**：同一个问题连续修 3 次没解决，停下来记录现象、求助，不硬扛
 4. **行为不变是重构的唯一验收标准**：重构 commit 里不应出现任何功能变化
+
+---
+
+## 七、数据库迁移铁律（改迁移前必读）
+
+> 背景：本 App **本地优先、无后端**。库坏掉 = 用户数据全丢，没有第二条路可救。
+> 迁移写错的代价不是"报个错"，是"用户卸载重装"。
+
+### 7.1 `onUpgrade` 不在事务里（已核源码）
+drift 2.35.2 的 `onUpgrade` **不在事务中执行**（全包唯一事务在 `alterTable()` 内部）。
+所以迁移块里每一条 DDL 都是**独立提交、各自 fsync**；第 2 条失败时第 1 条已经落盘，
+而 `user_version` 不会推进 → 下次启动从同一个 `from` 重跑整个块。
+
+### 7.2 迁移块内只允许四种操作
+1. `createTableIfNotExists(m, table)`（`core/database/migration_helpers.dart`）
+2. `addColumnIfNotExists(m, table, column)`（同上）
+3. `CREATE INDEX IF NOT EXISTS ...`（SQLite 原生幂等，无需封装）
+4. 自带幂等条件的 DML：`WHERE ... IS NULL`，或「表非空就早退」守卫
+
+**不允许**裸 `m.createTable(` / `m.addColumn(`。裸 `addColumn` 是裸 `ALTER TABLE ADD COLUMN`，
+重跑必抛 `duplicate column name` → App 启动即死。`test/migration_helpers_test.dart`
+有源码守卫测试，写了就红。
+
+### 7.3 两条实测澄清（别再被常见说法带偏）
+- `m.createTable` 生成的是 `CREATE TABLE IF NOT EXISTS`（`migration.dart:317`），**本身幂等**。
+  `createTableIfNotExists` 是语义统一与防御，不是"防崩"。
+- **真正非幂等的只有两类**：`addColumn`（硬崩）与迁移块里的种子 `INSERT`（静默重复）。
+  种子函数必须自带「表非空就早退」，否则重跑会让用户看到两份「新手减脂」。
+
+### 7.4 事务：什么时候必须加
+- **纯建表 / 加列 / 建索引**：不强制（半迁移只留空表，不产生错数据）。
+- **任何含数据变换的迁移（backfill / 删列 / 改类型 / 拆表合并）：必须整段包
+  `BEGIN` / `COMMIT`，失败 `ROLLBACK` 后原样上抛**，否则会留下错数据。
+
+### 7.5 三条与事务相关的硬约束
+1. **`onUpgrade` 里绝对不要调 drift 的 `transaction()`** —— 它会先 `ensureOpen()`，
+   而此时 `ensureOpen` 正卡在迁移回调里 → **死锁，启动挂死**。只能用裸
+   `customStatement('BEGIN')`。
+2. 只能 `try / catch → ROLLBACK → rethrow`；**不能用 `finally` 无条件 ROLLBACK**
+   （成功路径要 COMMIT）。
+3. `PRAGMA foreign_keys` 不能在事务内改。`alterTable()` 内部会开关它 ——
+   所以复杂迁移（改列类型 / 删列）必须在事务**外**做，否则静默失效。
+
+补充：裸 `BEGIN`/`COMMIT` 里写 `PRAGMA user_version` 是可行的，因此加事务**不会**
+与 drift 在 `onUpgrade` 之后写的版本号冲突。
+
+### 7.6 迁移失败必须可诊断、可自救
+- 失败时写 `MigrationFailureMarker`（**文件**，不是 DB 列 —— 迁移失败时数据库正是
+  打不开的那个东西），与 `fittrack.sqlite` 同目录。
+- `failingStep` 必须是**步骤级**（`index:idx_food_log_date`），不是表级。
+- 启动期读 marker → 读 SQLite 文件头 offset 60 的 `user_version` 判定：
+  等于当前版本 = 僵尸 marker（删掉正常启动）／落后 = 真失败（进降级页）／
+  超前 = 数据来自更新版本（**绝不当僵尸删掉**）。
+- 降级页只做文件 IO，**不许** watch 任何 DB provider。
+
+### 7.7 每次改迁移的验收动作
+1. `dart run build_runner build --delete-conflicting-outputs`（`.g.dart` 不入库）
+2. `bash scripts/check.sh` 全绿
+3. 两条路径都手测：**空库安装**（走 `onCreate`）+ **旧库升级**（走 `onUpgrade`）

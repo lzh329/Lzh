@@ -4,7 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 
-import 'migration_helper.dart';
+import 'migration_helpers.dart';
 
 part 'database.g.dart';
 
@@ -211,6 +211,13 @@ class WorkoutTemplateExercises extends Table {
 
 // ───────────────────── 数据库 ─────────────────────
 
+/// 当前 schema 版本（唯一事实来源）。
+///
+/// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
+/// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
+/// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
+const int kSchemaVersion = 20;
+
 /// 数据库迁移 SQL 常量（便于单测锁住行为）
 class AiStyleMigration {
   AiStyleMigration._();
@@ -248,7 +255,8 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 20; // v20: AI 教练「联网搜索」开关（ai_web_search_enabled）
+  // v20: AI 教练「联网搜索」开关（ai_web_search_enabled）
+  int get schemaVersion => kSchemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,8 +267,8 @@ class AppDatabase extends _$AppDatabase {
           await _seedWorkoutTemplates(this);
         },
         // ⚠️ drift 的 onUpgrade **不在事务里**（全包唯一事务在 alterTable() 内部）。
-        // 因此下面每个迁移块里的建表 / 加列一律走 migration_helper.dart 的
-        // createTableIfAbsent / addColumnIfAbsent：先查 sqlite_master /
+        // 因此下面每个迁移块里的建表 / 加列一律走 migration_helpers.dart 的
+        // createTableIfNotExists / addColumnIfNotExists：先查 sqlite_master /
         // PRAGMA table_info，已存在就跳过。这样即使上一次迁移只跑了一半
         // （DDL 成功但 user_version 未推进），下次启动重跑也能收敛，不会因为
         // "table already exists" / "duplicate column name" 启动即死。
@@ -268,65 +276,72 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (m, from, to) async {
           // Baseline migration (consolidates v2→v9 into single block)
           if (from < 10) {
-            if (from < 2) await createTableIfAbsent(m, userSettings);
+            if (from < 2) await createTableIfNotExists(m, userSettings);
             if (from < 3) {
-              await addColumnIfAbsent(m, userSettings, userSettings.birthDate);
-              await addColumnIfAbsent(m, userSettings, userSettings.gender);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.birthDate);
+              await addColumnIfNotExists(m, userSettings, userSettings.gender);
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.activityLevel);
             }
             if (from < 4) {
-              await createTableIfAbsent(m, foodLibrary);
-              await createTableIfAbsent(m, foodLog);
+              await createTableIfNotExists(m, foodLibrary);
+              await createTableIfNotExists(m, foodLog);
               await _seedFoodLibrary(this);
             }
-            if (from < 5) await createTableIfAbsent(m, waterLog);
+            if (from < 5) await createTableIfNotExists(m, waterLog);
             if (from < 6) {
-              await addColumnIfAbsent(m, userSettings, userSettings.pinCode);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(m, userSettings, userSettings.pinCode);
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.lockEnabled);
             }
             if (from < 7) {
-              await addColumnIfAbsent(m, userSettings, userSettings.speechRate);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.speechRate);
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.speechPitch);
-              await addColumnIfAbsent(m, userSettings, userSettings.ttsVoice);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.ttsVoice);
             }
             if (from < 8) {
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.reminderEnabled);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.reminderHour);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.reminderMinute);
             }
             if (from < 9) {
-              await addColumnIfAbsent(m, exercises, exercises.defaultReps);
-              await addColumnIfAbsent(m, exercises, exercises.defaultWeightKg);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(m, exercises, exercises.defaultReps);
+              await addColumnIfNotExists(
+                  m, exercises, exercises.defaultWeightKg);
+              await addColumnIfNotExists(
                   m, exercises, exercises.defaultDurationSec);
-              await addColumnIfAbsent(m, userSettings, userSettings.themeMode);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.themeMode);
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.defaultTrainingSec);
-              await addColumnIfAbsent(
+              await addColumnIfNotExists(
                   m, userSettings, userSettings.defaultRestSec);
             }
           }
           // v11: neck_cm + goal_category + diet targets
           if (from < 11) {
-            await addColumnIfAbsent(m, bodyMetrics, bodyMetrics.neckCm);
-            await addColumnIfAbsent(m, goals, goals.category);
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(m, bodyMetrics, bodyMetrics.neckCm);
+            await addColumnIfNotExists(m, goals, goals.category);
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.dailyCalorieTarget);
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.proteinTargetG);
-            await addColumnIfAbsent(m, userSettings, userSettings.carbsTargetG);
-            await addColumnIfAbsent(m, userSettings, userSettings.fatTargetG);
+            await addColumnIfNotExists(
+                m, userSettings, userSettings.carbsTargetG);
+            await addColumnIfNotExists(
+                m, userSettings, userSettings.fatTargetG);
           }
           // v12: 训练模板
           if (from < 12) {
-            await createTableIfAbsent(m, workoutTemplates);
-            await createTableIfAbsent(m, workoutTemplateExercises);
+            await createTableIfNotExists(m, workoutTemplates);
+            await createTableIfNotExists(m, workoutTemplateExercises);
             await _seedWorkoutTemplates(this);
           }
           // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
@@ -338,27 +353,29 @@ class AppDatabase extends _$AppDatabase {
           }
           // v14: 循环模式休息时长持久化（动作间 / 轮间）
           if (from < 14) {
-            await addColumnIfAbsent(m, userSettings, userSettings.restShortSec);
-            await addColumnIfAbsent(m, userSettings, userSettings.restLongSec);
+            await addColumnIfNotExists(
+                m, userSettings, userSettings.restShortSec);
+            await addColumnIfNotExists(
+                m, userSettings, userSettings.restLongSec);
           }
           // v15: 自动备份开关
           if (from < 15) {
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.autoBackupEnabled);
           }
           // v16: AI 教练 —— 聊天记录表 + API Key 设置列
           if (from < 16) {
-            await createTableIfAbsent(m, aiChatMessages);
-            await addColumnIfAbsent(m, userSettings, userSettings.aiApiKey);
+            await createTableIfNotExists(m, aiChatMessages);
+            await addColumnIfNotExists(m, userSettings, userSettings.aiApiKey);
           }
           // v17: AI 教练调教设定
           if (from < 17) {
-            await addColumnIfAbsent(m, userSettings, userSettings.aiStyle);
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(m, userSettings, userSettings.aiStyle);
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.aiConstraints);
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.aiReplyLength);
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.aiTemperature);
           }
           // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
@@ -367,12 +384,12 @@ class AppDatabase extends _$AppDatabase {
           }
           // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
           if (from < 19) {
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.aiPersonaCustom);
           }
           // v20: AI 教练「联网搜索」开关（老用户默认开，保持原有行为）
           if (from < 20) {
-            await addColumnIfAbsent(
+            await addColumnIfNotExists(
                 m, userSettings, userSettings.aiWebSearchEnabled);
           }
         },

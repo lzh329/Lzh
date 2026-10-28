@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/database/migration_helper.dart';
+import 'package:fittrack/core/database/migration_helpers.dart';
 
 void main() {
   group('tableExistsIn（纯函数：判断表是否已存在）', () {
@@ -62,27 +62,27 @@ void main() {
 
     test('database.dart 里不再出现裸 m.createTable(', () {
       expect(source.contains('m.createTable('), isFalse,
-          reason: '建表必须走 createTableIfAbsent，否则半迁移重跑会撞 '
+          reason: '建表必须走 createTableIfNotExists，否则半迁移重跑会撞 '
               '"table already exists" 导致启动即死');
     });
 
     test('database.dart 里不再出现裸 m.addColumn(', () {
       expect(source.contains('m.addColumn('), isFalse,
-          reason: '加列必须走 addColumnIfAbsent，否则半迁移重跑会撞 '
+          reason: '加列必须走 addColumnIfNotExists，否则半迁移重跑会撞 '
               '"duplicate column name"');
     });
 
     test('建表 / 加列全部经由助手函数', () {
-      // 允许调用被 dart format 折行（`addColumnIfAbsent(\n  m, ...`）
+      // 允许调用被 dart format 折行（`addColumnIfNotExists(\n  m, ...`）
       final createCount =
-          RegExp(r'createTableIfAbsent\(\s*m,').allMatches(source).length;
+          RegExp(r'createTableIfNotExists\(\s*m,').allMatches(source).length;
       final addCount =
-          RegExp(r'addColumnIfAbsent\(\s*m,').allMatches(source).length;
+          RegExp(r'addColumnIfNotExists\(\s*m,').allMatches(source).length;
       // v1(userSettings) + v4(foodLibrary, foodLog) + v5(waterLog)
       // + v12(workoutTemplates, workoutTemplateExercises) + v16(aiChatMessages)
       expect(createCount, 7, reason: 'onUpgrade 中的建表点数为 7');
       expect(addCount, greaterThanOrEqualTo(33),
-          reason: '所有 addColumn 调用点都应改走 addColumnIfAbsent（当前 33 处）');
+          reason: '所有 addColumn 调用点都应改走 addColumnIfNotExists（当前 33 处）');
     });
 
     test('onUpgrade 各版本分支仍按 from 递增顺序存在（改造时不许漏分支）', () {
@@ -113,8 +113,23 @@ void main() {
       }
     });
 
-    test('schemaVersion 仍为 20（本次加固不动表结构）', () {
-      expect(source.contains('int get schemaVersion => 20;'), isTrue);
-    });
+    test(
+      'schemaVersion 单点定义且值为 20（改版本号时只需改这一处 + 本断言）',
+      () {
+        // 空白无关：dart format 可能把 `=>` 折行，不能依赖换行与缩进
+        expect(
+          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*20\s*;')
+              .hasMatch(source),
+          isTrue,
+          reason: '版本号唯一事实来源是 kSchemaVersion 常量',
+        );
+        expect(
+          RegExp(r'int\s+get\s+schemaVersion\s*=>\s*kSchemaVersion\s*;')
+              .hasMatch(source),
+          isTrue,
+          reason: 'AppDatabase.schemaVersion 必须引用常量，不许另写字面量',
+        );
+      },
+    );
   });
 }
