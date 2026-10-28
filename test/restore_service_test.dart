@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/services/backup_service.dart';
 import 'package:fittrack/core/database/db_replaced_marker.dart';
+import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/restore_service.dart';
 
 /// 建一个真实库并写入 [count] 条 body_metrics
@@ -303,7 +305,7 @@ void main() {
   });
 
   group('db_replaced 标记与封存', () {
-    test('恢复成功后标记已清、封存已解除（顺序：写标记→close→rename→seal→校验→清标记）', () async {
+    test('恢复成功后标记已清、但**保持封存**（顺序：写标记→close→rename→seal→校验→清标记）', () async {
       final archivePath =
           await makeArchive(count: 3, counts: {'body_metrics': 3});
       await dbFile.delete();
@@ -325,7 +327,12 @@ void main() {
         isFalse,
         reason: '新库校验通过后才清标记；成功后不该残留',
       );
-      expect(DatabaseSeal.sealed, isFalse, reason: '成功后必须解除封存');
+      expect(
+        DatabaseSeal.sealed,
+        isTrue,
+        reason: '成功后**保持封存**：本进程的 provider 仍持有旧库引用，'
+            '解除封存等于允许用旧缓存读写新库',
+      );
     });
 
     test('恢复失败（校验链中止）不写标记、不封存', () async {
@@ -353,6 +360,97 @@ void main() {
         reason: '失败路径不写标记：没换过库就不该让用户以为换过',
       );
       expect(DatabaseSeal.sealed, isFalse);
+    });
+  });
+
+  group('崩溃注入：标记 + 封存必须能自愈', () {
+    test('rename 前崩 → 库还是恢复前那份、标记在 → 消解后可用', () async {
+      final archivePath =
+          await makeArchive(count: 3, counts: {'body_metrics': 3});
+      await dbFile.delete();
+      await seedDb(dbFile, count: 1);
+
+      await expectLater(
+        RestoreService.restoreArchive(
+          archivePath: archivePath,
+          dbPath: dbFile.path,
+          photosDir: photos,
+          backupDir: backups,
+          docsDir: docs,
+          onBeforeRename: () async => throw StateError('process killed'),
+        ),
+        throwsA(anything),
+      );
+
+      expect(await dbRowCount(dbFile), 1, reason: '还没 rename，库必须是恢复前那份');
+      expect(
+        await DbReplacedMarker.exists(baseDir: docs),
+        isTrue,
+        reason: '标记在 rename 之前写，所以崩在 rename 前也会留下标记 —— '
+            '下次启动重建一次即可，不会误判成"已换库"',
+      );
+
+      // 重启语义：清封存后重新打开，能正常读写
+      DatabaseSeal.reset();
+      final db = AppDatabase.withExecutor(NativeDatabase(dbFile));
+      await db.customSelect('SELECT 1').get();
+      expect((await db.select(db.bodyMetrics).get()).length, 1);
+      await db.close();
+    });
+
+    test('rename 后崩 → 库已是新库、标记在 → 消解后可用', () async {
+      final archivePath =
+          await makeArchive(count: 3, counts: {'body_metrics': 3});
+      await dbFile.delete();
+      await seedDb(dbFile, count: 1);
+
+      await expectLater(
+        RestoreService.restoreArchive(
+          archivePath: archivePath,
+          dbPath: dbFile.path,
+          photosDir: photos,
+          backupDir: backups,
+          docsDir: docs,
+          onAfterRename: () async => throw StateError('process killed'),
+        ),
+        throwsA(anything),
+      );
+
+      expect(await dbRowCount(dbFile), 3, reason: 'rename 已发生，库是新的');
+      expect(await DbReplacedMarker.exists(baseDir: docs), isTrue);
+
+      DatabaseSeal.reset();
+      final db = AppDatabase.withExecutor(NativeDatabase(dbFile));
+      await db.customSelect('SELECT 1').get();
+      expect((await db.select(db.bodyMetrics).get()).length, 3);
+      await db.close();
+    });
+
+    test('恢复成功后直接走 provider → 抛 StateError（写保护生效）', () async {
+      final archivePath =
+          await makeArchive(count: 3, counts: {'body_metrics': 3});
+      await dbFile.delete();
+      await seedDb(dbFile, count: 1);
+
+      await RestoreService.restoreArchive(
+        archivePath: archivePath,
+        dbPath: dbFile.path,
+        photosDir: photos,
+        backupDir: backups,
+        docsDir: docs,
+      );
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await expectLater(
+        Future.sync(() => container.read(databaseProvider)),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('请重启'),
+        )),
+        reason: '封存态下任何 provider 取库都必须失败，否则会拿旧缓存写新库',
+      );
     });
   });
 

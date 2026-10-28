@@ -100,6 +100,12 @@ class RestoreService {
 
     /// 文档目录（null = 走 path_provider）。单测注入临时目录，避免碰平台通道。
     Directory? docsDir,
+
+    /// 测试钩子：rename 旧库**之前**调用（模拟"rename 前崩溃"）
+    Future<void> Function()? onBeforeRename,
+
+    /// 测试钩子：rename 旧库**之后**调用（模拟"rename 后崩溃"）
+    Future<void> Function()? onAfterRename,
   }) async {
     final at = now ?? DateTime.now();
     final docs = docsDir ?? await getApplicationDocumentsDirectory();
@@ -208,10 +214,18 @@ class RestoreService {
         '$preRestorePrefix-${BackupService.stamp(at)}.sqlite',
       );
 
-      await DbReplacedMarker.write(
-        preRestore: safetyName,
-        baseDir: docs,
-      );
+      try {
+        await DbReplacedMarker.write(
+          preRestore: safetyName,
+          baseDir: docs,
+        );
+      } catch (_) {
+        // 标记写不进去就**不许继续**：整个封存机制的"数据不会丢"承诺
+        // 都建立在"标记被写上"这个前提上。此时还没动库，中止代价极小。
+        throw const RestoreAborted(
+          '没能在手机上记下这次替换，为安全起见恢复没有开始，你原来的数据没动。',
+        );
+      }
 
       if (closeDatabase != null) {
         try {
@@ -222,10 +236,12 @@ class RestoreService {
       }
 
       // 失败路径只允许"重命名保留"，绝不 delete 真库。
+      if (onBeforeRename != null) await onBeforeRename();
       if (await target.exists()) {
         await target.rename(safetyName);
       }
       await tmpDb.rename(target.path);
+      if (onAfterRename != null) await onAfterRename();
 
       // 旧库的日志残留必须清掉：否则 SQLite 下次打开会把旧页回放进新库，
       // 表现为"恢复后仍能查到已经不存在的记录"。
@@ -243,8 +259,12 @@ class RestoreService {
       // 新库独立打开校验：**不走 provider**（此刻 sealed，走 provider 会被自己挡住）
       await _verifyReopened(target);
 
+      // 校验通过 → 清标记（下次启动不会再触发消解）
+      //
+      // ⚠️ 但**保持封存**，不 unseal：本进程里所有 provider / notifier 仍持有
+      // 旧库的引用与缓存，解除封存等于允许它们继续读写"已经被换掉的库"。
+      // 必须让用户重启（封存页只有「退出」一条出路，正是为此）。
       await DbReplacedMarker.clear(baseDir: docs);
-      DatabaseSeal.unseal();
 
       // 照片：覆盖式导入
       if (await tmpPhotos.exists()) {
