@@ -26,6 +26,12 @@ dependencies:
   timezone: ^0.10.1
   wakelock_plus: ^1.5.2
   http: ^1.2.2
+  # 备份打包（zip：整库快照 + photos/ + manifest.json）。
+  # 原本只是 transitive，直接 import 会触发 depend_on_referenced_packages，
+  # 让 flutter analyze 红、check.sh 挂掉，所以必须显式声明。
+  archive: ^3.6.1
+  # manifest 里的 dbSha256（校验包内数据库是否损坏/被替换）
+  crypto: ^3.0.3
   # 应用内语音输入（聊天页麦克风），走系统识别服务，不上传音频到第三方
 
 dev_dependencies:
