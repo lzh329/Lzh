@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 
+import 'migration_failure_marker.dart';
 import 'migration_helpers.dart';
 
 part 'database.g.dart';
@@ -22,6 +23,8 @@ class Exercises extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_workouts_date', columns: {#date})
 class Workouts extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
@@ -32,6 +35,8 @@ class Workouts extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_workout_sets_workout_id', columns: {#workoutId})
 class WorkoutSets extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get workoutId =>
@@ -45,6 +50,8 @@ class WorkoutSets extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(true))();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_body_metrics_date', columns: {#date})
 class BodyMetrics extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
@@ -66,6 +73,8 @@ class Plans extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_plan_days_plan_id', columns: {#planId})
 class PlanDays extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get planId =>
@@ -94,6 +103,8 @@ class Goals extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_photos_date', columns: {#date})
 class Photos extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
@@ -146,6 +157,10 @@ class UserSettings extends Table {
   RealColumn get proteinTargetG => real().nullable()();
   RealColumn get carbsTargetG => real().nullable()();
   RealColumn get fatTargetG => real().nullable()();
+  // v21：生病拦截被「我没事，继续」撤销的累计次数
+  // （只计数，**不记录病名/症状**；「我的 → 数据管理」仅在 > 0 时展示）
+  IntColumn get aiHealthOverrideCount =>
+      integer().withDefault(const Constant(0))();
 }
 
 class FoodLibrary extends Table {
@@ -160,6 +175,8 @@ class FoodLibrary extends Table {
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_food_log_date', columns: {#date})
 class FoodLog extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
@@ -168,6 +185,8 @@ class FoodLog extends Table {
   TextColumn get mealType => text()(); // breakfast / lunch / dinner / snack
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_water_log_date', columns: {#date})
 class WaterLog extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get date => dateTime()();
@@ -176,6 +195,8 @@ class WaterLog extends Table {
 
 // ─────────── v16: AI 教练聊天记录 ───────────
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(name: 'idx_ai_chat_messages_created_at', columns: {#createdAt})
 class AiChatMessages extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get role => text()(); // user / assistant
@@ -198,6 +219,9 @@ class WorkoutTemplates extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 与 v21 迁移块里的 CREATE INDEX IF NOT EXISTS 名字必须逐字一致
+@TableIndex(
+    name: 'idx_workout_template_exercises_template_id', columns: {#templateId})
 class WorkoutTemplateExercises extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get templateId => integer()
@@ -209,6 +233,76 @@ class WorkoutTemplateExercises extends Table {
   IntColumn get targetDurationSec => integer().nullable()();
 }
 
+// ─────────── v21: 按日覆盖 + 周报缓存 ───────────
+
+/// v21：按日覆盖 —— 用户主动暂停 / 系统按健康状况降级。
+///
+/// **只作用于当天**：读取时按 `date == 今天 0 点` 精确匹配，无记录就回到默认
+/// 行为。不允许"昨天降级了今天继续降"。
+///
+/// 一天最多一条：用 `uniqueKeys` 表达（SQLite 会自动建 `sqlite_autoindex_*`，
+/// 按该列查已经走索引），**不要再额外建 `idx_daily_overrides_date`** ——
+/// 重复索引只会拖慢写入。
+class DailyOverrides extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 归属日期（本地时区当天 0 点），一天最多一条
+  DateTimeColumn get date => dateTime()();
+
+  /// 今天的热量目标（null = 沿用 UserSettings.dailyCalorieTarget）
+  IntColumn get calorieTargetOverride => integer().nullable()();
+
+  /// 组数系数（0.5~1.0，null = 不缩减）
+  RealColumn get setsScale => real().nullable()();
+
+  /// 今天不排称重/训练提醒
+  BoolColumn get reminderPaused =>
+      boolean().withDefault(const Constant(false))();
+
+  /// 今天是否跳过宏量/热量缺口评判：normal / skip
+  ///
+  /// 这是**语义开关**而不是数值覆盖：`skip` 时 AI 不做任何主动评判与催促，
+  /// 但用户主动问必须如实回答。数值下调只会把催促变得温和，本质还在催。
+  TextColumn get macroJudgement =>
+      text().withDefault(const Constant('normal'))();
+
+  /// 来源：user（用户主动）/ ai（AI 判定降级）/ sleep（睡眠数据）
+  TextColumn get source => text()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {date},
+      ];
+}
+
+/// v21：周报缓存（只建表，功能进 P1 —— 本迭代**不许有任何代码读写它**）。
+///
+/// token 必须分列存：DeepSeek 输入/输出单价不同，只存总数算不出成本。
+class WeeklyReportCache extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 该周周一 0 点
+  DateTimeColumn get weekStart => dateTime()();
+
+  TextColumn get content => text()();
+  TextColumn get model => text().nullable()();
+  IntColumn get promptTokens => integer().nullable()();
+  IntColumn get completionTokens => integer().nullable()();
+  IntColumn get totalTokens => integer().nullable()();
+
+  /// 风格 + 长度 + 自定义人设的指纹；变化则缓存失效重生成
+  TextColumn get personaFingerprint => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {weekStart},
+      ];
+}
+
 // ───────────────────── 数据库 ─────────────────────
 
 /// 当前 schema 版本（唯一事实来源）。
@@ -216,7 +310,38 @@ class WorkoutTemplateExercises extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 20;
+const int kSchemaVersion = 21;
+
+/// v21 新增的 9 条索引（迁移侧定义）。
+///
+/// ⚠️ 索引必须**两处定义**，只写一处不会有任何测试变红，属于"上线三个月后
+/// 才会发现"的坑：
+///   ① 各表类上的 `@TableIndex(...)` → 只影响 `onCreate → createAll`，即**新装用户**；
+///   ② 本常量 → 只影响**老库升级**（`if (from < 21)` 块里逐条执行）。
+/// 两处的名字必须逐字一致，`IF NOT EXISTS` 才能自然去重。
+/// 改一处必须同时改另一处，反之亦然。
+const List<String> kV21Indexes = [
+  'CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts (date)',
+  'CREATE INDEX IF NOT EXISTS idx_body_metrics_date ON body_metrics (date)',
+  'CREATE INDEX IF NOT EXISTS idx_food_log_date ON food_log (date)',
+  'CREATE INDEX IF NOT EXISTS idx_water_log_date ON water_log (date)',
+  'CREATE INDEX IF NOT EXISTS idx_photos_date ON photos (date)',
+  'CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_created_at '
+      'ON ai_chat_messages (created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_workout_sets_workout_id '
+      'ON workout_sets (workout_id)',
+  'CREATE INDEX IF NOT EXISTS idx_plan_days_plan_id ON plan_days (plan_id)',
+  'CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_template_id '
+      'ON workout_template_exercises (template_id)',
+];
+
+/// 从 `CREATE INDEX IF NOT EXISTS idx_xxx ON ...` 里取出索引名，用于步骤级诊断。
+String _indexNameOf(String sql) {
+  final match =
+      RegExp(r'INDEX\s+IF\s+NOT\s+EXISTS\s+(\w+)', caseSensitive: false)
+          .firstMatch(sql);
+  return match?.group(1) ?? 'unknown';
+}
 
 /// 数据库迁移 SQL 常量（便于单测锁住行为）
 class AiStyleMigration {
@@ -245,14 +370,20 @@ class AiStyleMigration {
     WorkoutTemplates,
     WorkoutTemplateExercises,
     AiChatMessages,
+    DailyOverrides,
+    WeeklyReportCache,
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  /// 迁移失败标记的落盘目录（null = 应用文档目录）。
+  /// 单测注入临时目录，避免碰平台通道。
+  final Directory? markerBaseDir;
+
+  AppDatabase({this.markerBaseDir}) : super(_openConnection());
 
   /// 仅用于测试：注入自定义 [QueryExecutor]（例如 `NativeDatabase.memory()`），
   /// 避免单测触碰真实用户数据库文件。
-  AppDatabase.withExecutor(super.executor);
+  AppDatabase.withExecutor(super.executor, {this.markerBaseDir});
 
   @override
   // v20: AI 教练「联网搜索」开关（ai_web_search_enabled）
@@ -273,124 +404,170 @@ class AppDatabase extends _$AppDatabase {
         // （DDL 成功但 user_version 未推进），下次启动重跑也能收敛，不会因为
         // "table already exists" / "duplicate column name" 启动即死。
         // 注意：这不解决原子性 —— 失败仍可能留下半迁移数据，但重跑不再崩。
+        // ⚠️ 失败时写 marker（步骤级），重跑由幂等助手收敛。
+        //
+        // 事务策略（已定稿）：**v21 及之前全部不包事务**。v21 是纯 DDL，
+        // 失败现场只是"多两张空表 / 少几条索引"，用户数据一个字节都没动；
+        // 而裸 BEGIN 与 drift 执行器混用是新增风险。靠幂等收敛兜住更稳。
+        // 含数据变换（backfill / 删列 / 改类型）的迁移才必须整段包事务，
+        // 见 DEVELOPMENT_PLAYBOOK.md 第七章。
         onUpgrade: (m, from, to) async {
-          // Baseline migration (consolidates v2→v9 into single block)
-          if (from < 10) {
-            if (from < 2) await createTableIfNotExists(m, userSettings);
-            if (from < 3) {
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.birthDate);
-              await addColumnIfNotExists(m, userSettings, userSettings.gender);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.activityLevel);
+          // 当前执行到哪一步（步骤级，不是表级）：v21 有 9 条 CREATE INDEX，
+          // 只记表名等于没记 —— 用户截图回来我们定位不到是哪一条。
+          var step = 'start';
+          try {
+            // Baseline migration (consolidates v2→v9 into single block)
+            if (from < 10) {
+              if (from < 2) await createTableIfNotExists(m, userSettings);
+              if (from < 3) {
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.birthDate);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.gender);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.activityLevel);
+              }
+              if (from < 4) {
+                await createTableIfNotExists(m, foodLibrary);
+                await createTableIfNotExists(m, foodLog);
+                await _seedFoodLibrary(this);
+              }
+              if (from < 5) await createTableIfNotExists(m, waterLog);
+              if (from < 6) {
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.pinCode);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.lockEnabled);
+              }
+              if (from < 7) {
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.speechRate);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.speechPitch);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.ttsVoice);
+              }
+              if (from < 8) {
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.reminderEnabled);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.reminderHour);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.reminderMinute);
+              }
+              if (from < 9) {
+                await addColumnIfNotExists(m, exercises, exercises.defaultReps);
+                await addColumnIfNotExists(
+                    m, exercises, exercises.defaultWeightKg);
+                await addColumnIfNotExists(
+                    m, exercises, exercises.defaultDurationSec);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.themeMode);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.defaultTrainingSec);
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.defaultRestSec);
+              }
             }
-            if (from < 4) {
-              await createTableIfNotExists(m, foodLibrary);
-              await createTableIfNotExists(m, foodLog);
-              await _seedFoodLibrary(this);
+            // v11: neck_cm + goal_category + diet targets
+            if (from < 11) {
+              await addColumnIfNotExists(m, bodyMetrics, bodyMetrics.neckCm);
+              await addColumnIfNotExists(m, goals, goals.category);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.dailyCalorieTarget);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.proteinTargetG);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.carbsTargetG);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.fatTargetG);
             }
-            if (from < 5) await createTableIfNotExists(m, waterLog);
-            if (from < 6) {
-              await addColumnIfNotExists(m, userSettings, userSettings.pinCode);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.lockEnabled);
+            // v12: 训练模板
+            if (from < 12) {
+              await createTableIfNotExists(m, workoutTemplates);
+              await createTableIfNotExists(m, workoutTemplateExercises);
+              await _seedWorkoutTemplates(this);
             }
-            if (from < 7) {
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.speechRate);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.speechPitch);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.ttsVoice);
+            // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
+            if (from < 13) {
+              await customStatement(
+                'UPDATE exercises SET default_duration_sec = 30 '
+                "WHERE name = '平板支撑' AND default_duration_sec IS NULL",
+              );
             }
-            if (from < 8) {
+            // v14: 循环模式休息时长持久化（动作间 / 轮间）
+            if (from < 14) {
               await addColumnIfNotExists(
-                  m, userSettings, userSettings.reminderEnabled);
+                  m, userSettings, userSettings.restShortSec);
               await addColumnIfNotExists(
-                  m, userSettings, userSettings.reminderHour);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.reminderMinute);
+                  m, userSettings, userSettings.restLongSec);
             }
-            if (from < 9) {
-              await addColumnIfNotExists(m, exercises, exercises.defaultReps);
+            // v15: 自动备份开关
+            if (from < 15) {
               await addColumnIfNotExists(
-                  m, exercises, exercises.defaultWeightKg);
-              await addColumnIfNotExists(
-                  m, exercises, exercises.defaultDurationSec);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.themeMode);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.defaultTrainingSec);
-              await addColumnIfNotExists(
-                  m, userSettings, userSettings.defaultRestSec);
+                  m, userSettings, userSettings.autoBackupEnabled);
             }
-          }
-          // v11: neck_cm + goal_category + diet targets
-          if (from < 11) {
-            await addColumnIfNotExists(m, bodyMetrics, bodyMetrics.neckCm);
-            await addColumnIfNotExists(m, goals, goals.category);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.dailyCalorieTarget);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.proteinTargetG);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.carbsTargetG);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.fatTargetG);
-          }
-          // v12: 训练模板
-          if (from < 12) {
-            await createTableIfNotExists(m, workoutTemplates);
-            await createTableIfNotExists(m, workoutTemplateExercises);
-            await _seedWorkoutTemplates(this);
-          }
-          // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
-          if (from < 13) {
-            await customStatement(
-              'UPDATE exercises SET default_duration_sec = 30 '
-              "WHERE name = '平板支撑' AND default_duration_sec IS NULL",
-            );
-          }
-          // v14: 循环模式休息时长持久化（动作间 / 轮间）
-          if (from < 14) {
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.restShortSec);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.restLongSec);
-          }
-          // v15: 自动备份开关
-          if (from < 15) {
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.autoBackupEnabled);
-          }
-          // v16: AI 教练 —— 聊天记录表 + API Key 设置列
-          if (from < 16) {
-            await createTableIfNotExists(m, aiChatMessages);
-            await addColumnIfNotExists(m, userSettings, userSettings.aiApiKey);
-          }
-          // v17: AI 教练调教设定
-          if (from < 17) {
-            await addColumnIfNotExists(m, userSettings, userSettings.aiStyle);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.aiConstraints);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.aiReplyLength);
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.aiTemperature);
-          }
-          // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
-          if (from < 18) {
-            await customStatement(AiStyleMigration.sqlLegacyGugaToDoubao);
-          }
-          // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
-          if (from < 19) {
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.aiPersonaCustom);
-          }
-          // v20: AI 教练「联网搜索」开关（老用户默认开，保持原有行为）
-          if (from < 20) {
-            await addColumnIfNotExists(
-                m, userSettings, userSettings.aiWebSearchEnabled);
+            // v16: AI 教练 —— 聊天记录表 + API Key 设置列
+            if (from < 16) {
+              await createTableIfNotExists(m, aiChatMessages);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiApiKey);
+            }
+            // v17: AI 教练调教设定
+            if (from < 17) {
+              await addColumnIfNotExists(m, userSettings, userSettings.aiStyle);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiConstraints);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiReplyLength);
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiTemperature);
+            }
+            // v18: 老的默认风格 guga 一次性切到豆包感（用户仍可在设置里改回）
+            if (from < 18) {
+              await customStatement(AiStyleMigration.sqlLegacyGugaToDoubao);
+            }
+            // v19: 用户自定义人设文案（只替换提示词「角色」段，不覆盖安全规则）
+            if (from < 19) {
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiPersonaCustom);
+            }
+            // v20: AI 教练「联网搜索」开关（老用户默认开，保持原有行为）
+            if (from < 20) {
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiWebSearchEnabled);
+            }
+            // v21: 按日覆盖 + 周报缓存 + 生病撤销计数 + 9 条索引
+            if (from < 21) {
+              step = 'createTable:daily_overrides';
+              await createTableIfNotExists(m, dailyOverrides);
+              step = 'createTable:weekly_report_cache';
+              await createTableIfNotExists(m, weeklyReportCache);
+              step = 'addColumn:ai_health_override_count';
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.aiHealthOverrideCount);
+              for (final sql in kV21Indexes) {
+                step = 'index:${_indexNameOf(sql)}';
+                await customStatement(sql);
+              }
+            }
+
+            // 成功：清掉可能存在的旧失败标记（清不掉不影响正确性）
+            await MigrationFailureMarker.clear(baseDir: markerBaseDir);
+          } catch (e) {
+            // 迁移失败不是崩溃，是"可以重试的状态"：先留下可诊断的痕迹再上抛。
+            // 写 marker 自身失败绝不能盖掉原始异常。
+            try {
+              await MigrationFailureMarker.record(
+                fromVersion: from,
+                targetVersion: to,
+                failingStep: step,
+                baseDir: markerBaseDir,
+              );
+            } catch (_) {
+              // 忽略：原始异常更重要
+            }
+            rethrow;
           }
         },
       );

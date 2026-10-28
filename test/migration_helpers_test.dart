@@ -92,9 +92,10 @@ void main() {
           RegExp(r'addColumnIfNotExists\(\s*m,').allMatches(code).length;
       // v1(userSettings) + v4(foodLibrary, foodLog) + v5(waterLog)
       // + v12(workoutTemplates, workoutTemplateExercises) + v16(aiChatMessages)
-      expect(createCount, 7, reason: 'onUpgrade 中的建表点数为 7');
-      expect(addCount, greaterThanOrEqualTo(33),
-          reason: '所有 addColumn 调用点都应改走 addColumnIfNotExists（当前 33 处）');
+      // + v21(dailyOverrides, weeklyReportCache)
+      expect(createCount, 9, reason: 'onUpgrade 中的建表点数为 9');
+      expect(addCount, greaterThanOrEqualTo(34),
+          reason: '所有 addColumn 调用点都应改走 addColumnIfNotExists（当前 34 处）');
     });
 
     test('onUpgrade 各版本分支仍按 from 递增顺序存在（改造时不许漏分支）', () {
@@ -114,23 +115,24 @@ void main() {
         'from < 18',
         'from < 19',
         'from < 20',
+        'from < 21',
       ];
 
       var cursor = 0;
       for (final branch in expectedOrder) {
         final index = upgradeBody.indexOf('if ($branch)', cursor);
         expect(index, greaterThan(-1),
-            reason: '缺少或乱序：$branch（v10→v20 每个分支都必须保留且递增）');
+            reason: '缺少或乱序：$branch（v10→v21 每个分支都必须保留且递增）');
         cursor = index + branch.length;
       }
     });
 
     test(
-      'schemaVersion 单点定义且值为 20（改版本号时只需改这一处 + 本断言）',
+      'schemaVersion 单点定义且值为 21（改版本号时只需改这一处 + 本断言）',
       () {
         // 空白无关：dart format 可能把 `=>` 折行，不能依赖换行与缩进
         expect(
-          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*20\s*;').hasMatch(source),
+          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*21\s*;').hasMatch(source),
           isTrue,
           reason: '版本号唯一事实来源是 kSchemaVersion 常量',
         );

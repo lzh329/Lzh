@@ -20,7 +20,7 @@ void main() {
     try {
       // 首次访问触发 onCreate：建全表 + 灌种子
       await db.customSelect('SELECT 1').get();
-      expect(db.schemaVersion, 20);
+      expect(db.schemaVersion, kSchemaVersion);
 
       final templatesBefore = await db.select(db.workoutTemplates).get();
       final foodsBefore = await db.select(db.foodLibrary).get();
@@ -28,8 +28,8 @@ void main() {
       expect(foodsBefore, isNotEmpty);
 
       // 重跑所有历史迁移分支（模拟半迁移后的再次启动）
-      for (var from = 1; from < 20; from++) {
-        await db.migration.onUpgrade(Migrator(db), from, 20);
+      for (var from = 1; from < kSchemaVersion; from++) {
+        await db.migration.onUpgrade(Migrator(db), from, kSchemaVersion);
       }
 
       // 没有抛异常 → 可重入；再确认种子没有被重复灌入
@@ -122,7 +122,8 @@ void main() {
       // 1) 先造一个完整的 v20 库
       var db = AppDatabase.withExecutor(NativeDatabase(file));
       await db.customSelect('SELECT 1').get();
-      final templatesBefore = (await db.select(db.workoutTemplates).get()).length;
+      final templatesBefore =
+          (await db.select(db.workoutTemplates).get()).length;
       expect(templatesBefore, greaterThan(0));
 
       // 2) 人为制造「v12 迁移块跑到一半失败」的现场：
@@ -163,14 +164,13 @@ void main() {
       ));
       await db.customSelect('SELECT 1').get();
 
-      expect(await DatabaseFileHealth.readUserVersion(file), 20);
+      expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       expect(
         (await db.select(db.workoutTemplates).get()).length,
         templatesBefore,
         reason: '重跑后模板数量必须与原库一致（不重复、不丢失）',
       );
-      final exercises =
-          await db.select(db.workoutTemplateExercises).get();
+      final exercises = await db.select(db.workoutTemplateExercises).get();
       expect(exercises, isNotEmpty, reason: '模板动作明细也应补齐');
       await db.close();
     } finally {
