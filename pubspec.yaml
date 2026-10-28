@@ -32,7 +32,6 @@ dependencies:
   archive: ^3.6.1
   # manifest 里的 dbSha256（校验包内数据库是否损坏/被替换）
   crypto: ^3.0.3
-  # 应用内语音输入（聊天页麦克风），走系统识别服务，不上传音频到第三方
 
 dev_dependencies:
   flutter_test:
@@ -41,7 +40,6 @@ dev_dependencies:
   build_runner: ^2.4.12
   drift_dev: ^2.20.3
   flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.0
 
 # sqlite3 的原生资产钩子默认从 github.com 下载预编译库，
 # 本机网络无法访问该域名，故在 Windows（宿主测试）上改用系统自带的 winsqlite3.dll。
@@ -69,13 +67,3 @@ flutter_launcher_icons:
   android: true
   ios: false
 
-flutter_native_splash:
-  # 原 assets/kp.png 是满屏深色海报，浅色主题下会让启动首帧仍然发黑，
-  # 故改为纯品牌暖白底启动（如需恢复海报，取消下面 image 注释后重跑 create）。
-  # image: assets/kp.png
-  color: "F7F4F0"
-  android: true
-  ios: false
-  android_12:
-    # image: assets/kp.png
-    color: "F7F4F0"
