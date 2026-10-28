@@ -147,7 +147,13 @@ class RestoreService {
       await _integrityCheck(tmpDb);
 
       // c) 版本校验（双向）：比当前 App 新 → 拒绝；更旧 → 允许（下次启动走迁移）
+      // manifest.schemaVersion 是**源库自己的 user_version**（不是打包时的
+      // App 版本）。读不出（旧包 / 文件头坏的包）→ 无法判断版本：警告放行，
+      // 真的不兼容会在后面 integrity_check / 打开时暴露，再中止。
       final archiveSchema = _asInt(manifest?['schemaVersion']);
+      if (archiveSchema == null) {
+        warnings.add('无法判断这份备份的数据版本，将直接尝试恢复。');
+      }
       if (archiveSchema != null && archiveSchema > kSchemaVersion) {
         throw RestoreAborted(
           '这份备份来自更新版本的减肥嘎（数据版本 $archiveSchema，当前 App 支持 $kSchemaVersion），请先更新 App',

@@ -139,7 +139,8 @@ void main() {
           File(p.join(root.path, 'extracted.sqlite')).existsSync()
               ? isPositive
               : isPositive);
-      expect(manifest['schemaVersion'], kSchemaVersion);
+      expect(manifest['schemaVersion'], kSchemaVersion,
+          reason: '这个库是当前版本建的，所以真实 user_version 就是 kSchemaVersion');
     });
 
     test('包里的库是 VACUUM 过的完整库：能读回原数据', () async {
@@ -161,6 +162,28 @@ void main() {
       final metrics = await db.select(db.bodyMetrics).get();
       expect(metrics.single.weightKg, 68.5);
       await db.close();
+    });
+
+    test('manifest.schemaVersion 记的是**库的真实版本**，不是 App 版本', () async {
+      await seedDatabase(dbFile);
+      // 人为把库版本退到 20，模拟"旧版本 App 时代打的包"
+      final db = AppDatabase.withExecutor(NativeDatabase(dbFile));
+      await db.customStatement('PRAGMA user_version = 20');
+      await db.close();
+
+      final result = await BackupService.createArchive(
+        dbPath: dbFile.path,
+        photosDir: photos,
+        outputDir: out,
+      );
+
+      final archive = readArchive(File(result.path));
+      final manifest = jsonDecode(utf8.decode(
+        archive.files.firstWhere((f) => f.name == 'manifest.json').content
+            as List<int>,
+      )) as Map<String, dynamic>;
+      expect(manifest['schemaVersion'], 20,
+          reason: '若错记成当前 App 版本（21），恢复侧的"来自更新版本"门槛就失效了');
     });
 
     test('降级路径（allowOpenDatabase: false）：整组 raw copy，tableCounts 留空', () async {

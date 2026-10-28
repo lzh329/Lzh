@@ -9,7 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../database/database.dart' show AppDatabase, kSchemaVersion;
+import '../database/database.dart' show AppDatabase;
+import '../database/database_health.dart';
 
 /// 备份包产物信息（同时用于 manifest 与日志/提示）。
 class BackupArchive {
@@ -137,6 +138,13 @@ class BackupService {
 
     final header = await _readHeader(dbFile);
     final journalMode = journalModeFromHeader(header);
+    // 包的 schemaVersion 必须记**这份库自己的 user_version**，不是当前 App 版本。
+    // 否则降级包会被误标成最新版，恢复侧的版本门槛就失效了
+    // （该拒的拒不掉、该迁移的以为不用迁移）。
+    // 读不出（文件损坏）→ null，由恢复侧按"无法判断版本"警告放行。
+    final dbUserVersion = DatabaseFileHealth.parseUserVersion(
+      header ?? Uint8List(0),
+    );
 
     final staging = await Directory.systemTemp.createTemp('fittrack_archive');
     var dbSource = 'rawCopy';
@@ -200,7 +208,7 @@ class BackupService {
       final manifest = <String, dynamic>{
         'archiveVersion': archiveVersion,
         'createdAt': at.toIso8601String(),
-        'schemaVersion': kSchemaVersion,
+        'schemaVersion': dbUserVersion,
         'journalMode': journalMode,
         'dbSource': dbSource,
         'degraded': !snapshotted,
@@ -271,8 +279,12 @@ class BackupService {
 
   /// 用 `VACUUM INTO` 产出干净快照（不含 `-wal` / `-journal` 的中间态）。
   ///
-  /// 用 `enableMigrations: false` 打开：**绝不**在备份路径上触发迁移 ——
-  /// 备份是只读意图，顺手升级库会变成"点备份导致数据被改"。
+  /// ⚠️ 措辞要准：用 `enableMigrations: false` 打开**不是"只读打开"**，
+  /// 它是"**禁用迁移**"—— drift 2.35.2 的 `NativeDatabase` 没有 readOnly 参数，
+  /// 我们只能保证"备份路径不触发迁移"，不能保证"文件没被写过"。
+  /// 具体语义：绝不因此把用户的库升级掉（备份是只读意图，顺手升级会变成
+  /// "点备份导致数据被改"），但 `VACUUM INTO` 之后 SQLite 仍可能写回一些
+  /// 内部元数据。
   /// 打不开（损坏 / 权限）就返回 false，由调用方退到整组 raw copy。
   static Future<bool> _trySnapshot(File source, String targetPath) async {
     final target = File(targetPath);
