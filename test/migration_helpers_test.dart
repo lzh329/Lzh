@@ -56,18 +56,30 @@ void main() {
   group('源码守卫：迁移必须走幂等助手', () {
     late String source;
 
+    /// 去掉行注释后的源码。
+    ///
+    /// 守卫必须先剔注释再匹配：否则 `// 不要用 m.addColumn(` 这类注释会误报，
+    /// 而**误报的守卫会被下一个人直接删掉** —— 比没有守卫更糟。
+    String codeOnly(String src) => src.split('\n').map((String line) {
+          final idx = line.indexOf('//');
+          return idx == -1 ? line : line.substring(0, idx);
+        }).join('\n');
+
+    late String code;
+
     setUpAll(() {
       source = File('lib/core/database/database.dart').readAsStringSync();
+      code = codeOnly(source);
     });
 
     test('database.dart 里不再出现裸 m.createTable(', () {
-      expect(source.contains('m.createTable('), isFalse,
+      expect(code.contains('m.createTable('), isFalse,
           reason: '建表必须走 createTableIfNotExists，否则半迁移重跑会撞 '
               '"table already exists" 导致启动即死');
     });
 
     test('database.dart 里不再出现裸 m.addColumn(', () {
-      expect(source.contains('m.addColumn('), isFalse,
+      expect(code.contains('m.addColumn('), isFalse,
           reason: '加列必须走 addColumnIfNotExists，否则半迁移重跑会撞 '
               '"duplicate column name"');
     });
@@ -75,9 +87,9 @@ void main() {
     test('建表 / 加列全部经由助手函数', () {
       // 允许调用被 dart format 折行（`addColumnIfNotExists(\n  m, ...`）
       final createCount =
-          RegExp(r'createTableIfNotExists\(\s*m,').allMatches(source).length;
+          RegExp(r'createTableIfNotExists\(\s*m,').allMatches(code).length;
       final addCount =
-          RegExp(r'addColumnIfNotExists\(\s*m,').allMatches(source).length;
+          RegExp(r'addColumnIfNotExists\(\s*m,').allMatches(code).length;
       // v1(userSettings) + v4(foodLibrary, foodLog) + v5(waterLog)
       // + v12(workoutTemplates, workoutTemplateExercises) + v16(aiChatMessages)
       expect(createCount, 7, reason: 'onUpgrade 中的建表点数为 7');
@@ -86,9 +98,9 @@ void main() {
     });
 
     test('onUpgrade 各版本分支仍按 from 递增顺序存在（改造时不许漏分支）', () {
-      final upgradeStart = source.indexOf('onUpgrade:');
+      final upgradeStart = code.indexOf('onUpgrade:');
       expect(upgradeStart, greaterThan(-1), reason: '找不到 onUpgrade 定义');
-      final upgradeBody = source.substring(upgradeStart);
+      final upgradeBody = code.substring(upgradeStart);
 
       const expectedOrder = [
         'from < 10',
@@ -118,8 +130,7 @@ void main() {
       () {
         // 空白无关：dart format 可能把 `=>` 折行，不能依赖换行与缩进
         expect(
-          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*20\s*;')
-              .hasMatch(source),
+          RegExp(r'const\s+int\s+kSchemaVersion\s*=\s*20\s*;').hasMatch(source),
           isTrue,
           reason: '版本号唯一事实来源是 kSchemaVersion 常量',
         );
