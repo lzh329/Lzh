@@ -108,6 +108,15 @@ class BackupService {
     DateTime? now,
     Map<String, int>? tableCounts,
     bool allowOpenDatabase = true,
+
+    /// 自定义包文件名（默认 `fittrack_backup_<stamp>.zip`）。
+    ///
+    /// 恢复流程必须传独立前缀：否则「恢复前自动备份」与「用户选中的备份」
+    /// 在同一秒内会撞名，**把用户要恢复的那个包直接覆盖掉**。
+    String? fileName,
+
+    /// 不允许被覆盖的绝对路径（撞名时改写成 `<name>.new`）
+    String? protectPath,
   }) async {
     final at = now ?? DateTime.now();
     // 惰性解析文档目录：单测会显式传入全部路径，此时不该碰平台通道
@@ -215,7 +224,14 @@ class BackupService {
       // 后者把所有文件读进内存，几百张照片就是几百 MB 峰值，低端机直接 OOM ——
       // 而且这种崩溃只在用户攒了一年照片后才出现，测试环境永远看不到。
       await out.create(recursive: true);
-      final zipFile = File(p.join(out.path, archiveFileName(at)));
+      var zipFile = File(p.join(out.path, fileName ?? archiveFileName(at)));
+      // 绝不允许覆盖调用方指定的「不可覆盖文件」（例如恢复时用户选中的源包）：
+      // 同一秒内撞名会把用户要恢复的那个包直接写掉，属于数据损坏级事故。
+      if (protectPath != null &&
+          p.equals(zipFile.path, protectPath) &&
+          await zipFile.exists()) {
+        zipFile = File('${zipFile.path}.new');
+      }
       if (await zipFile.exists()) await zipFile.delete();
       final encoder = ZipFileEncoder();
       encoder.create(zipFile.path);
