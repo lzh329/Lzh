@@ -32,7 +32,9 @@ import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
+import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/core/services/reminder_scheduler.dart';
 
 // ── 数据库 ──
 /// 全 App 唯一的数据库实例。
@@ -108,6 +110,38 @@ final sickDayGateProvider = Provider<SickDayGate>((ref) {
   return SickDayGate(
     ref.watch(dailyOverrideRepoProvider),
     ref.watch(userSettingsRepoProvider),
+  );
+});
+
+/// 本地通知的排期落点：生产走 [NotificationService]，单测注入假实现。
+final reminderSinkProvider = Provider<ReminderSink>((ref) {
+  return NotificationServiceSink(NotificationService());
+});
+
+/// 提醒排期（内含生病闸门）。
+final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
+  return ReminderScheduler(
+    sink: ref.watch(reminderSinkProvider),
+    gate: ref.watch(sickDayGateProvider),
+  );
+});
+
+/// 今日热量目标 —— 全 App 唯一的「今日口径」（T03-B1 / B2 / B3）。
+///
+/// 顺序不能反：先取全局目标（null = 用户没设目标），再用闸门放宽。
+/// 全局为 null 时返回 **null**，绝不用 0 兜 —— 0 是"真的设成了 0 千卡"，
+/// 会被读成"App 把我的目标算成 0"，比显示「未设置」伤信任得多。
+///
+/// 所有页面只准读这一个 provider，不许各自再拼一遍
+/// `userSettings.dailyCalorieTarget ?? 0`。参照仓库既有先例：DailyNutrition
+/// 是「全 App 唯一的当日营养口径」，这里同理。
+final todayCalorieTargetProvider = FutureProvider<int?>((ref) async {
+  final base = (await ref.watch(userSettingsProvider.future))?.dailyCalorieTarget;
+  if (base == null) return null;
+  final override = await ref.watch(sickDayOverrideProvider.future);
+  return SickDayGate.relaxCalorieTarget(
+    base,
+    override?.calorieTargetOverride,
   );
 });
 

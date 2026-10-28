@@ -7,11 +7,10 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/migration/presentation/pages/database_sealed_page.dart';
 import 'core/providers.dart';
-import 'features/plan/domain/entities/plan_day_entity.dart';
 import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/database/db_replaced_marker.dart';
 import 'core/services/database_resolver.dart';
-import 'core/services/notification_service.dart';
+import 'core/services/reminder_scheduler.dart';
 import 'core/services/auto_backup_service.dart';
 
 class FitTrackApp extends ConsumerStatefulWidget {
@@ -25,6 +24,9 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
     with WidgetsBindingObserver {
   /// 封存页详情（null = 未封存）
   String? _sealedDetail;
+
+  /// 上次重排提醒时的自然日（T03-D5 跨天恢复用）
+  DateTime? _scheduledDay;
 
   @override
   void initState() {
@@ -49,7 +51,10 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 恢复流程可能把库换掉，而用户没有杀进程就回到前台：
     // 这里消解一次（与 bootstrap 共用同一套单飞逻辑，连发两次只重建一次）。
-    if (state == AppLifecycleState.resumed) _resolveIfReplaced();
+    if (state == AppLifecycleState.resumed) {
+      _resolveIfReplaced();
+      _rescheduleIfDayChanged();
+    }
   }
 
   Future<void> _resolveIfReplaced() async {
@@ -116,49 +121,38 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
     }
   }
 
+  /// 启动时排一次提醒。
+  ///
+  /// 今天生病（`reminderPaused`）时今天那条不排，其余星期几照排 —— 判定在
+  /// [ReminderScheduler] 里，这里只负责把活跃计划喂进去。
   Future<void> _scheduleOnStart() async {
-    final planRepo = ref.read(planRepoProvider);
-    final plans = await planRepo.getAll();
-    final activePlans = plans.where((p) => p.isActive).toList();
-    final ns = NotificationService();
-    final hour = ref.read(reminderHourProvider);
-    final minute = ref.read(reminderMinuteProvider);
+    final plans = await ref.read(planRepoProvider).getAll();
 
-    await ns.cancelAll();
-    int id = 0;
-
-    if (activePlans.isEmpty) {
-      // 无活跃计划时排一个每日提醒
-      for (int d = 0; d < 7; d++) {
-        ns.scheduleWorkoutReminder(
-          id: id++,
-          planName: '每日训练',
-          dayLabel: '',
-          hour: hour,
-          minute: minute,
-          dayOfWeek: d,
+    await ref.read(reminderSchedulerProvider).reschedule(
+          enabled: true,
+          hour: ref.read(reminderHourProvider),
+          minute: ref.read(reminderMinuteProvider),
+          workoutSlots: buildWorkoutSlots(plans),
+          weighInIds: kWeighInReminderIds,
         );
-      }
-    } else {
-      for (final plan in activePlans) {
-        for (final day in plan.days) {
-          ns.scheduleWorkoutReminder(
-            id: id++,
-            planName: plan.name,
-            dayLabel: PlanDayEntity.dayLabels[day.dayOfWeek],
-            hour: hour,
-            minute: minute,
-            dayOfWeek: day.dayOfWeek,
-          );
-        }
-      }
-    }
+    _scheduledDay = _dayOf(DateTime.now());
+  }
 
-    // 每日称重提醒（id 从 100 开始，避免与训练提醒冲突）
-    for (int d = 0; d < 7; d++) {
-      ns.scheduleDailyWeighInReminder(id: 100 + d, hour: hour, minute: minute);
+  /// 跨天自动恢复（T03-D5）：自然日一变就重排，昨天被跳过的那条自己回来。
+  ///
+  /// 没有后台定时器，靠的是用户回到 App 的这一刻补排一次 —— 这也正是
+  /// 「仅今天有效，明天自动恢复」这句文案的实现方式。
+  Future<void> _rescheduleIfDayChanged() async {
+    if (!ref.read(reminderEnabledProvider)) return;
+    if (_scheduledDay == _dayOf(DateTime.now())) return;
+    try {
+      await _scheduleOnStart();
+    } catch (_) {
+      // 重排失败不影响使用，下次 resume 会再试
     }
   }
+
+  static DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   @override
   Widget build(BuildContext context) {

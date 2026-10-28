@@ -7,8 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/database_recovery_service.dart';
-import 'package:fittrack/core/services/notification_service.dart';
-import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
+import 'package:fittrack/core/services/reminder_scheduler.dart';
 
 /// 设置页的操作逻辑集合（从原 settings_page.dart 抽出，保持行为不变）
 
@@ -78,46 +77,17 @@ Future<void> scheduleReminders(WidgetRef ref) async {
   final minute = ref.read(reminderMinuteProvider);
   final planRepo = ref.read(planRepoProvider);
   final plans = await planRepo.getAll();
-  final activePlans = plans.where((p) => p.isActive).toList();
-  final ns = NotificationService();
 
-  await ns.cancelAll();
-  int id = 0;
-
-  if (activePlans.isEmpty) {
-    for (int d = 0; d < 7; d++) {
-      await ns.scheduleWorkoutReminder(
-        id: id++,
-        planName: '每日训练',
-        dayLabel: '',
+  // 走统一排期口：今天生病（reminderPaused）时今天那条不排，其余照排。
+  // 以前这里直接调 NotificationService，和 app.dart 的启动排期是两份代码 ——
+  // 生病闸门加进来后两边都得分叉改，漏一处就是"改了设置没生效"。
+  await ref.read(reminderSchedulerProvider).reschedule(
+        enabled: true,
         hour: hour,
         minute: minute,
-        dayOfWeek: d,
+        workoutSlots: buildWorkoutSlots(plans),
+        weighInIds: kWeighInReminderIds,
       );
-    }
-  } else {
-    for (final plan in activePlans) {
-      for (final day in plan.days) {
-        await ns.scheduleWorkoutReminder(
-          id: id++,
-          planName: plan.name,
-          dayLabel: PlanDayEntity.dayLabels[day.dayOfWeek],
-          hour: hour,
-          minute: minute,
-          dayOfWeek: day.dayOfWeek,
-        );
-      }
-    }
-  }
-
-  // 每日称重提醒（id 从 100 开始，避免与训练提醒冲突）
-  for (int d = 0; d < 7; d++) {
-    await ns.scheduleDailyWeighInReminder(
-      id: 100 + d,
-      hour: hour,
-      minute: minute,
-    );
-  }
 }
 
 Future<void> pickReminderTime(BuildContext context, WidgetRef ref) async {

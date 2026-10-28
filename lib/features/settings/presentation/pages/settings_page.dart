@@ -5,6 +5,7 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/settings/presentation/settings_actions.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_header_card.dart';
+import 'package:fittrack/features/settings/presentation/widgets/sick_day_toggle_tile.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
@@ -113,6 +114,9 @@ class SettingsPage extends ConsumerWidget {
                     ? () => pickReminderTime(context, ref)
                     : null,
               ),
+              // 「今天不舒服」手动开关 —— 不依赖任何 AI 配置，没配 Key 也能用。
+              // 放在提醒下面：它写的第一件事就是"今天提醒暂停"。
+              const SickDayToggleTile(),
               SettingsTile(
                 icon: Icons.record_voice_over,
                 color: _orange,

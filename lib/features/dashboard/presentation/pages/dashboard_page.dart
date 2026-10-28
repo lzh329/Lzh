@@ -9,6 +9,7 @@ import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/greeting_header.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/guga_puppet.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/photo_compare_card.dart';
+import 'package:fittrack/features/dashboard/presentation/widgets/sick_day_banner.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 
@@ -91,6 +92,9 @@ class _DashboardBody extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
+          // 0) 生病模式横幅（不生效时自己渲染成 0 高度占位，不留空档）
+          const SickDayBanner(),
+          const SizedBox(height: 10),
           // 1) 问候 + 连续打卡 + 咕嘎小头像
           GreetingHeader(
             streakDays: streak,

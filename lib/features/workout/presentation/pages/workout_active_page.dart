@@ -103,12 +103,10 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
       final dayOfWeek = _extra is int ? _extra : DateTime.now().weekday % 7;
       init = notifier.initPlan(planId, dayOfWeek);
     } else if (widget.initialSlots != null) {
-      notifier.initFree(widget.initialSlots!);
-      init = Future.value();
+      init = notifier.initFree(widget.initialSlots!);
     } else if (_extra is List<ExerciseSlot>) {
       // 兼容通过 extra 直接传参的旧调用路径
-      notifier.initFree(_extra);
-      init = Future.value();
+      init = notifier.initFree(_extra);
     } else {
       init = Future.value();
     }

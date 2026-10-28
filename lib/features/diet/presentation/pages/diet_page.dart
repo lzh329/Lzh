@@ -88,10 +88,8 @@ class _DietPageState extends ConsumerState<DietPage> {
               // 热量总卡
               _CalorieSummaryCard(
                 nutrition: data.nutrition,
-                targetCal: ref
-                    .watch(userSettingsProvider)
-                    .valueOrNull
-                    ?.dailyCalorieTarget,
+                // 今日口径：唯一来源，不许在这里再拼 `?? 0`
+                targetCal: ref.watch(todayCalorieTargetProvider).valueOrNull,
               ),
               const SizedBox(height: 12),
 

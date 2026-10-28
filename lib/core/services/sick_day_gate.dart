@@ -29,15 +29,23 @@ class SickDayGate {
 
   /// 生效 / 更新当天覆盖：**只改传入的字段**，没传的保持原值（不用 0 / false 兜底）。
   ///
-  /// `source` 只允许 `'user'`（用户手动）/ `'ai_health'`（AI 判断），其他值抛
-  /// [ArgumentError] —— 校验由数据层完成，不通过就不落库。
+  /// `source` 只允许 `'user'`（用户手动）/ `'ai_health'`（AI 判断）；
+  /// `setsScale` 必须落在 `(0.0, 1.0]`；`calorieTargetOverride` 必须 `> 0` 且
+  /// 不得加严（见 [_validateCalorieOverride]）。
+  ///
+  /// **区间校验放在写侧，不靠调用方自觉**：写进去的这个值就是"今天生病的强度"，
+  /// 一旦越界的数字落了库，读取侧（组数 / 热量 / 提醒三处）就得各自再判一次，
+  /// 早晚会漏一处；一律抛 [ArgumentError] 且**不落库**。
   Future<void> apply({
     required DateTime date,
     int? calorieTargetOverride,
     double? setsScale,
     bool? reminderPaused,
     required String source,
-  }) {
+  }) async {
+    _validateSetsScale(setsScale);
+    await _validateCalorieOverride(calorieTargetOverride);
+
     return _overrides.upsert(
       date: date,
       calorieTargetOverride: calorieTargetOverride,
@@ -45,6 +53,53 @@ class SickDayGate {
       reminderPaused: reminderPaused,
       source: source,
     );
+  }
+
+  /// `setsScale` 合法区间 `(0.0, 1.0]`。
+  ///
+  /// - `0` 组 = 把今天的计划抹掉，跟「藏起来」是同一个坑，还会引出空列表 /
+  ///   除零的边界；
+  /// - `> 1` 是加量 —— 生病的语义里没有这一项；
+  /// - `NaN` 一并挡掉（`!(NaN > 0.0)` 成立）。
+  ///
+  /// 不静默夹紧：夹紧会让写入方以为自己写成功了，而实际生效的是另一个值。
+  static void _validateSetsScale(double? setsScale) {
+    if (setsScale == null) return;
+    if (!(setsScale > 0.0 && setsScale <= 1.0)) {
+      throw ArgumentError.value(
+        setsScale,
+        'setsScale',
+        '合法区间 (0.0, 1.0]：0 组等于把计划抹掉，> 1 是加量，都不是生病语义',
+      );
+    }
+  }
+
+  /// 热量目标**只放宽、不加严**（写侧拦截，与读侧 [relaxCalorieTarget] 同源）。
+  ///
+  /// 生病当天放宽目标是为了避免「今天超标 / 不达标」的假警报逼用户焦虑；
+  /// 反向（比全局目标还小）就成了「App 劝你生病时少吃」—— 对一个减脂 App
+  /// 那是饮食风险，不是保护。
+  ///
+  /// 全局目标为 null（用户没设目标）→ 没有可比对象，放过即可：那时 UI 本来就
+  /// 显示「未设置」，也不存在假警报可言。
+  Future<void> _validateCalorieOverride(int? override) async {
+    if (override == null) return;
+    if (override <= 0) {
+      throw ArgumentError.value(
+        override,
+        'calorieTargetOverride',
+        '必须 > 0：0 千卡的目标是饥饿目标，不是生病目标',
+      );
+    }
+    final base = (await _settings.get())?.dailyCalorieTarget;
+    if (base == null) return;
+    if (override < base) {
+      throw ArgumentError.value(
+        override,
+        'calorieTargetOverride',
+        '生病当天只放宽不加严：$override 小于全局目标 $base',
+      );
+    }
   }
 
   /// 撤销当天覆盖：删掉那一行，组数 / 热量目标 / 提醒**立刻**恢复到原值。

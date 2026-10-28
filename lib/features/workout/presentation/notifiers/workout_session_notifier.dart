@@ -5,6 +5,7 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/countdown_controller.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
 import 'package:fittrack/core/services/notification_service.dart';
+import 'package:fittrack/core/services/sick_day_gate.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
@@ -194,14 +195,15 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // ── 初始化 ──
 
   /// 从自由训练初始化（page 已将 SelectedExercise 转为 ExerciseSlot）
-  void initFree(List<ExerciseSlot> slots) {
+  Future<void> initFree(List<ExerciseSlot> slots) async {
     _paused = false;
     _pausedRestSec = 0;
     _pausedTrainingSec = 0;
     _applyVoiceSettings();
     _loadTimerDefaults();
+    final scaled = await _sickDayScaled(slots);
     state = WorkoutSessionState(
-      slots: slots,
+      slots: scaled,
       sessionType: 'free',
       startTime: DateTime.now(),
       restDurationSec: _defaultRestSec(),
@@ -209,7 +211,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       restShortSec: _defaultRestShortSec(),
       restLongSec: _defaultRestLongSec(),
       totalRounds:
-          slots.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b),
+          scaled.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b),
     );
   }
 
@@ -245,8 +247,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       );
     }).toList();
 
+    final scaled = await _sickDayScaled(slots);
     state = WorkoutSessionState(
-      slots: slots,
+      slots: scaled,
       sessionType: 'plan',
       planId: planId,
       startTime: DateTime.now(),
@@ -255,8 +258,42 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       restShortSec: _defaultRestShortSec(),
       restLongSec: _defaultRestLongSec(),
       totalRounds:
-          slots.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b),
+          scaled.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b),
     );
+  }
+
+  /// 今日组数 = `scaleSets(原组数, 当天覆盖.setsScale)`；无覆盖 → 原样返回。
+  ///
+  /// 两点不能改：
+  /// 1. 只缩**执行值**，动作名 / 顺序 / 卡片照常显示 —— 缩组数不等于藏计划。
+  ///    把训练计划藏起来比不拦更糟：用户会以为数据丢了。
+  /// 2. 下限 1 组由 [SickDayGate.scaleSets] 保证，不在外面自己算一遍。
+  ///
+  /// 闸门读不到（库还没开 / 迁移中）→ 今天按原计划练：宁可不缩，也不能因为
+  /// 一次读库失败把会话卡住或把组数算成 0。
+  Future<List<ExerciseSlot>> _sickDayScaled(List<ExerciseSlot> src) async {
+    double? setsScale;
+    try {
+      final o =
+          await _ref.read(sickDayGateProvider).overrideFor(DateTime.now());
+      setsScale = o?.setsScale;
+    } catch (_) {
+      return src;
+    }
+    if (setsScale == null) return src;
+
+    return src
+        .map((s) => ExerciseSlot(
+              exerciseId: s.exerciseId,
+              exerciseName: s.exerciseName,
+              category: s.category,
+              targetSets: SickDayGate.scaleSets(s.targetSets, setsScale),
+              targetReps: s.targetReps,
+              targetWeightKg: s.targetWeightKg,
+              targetDurationSec: s.targetDurationSec,
+              restSec: s.restSec,
+            ))
+        .toList();
   }
 
   void _applyVoiceSettings() {
