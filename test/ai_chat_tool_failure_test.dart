@@ -183,6 +183,79 @@ void main() {
     expect(state().messages.last.role, 'assistant');
   });
 
+  group('操作留痕（#2 对话可见的实际执行状态）', () {
+    /// 让模型先发起一次 log_water，进入"待确认"
+    Future<void> stagePendingWater() async {
+      rounds.add(const AiChatRoundResult(toolCalls: [
+        AiToolCall(id: 'w1', name: 'log_water', argumentsJson: '{"cups":3}'),
+      ]));
+      rounds.add(const AiChatRoundResult(content: '已记好。'));
+      await untilReady();
+      await notifier().send('我喝了 3 杯水');
+    }
+
+    test('执行成功 → 对话里出现 ✅ 留痕，且落库', () async {
+      await stagePendingWater();
+      expect(state().pendingTool, isNotNull);
+
+      await notifier().confirmTool();
+
+      final trace = state().messages
+          .where((m) => '${m.content}'.startsWith('✅ 已执行：'))
+          .toList();
+      expect(trace, hasLength(1), reason: '实际执行状态必须与对话展示状态一致');
+      expect(trace.single.content, contains('记录饮水'));
+      expect(trace.single.content, contains('今天共 3 杯'));
+
+      // 落库：留痕是 assistant 消息，重开历史也要看得到
+      final history = await container.read(aiChatRepoProvider).getHistory();
+      expect(
+        history.any((m) => '${m.content}'.startsWith('✅ 已执行：记录饮水')),
+        isTrue,
+      );
+    });
+
+    test('用户取消 → 对话里出现 🚫 留痕，且没有写入数据', () async {
+      await stagePendingWater();
+      await notifier().cancelTool();
+
+      expect(
+        state().messages.any((m) => '${m.content}'.startsWith('🚫 已取消：记录饮水')),
+        isTrue,
+      );
+      // 取消不该写库
+      final rows = await db.select(db.waterLog).get();
+      expect(rows, isEmpty);
+    });
+
+    test('执行失败 → 对话里出现 ❌ 留痕（含原因）', () async {
+      // 用"preview 能过、execute 才失败"的场景：确认的间隙动作被别处先建了
+      rounds.add(const AiChatRoundResult(toolCalls: [
+        AiToolCall(
+            id: 'w2',
+            name: 'create_exercise',
+            argumentsJson: '{"name":"竞争动作","category":"bodyweight"}'),
+      ]));
+      rounds.add(const AiChatRoundResult(content: '好的。'));
+      await untilReady();
+      await notifier().send('帮我加个动作：竞争动作');
+      expect(state().pendingTool, isNotNull, reason: 'preview 能过才会弹确认卡');
+
+      await container
+          .read(exerciseRepoProvider)
+          .create('竞争动作', 'bodyweight', null);
+      await notifier().confirmTool();
+
+      final trace = state().messages
+          .where((m) => '${m.content}'.startsWith('❌ '))
+          .toList();
+      expect(trace, hasLength(1), reason: '失败也要在对话里留痕，不能只有回执');
+      expect('${trace.single.content}', contains('新增动作'));
+      expect('${trace.single.content}', contains('动作库里已有'));
+    });
+
+  });
+
   test('提示词教会模型：没回执 = 没做成；建模板别拿 start_workout 去找', () {
     final prompt = AiPromptBuilder.build(trends: const TrendsData());
     expect(prompt, contains('没看到 ok:true'));

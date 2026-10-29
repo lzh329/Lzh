@@ -65,6 +65,28 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 失败后重试上一条（用户消息已在历史里，不重复写入）
   Future<void> retryLast() => _session.retryLast();
 
+  /// 追加一条**可见的操作留痕**（assistant 消息 + 落库）
+  ///
+  /// 背景（需求 #2「操作确认留痕」）：此前工具执行成功后，结果只进工具上下文
+  /// `_tool`，要等下一轮模型说话才可能被提及 —— 对话流里看不到任何痕迹，
+  /// 用户只能靠猜。「实际执行状态」与「对话展示状态」必须一致，所以每一步
+  /// 都在这里留一条肉眼可见的记录。
+  ///
+  /// 落库失败不阻断流程：留痕是锦上添花，真正的事实记录在工具上下文里。
+  Future<void> _appendActionTrace(String text) async {
+    state = state.copyWith(
+      messages: [
+        ...state.messages,
+        AiMessage(role: 'assistant', content: text),
+      ],
+    );
+    try {
+      await _ref.read(aiChatRepoProvider).add('assistant', text);
+    } catch (e) {
+      debugPrint('操作留痕落库失败: $e');
+    }
+  }
+
   /// 确认执行待确认的写操作
   Future<void> confirmTool() async {
     final preview = state.pendingTool;
@@ -80,11 +102,14 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       }
       _tool.append(preview.call, result);
       applyAiToolSideEffects(_ref, preview.call);
+      // 成功留痕：用 preview 的现成文案，不为每个工具重写
+      await _appendActionTrace('✅ 已执行：${preview.label}：${preview.detail}');
       await _request();
     } on AiToolException catch (e) {
       // 失败也要回执进上下文并继续一轮：模型知道"没做成、为什么"才会向用户
       // 解释或换方式重试。只弹 toast 的话模型不知情，下一轮会幻觉"已建好"。
       _tool.append(preview.call, AiToolContext.failureReceipt(e.message));
+      await _appendActionTrace('❌ ${preview.label}失败：${e.message}');
       await _request();
     } catch (e) {
       debugPrint('工具执行异常: $e');
@@ -98,6 +123,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     if (preview == null) return;
     state = state.copyWith(clearPendingTool: true, isStreaming: true);
     _tool.append(preview.call, '{"ok":false,"cancelled":"用户取消了这次操作"}');
+    await _appendActionTrace('🚫 已取消：${preview.label}：${preview.detail}');
     await _request();
   }
 
@@ -105,6 +131,11 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   void _handOffWorkoutStart(String result) {
     final intent = AiWorkoutIntent.parse(result);
     final failed = intent == null;
+    // start_workout 不走 _request()（跳训练页，模型再说话是干扰），
+    // 所以它的留痕要在这里单独补上，否则跳页后对话里没有任何记录。
+    if (!failed) {
+      _appendActionTrace('✅ 已执行：开始训练：${intent.templateName}');
+    }
     state = state.copyWith(
       isStreaming: false,
       clearStreaming: true,
@@ -235,6 +266,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   void consumeError() => _session.consumeError();
 }
 
-final aiChatProvider = StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
+final aiChatProvider =
+    StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
   return AiChatNotifier(ref);
 });
