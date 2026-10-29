@@ -12,14 +12,15 @@ const _blue = AppColors.info;
 const _purple = AppColors.analysis;
 
 /// 目标管理页 —— v2 视觉统一
-class GoalListPage extends ConsumerStatefulWidget {
-  const GoalListPage({super.key});
+class ProfileGoalsSection extends ConsumerStatefulWidget {
+  const ProfileGoalsSection({super.key});
 
   @override
-  ConsumerState<GoalListPage> createState() => _GoalListPageState();
+  ConsumerState<ProfileGoalsSection> createState() =>
+      _ProfileGoalsSectionState();
 }
 
-class _GoalListPageState extends ConsumerState<GoalListPage> {
+class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
   Color _colorFor(String type) => switch (type) {
         'weight' => _amber,
         'frequency' => _blue,
@@ -36,53 +37,62 @@ class _GoalListPageState extends ConsumerState<GoalListPage> {
   Widget build(BuildContext context) {
     final repo = ref.watch(goalRepoProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('目标管理')),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: _green,
-        foregroundColor: AppColors.onPrimary,
-        onPressed: () => _showCreateDialog(context, repo),
-        child: const Icon(Icons.add),
-      ),
-      body: ref.watch(goalListProvider).when(
-            loading: () => const ShimmerList(),
-            error: (_, __) => Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('加载失败'),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => ref.invalidate(goalListProvider),
-                    child: const Text('重试'),
+    // 纯搬运：新页只有一个 FAB 槽位，所以把「新建目标」FAB 用 Stack 叠在
+    // 本区块右下角 —— 不发明新的交互形态，入口位置与原来一致（右下角）。
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ref.watch(goalListProvider).when(
+                loading: () => const ShimmerList(),
+                error: (_, __) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('加载失败'),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => ref.invalidate(goalListProvider),
+                        child: const Text('重试'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            data: (goals) {
-              if (goals.isEmpty) {
-                return _EmptyState(
-                    onCreate: () => _showCreateDialog(context, repo));
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
-                itemCount: goals.length,
-                itemBuilder: (context, index) {
-                  final goal = goals[index];
-                  return _GoalCard(
-                    goal: goal,
-                    color: _colorFor(goal.type),
-                    icon: _iconFor(goal.type),
-                    onComplete: () async {
-                      await repo.complete(goal.id);
-                      if (mounted) setState(() {});
+                ),
+                data: (goals) {
+                  if (goals.isEmpty) {
+                    return _EmptyState(
+                        onCreate: () => _showCreateDialog(context, repo));
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
+                    itemCount: goals.length,
+                    itemBuilder: (context, index) {
+                      final goal = goals[index];
+                      return _GoalCard(
+                        goal: goal,
+                        color: _colorFor(goal.type),
+                        icon: _iconFor(goal.type),
+                        onComplete: () async {
+                          await repo.complete(goal.id);
+                          if (mounted) setState(() {});
+                        },
+                        onDelete: () => _confirmDelete(context, repo, goal),
+                      );
                     },
-                    onDelete: () => _confirmDelete(context, repo, goal),
                   );
                 },
-              );
-            },
+              ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            backgroundColor: _green,
+            foregroundColor: AppColors.onPrimary,
+            onPressed: () => _showCreateDialog(context, repo),
+            child: const Icon(Icons.add),
           ),
+        ),
+      ],
     );
   }
 

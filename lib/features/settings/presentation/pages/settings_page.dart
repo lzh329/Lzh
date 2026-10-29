@@ -17,7 +17,6 @@ class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   static const _green = AppColors.primary;
-  static const _amber = AppColors.warning;
   static const _blue = AppColors.info;
   static const _purple = AppColors.analysis;
   static const _orange = AppColors.warning;
@@ -45,7 +44,7 @@ class SettingsPage extends ConsumerWidget {
           ProfileHeaderCard(
             settings: settings,
             currentWeightKg: latestWeight,
-            onTap: () => context.push('/settings/body-info'),
+            onTap: () => context.push('/settings/profile'),
           ),
           const SizedBox(height: 18),
 
@@ -53,19 +52,14 @@ class SettingsPage extends ConsumerWidget {
           SettingsSection(
             title: '我的档案',
             children: [
+              // 原来的「目标管理」「身体信息」两个入口已合并成一页：
+              // 它们在用户心里是同一件事，分两个入口只会来回找
               SettingsTile(
-                icon: Icons.flag,
-                color: _amber,
-                title: '目标管理',
-                subtitle: '设置体重 / 训练频率目标',
-                onTap: () => context.push('/goals'),
-              ),
-              SettingsTile(
-                icon: Icons.straighten,
+                icon: Icons.badge_outlined,
                 color: _green,
-                title: '身体信息',
+                title: '个人档案',
                 subtitle: _bodyInfoSubtitle(ref),
-                onTap: () => context.push('/settings/body-info'),
+                onTap: () => context.push('/settings/profile'),
               ),
               SettingsTile(
                 icon: Icons.fitness_center,

@@ -10,13 +10,12 @@ import 'package:fittrack/features/body_log/presentation/pages/body_album_page.da
 import 'package:fittrack/features/body_log/presentation/pages/body_compare_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/settings_page.dart';
 import 'package:fittrack/features/exercise/presentation/pages/exercise_manage_page.dart';
-import 'package:fittrack/features/goal/presentation/pages/goal_list_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_stats_page.dart';
 import 'package:fittrack/features/plan/presentation/pages/plan_list_page.dart';
 import 'package:fittrack/features/plan/presentation/pages/plan_create_page.dart';
 import 'package:fittrack/features/plan/presentation/pages/plan_detail_page.dart';
 
-import 'package:fittrack/features/settings/presentation/pages/body_info_page.dart';
+import 'package:fittrack/features/settings/presentation/pages/profile_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/data_management_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/voice_settings_page.dart';
 import 'package:fittrack/features/ai/presentation/pages/ai_chat_page.dart';
@@ -161,10 +160,21 @@ final appRouter = GoRouter(
           _subPageTransition(const ExerciseManagePage(), state),
     ),
     GoRoute(
-      path: '/settings/body-info',
+      path: '/settings/profile',
       pageBuilder: (context, state) =>
-          _subPageTransition(const BodyInfoPage(), state),
+          _subPageTransition(const ProfilePage(), state),
     ),
+    // 老入口保留并重定向：别处（AI 建议文案、旧通知等）可能还在跳这两个路径，
+    // 直接删会断链，用户点进去是白屏
+    GoRoute(
+      path: '/settings/body-info',
+      redirect: (_, __) => '/settings/profile',
+    ),
+    GoRoute(
+      path: '/goals',
+      redirect: (_, __) => '/settings/profile',
+    ),
+
     GoRoute(
       path: '/settings/voice',
       pageBuilder: (context, state) =>
@@ -209,11 +219,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) =>
           _subPageTransition(const PlanListPage(), state),
     ),
-    GoRoute(
-      path: '/goals',
-      pageBuilder: (context, state) =>
-          _subPageTransition(const GoalListPage(), state),
-    ),
+
     GoRoute(
       path: '/analysis/weekly',
       pageBuilder: (context, state) =>
