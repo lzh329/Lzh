@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
 import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart';
+import 'package:fittrack/features/workout/presentation/widgets/exercise_item_editor.dart';
+import 'package:fittrack/features/workout/presentation/widgets/exercise_picker_sheet.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_items_list.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_meta_chips.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 
@@ -23,7 +27,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   String _difficulty = '入门';
   String _focus = '全身';
   int _minutes = 15;
-  final List<_EditItem> _items = [];
+  final List<EditItem> _items = [];
   bool _loading = false;
   bool _saving = false;
 
@@ -53,7 +57,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
         _minutes = t.minutes;
         _items
           ..clear()
-          ..addAll(t.items.map((i) => _EditItem(
+          ..addAll(t.items.map((i) => EditItem(
                 exerciseId: i.exerciseId,
                 name: i.exerciseName,
                 category: i.category,
@@ -144,7 +148,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   }
 
   Future<void> _addExercise() async {
-    final exercises = await ref.read(exerciseRepoProvider).getAll();
+    // 列表与搜索都在 sheet 内部完成（输入即查 ExerciseRepository.search）
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
@@ -152,14 +156,13 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _ExercisePickerSheet(
-        exercises: exercises,
+      builder: (ctx) => ExercisePickerSheet(
         onPick: (ex) {
           final isTimed = ex.category == 'stretch' ||
               ex.category == 'cardio' ||
               ex.defaultDurationSec != null;
           setState(() {
-            _items.add(_EditItem(
+            _items.add(EditItem(
               exerciseId: ex.id,
               name: ex.name,
               category: ex.category,
@@ -175,66 +178,9 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   }
 
   Future<void> _editItem(int index) async {
-    final item = _items[index];
-    final setsCtrl = TextEditingController(text: '${item.sets}');
-    final isTimed = item.reps == null;
-    final repsCtrl = TextEditingController(text: item.reps?.toString() ?? '');
-    final durCtrl =
-        TextEditingController(text: item.durationSec?.toString() ?? '');
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(item.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: setsCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '组数',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: isTimed ? durCtrl : repsCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: isTimed ? '每组时长（秒）' : '每组次数',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () {
-              final sets = int.tryParse(setsCtrl.text) ?? item.sets;
-              setState(() {
-                _items[index] = _EditItem(
-                  exerciseId: item.exerciseId,
-                  name: item.name,
-                  category: item.category,
-                  sets: sets.clamp(1, 20),
-                  reps: isTimed
-                      ? null
-                      : (int.tryParse(repsCtrl.text) ?? item.reps),
-                  durationSec: isTimed
-                      ? (int.tryParse(durCtrl.text) ?? item.durationSec)
-                      : null,
-                );
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
+    final updated = await showExerciseItemEditor(context, item: _items[index]);
+    if (updated == null || !mounted) return;
+    setState(() => _items[index] = updated);
   }
 
   void _snack(String msg) {
@@ -243,7 +189,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
 
     if (_loading) {
       return const Scaffold(
@@ -281,35 +226,18 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
             ),
           ),
           const SizedBox(height: 4),
-          _label(theme, '难度'),
-          Wrap(
-            spacing: 8,
-            children: _difficulties
-                .map((d) => ChoiceChip(
-                      label: Text(d, style: const TextStyle(fontSize: 12)),
-                      selected: _difficulty == d,
-                      onSelected: (_) => setState(() => _difficulty = d),
-                      visualDensity: VisualDensity.compact,
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 14),
-          _label(theme, '部位'),
-          Wrap(
-            spacing: 8,
-            children: _focuses
-                .map((f) => ChoiceChip(
-                      label: Text(f, style: const TextStyle(fontSize: 12)),
-                      selected: _focus == f,
-                      onSelected: (_) => setState(() => _focus = f),
-                      visualDensity: VisualDensity.compact,
-                    ))
-                .toList(),
+          TemplateMetaChips(
+            difficulties: _difficulties,
+            difficulty: _difficulty,
+            onDifficulty: (v) => setState(() => _difficulty = v),
+            focuses: _focuses,
+            focus: _focus,
+            onFocus: (v) => setState(() => _focus = v),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              _label(theme, '预计时长'),
+              const TemplateSectionLabel('预计时长'),
               const Spacer(),
               Text('$_minutes 分钟',
                   style: const TextStyle(
@@ -336,66 +264,12 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Text('动作（${_items.length}）', style: theme.textTheme.titleSmall),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _addExercise,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('添加动作'),
-                style:
-                    TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              ),
-            ],
+          TemplateItemsList(
+            items: _items,
+            onAdd: _addExercise,
+            onEdit: _editItem,
+            onRemove: (i) => setState(() => _items.removeAt(i)),
           ),
-          if (_items.isEmpty)
-            Card(
-              margin: const EdgeInsets.only(top: 4),
-              child: Padding(
-                padding: const EdgeInsets.all(22),
-                child: Center(
-                  child: Text(
-                    '还没有动作，点击「添加动作」从动作库选择',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: AppColors.textTertiary),
-                  ),
-                ),
-              ),
-            )
-          else
-            ..._items.asMap().entries.map((e) {
-              final item = e.value;
-              final detail = item.reps != null
-                  ? '${item.sets} 组 × ${item.reps} 次'
-                  : '${item.sets} 组 × ${item.durationSec ?? 0} 秒';
-              return Card(
-                margin: const EdgeInsets.only(top: 8),
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  title: Text(item.name, style: theme.textTheme.bodyMedium),
-                  subtitle: Text(detail,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: AppColors.textTertiary)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.tune, size: 18),
-                        tooltip: '调整组数/次数',
-                        onPressed: () => _editItem(e.key),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        tooltip: '移除',
-                        onPressed: () => setState(() => _items.removeAt(e.key)),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
           const SizedBox(height: 20),
           SizedBox(
             height: 48,
@@ -408,86 +282,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
               child: Text(_saving ? '保存中...' : '保存模板',
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(ThemeData theme, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text,
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: AppColors.textTertiary)),
-    );
-  }
-}
-
-class _EditItem {
-  final int exerciseId;
-  final String name;
-  final String category;
-  final int sets;
-  final int? reps;
-  final int? durationSec;
-
-  const _EditItem({
-    required this.exerciseId,
-    required this.name,
-    required this.category,
-    required this.sets,
-    this.reps,
-    this.durationSec,
-  });
-}
-
-class _ExercisePickerSheet extends StatelessWidget {
-  final List<ExerciseEntity> exercises;
-  final ValueChanged<ExerciseEntity> onPick;
-
-  const _ExercisePickerSheet({
-    required this.exercises,
-    required this.onPick,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.65,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Text('选择动作', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.builder(
-              itemCount: exercises.length,
-              itemBuilder: (_, i) {
-                final ex = exercises[i];
-                return ListTile(
-                  dense: true,
-                  title: Text(ex.name, style: theme.textTheme.bodyMedium),
-                  subtitle: Text(ex.muscleGroup ?? '',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: AppColors.textTertiary)),
-                  trailing: const Icon(Icons.add_circle_outline, size: 20),
-                  onTap: () => onPick(ex),
-                );
-              },
             ),
           ),
         ],
