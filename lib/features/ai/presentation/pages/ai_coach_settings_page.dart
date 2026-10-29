@@ -61,7 +61,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
       // 没存过 / 存了未知 key 都回落到默认风格（豆包感）
       _style = AiCoachOptions.styleOf(s?.aiStyle).key;
       _length = s?.aiReplyLength ?? AiCoachOptions.lengthOf(null).key;
-      _temp = (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
+      _temp =
+          (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
       _constraints = AiCoachOptions.decodeConstraints(s?.aiConstraints);
       _webSearch = s?.aiWebSearchEnabled ?? true;
       _loaded = true;
@@ -87,7 +88,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
   }
 
   void _removeConstraint(String text) {
-    setState(() => _constraints = _constraints.where((e) => e != text).toList());
+    setState(
+        () => _constraints = _constraints.where((e) => e != text).toList());
     _save();
   }
 
@@ -116,6 +118,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
+                _ModelConfigCard(webSearch: _webSearch),
+                const SizedBox(height: 20),
                 const AiCoachSectionTitle('教练风格'),
                 const SizedBox(height: 8),
                 for (final s in AiCoachOptions.styles)
@@ -128,7 +132,6 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                     },
                   ),
                 const SizedBox(height: 20),
-
                 const AiCoachSectionTitle('回复长度'),
                 const SizedBox(height: 8),
                 SegmentedButton<String>(
@@ -143,15 +146,12 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   },
                 ),
                 const SizedBox(height: 20),
-
                 const AiCoachSectionTitle('自由度'),
                 const SizedBox(height: 2),
                 Text(
                   _temp <= 0.5
                       ? '偏稳定：严格守规矩，措辞更保守'
-                      : (_temp >= 0.85
-                          ? '偏灵活：更有梗、更即兴，话也会多一点'
-                          : '均衡：规矩和发挥各占一半'),
+                      : (_temp >= 0.85 ? '偏灵活：更有梗、更即兴，话也会多一点' : '均衡：规矩和发挥各占一半'),
                   style: const TextStyle(
                       fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -180,14 +180,12 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 const AiCoachSectionTitle('联网搜索'),
                 AiWebSearchTile(
                   value: _webSearch,
                   onChanged: _toggleWebSearch,
                 ),
                 const SizedBox(height: 16),
-
                 const AiCoachSectionTitle('自定义约束'),
                 const SizedBox(height: 6),
                 const Text(
@@ -254,8 +252,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 ),
                 const SizedBox(height: 14),
                 const Text('常用约束（点一下直接加）',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textTertiary)),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -299,6 +297,57 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// 「当前模型配置」只读信息卡（需求 #8）
+///
+/// 三行全部是**事实陈述**，没有任何可点的东西：
+/// ① 模型名来自 [AiService.modelName]（编译期注入，如实展示）；
+/// ② 深度思考是**刻意关闭**的 —— 工具调用模式下开着会稳定 400
+///   （见 AiService.disabledThinking 的注释），这里必须写"暂不支持"，
+///    绝对不能提供开关，也不能展示成"可以打开"；
+/// ③ 联网搜索是设置页里真实存在的开关，这里只是镜像呈现当前状态。
+class _ModelConfigCard extends StatelessWidget {
+  const _ModelConfigCard({required this.webSearch});
+
+  final bool webSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Row row(String label, String value) => Row(
+          children: [
+            SizedBox(
+              width: 76,
+              child: Text(label,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textTertiary)),
+            ),
+            Expanded(
+              child: Text(value, style: theme.textTheme.bodySmall),
+            ),
+          ],
+        );
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('当前模型配置', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 10),
+            row('模型', AiService.modelName),
+            const SizedBox(height: 4),
+            row('深度思考', '关闭（工具调用模式下暂不支持）'),
+            const SizedBox(height: 4),
+            row('联网搜索', webSearch ? '开启' : '关闭'),
+          ],
+        ),
+      ),
     );
   }
 }

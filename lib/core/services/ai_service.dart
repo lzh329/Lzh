@@ -100,6 +100,11 @@ class AiService {
       defaultValue: 'https://api.deepseek.com');
   static const _model =
       String.fromEnvironment('DEEPSEEK_MODEL', defaultValue: 'deepseek-flash');
+
+  /// 当前生效的模型名（设置页「模型配置」信息卡展示用）。
+  ///
+  /// 如实展示编译期注入值；不存在"Pro 档位"这种东西，UI 不要发明。
+  static String get modelName => _model;
   static const _envKey = String.fromEnvironment('DEEPSEEK_API_KEY');
 
   /// 默认温度：偏高一点让语气更活（用户可在「教练设定」里调，范围 0.3~1.0）
@@ -250,9 +255,7 @@ class AiService {
         }
       }
       final text = buffer.toString();
-      final calls = toolAcc.entries
-          .where((e) => e.value.name != null)
-          .toList()
+      final calls = toolAcc.entries.where((e) => e.value.name != null).toList()
         ..sort((a, b) => a.key.compareTo(b.key));
       final toolCalls = [
         for (final e in calls)
@@ -424,7 +427,8 @@ class AiServiceException implements Exception {
 
   /// 是否为网络类错误（可重试）
   final bool isNetworkError;
-  const AiServiceException(this.message, {this.body, this.isNetworkError = false});
+  const AiServiceException(this.message,
+      {this.body, this.isNetworkError = false});
 
   @override
   String toString() => message;
