@@ -208,8 +208,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
   Future<void> saveNickname(String? nickname) async {
     final existing = await get();
     if (existing == null) return;
-    await (_db.update(_db.userSettings)
-          ..where((t) => t.id.equals(existing.id)))
+    await (_db.update(_db.userSettings)..where((t) => t.id.equals(existing.id)))
         .write(UserSettingsCompanion(nickname: Value(nickname)));
   }
 
@@ -217,9 +216,18 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
   Future<void> saveAvatarPath(String? avatarPath) async {
     final existing = await get();
     if (existing == null) return;
-    await (_db.update(_db.userSettings)
-          ..where((t) => t.id.equals(existing.id)))
+    await (_db.update(_db.userSettings)..where((t) => t.id.equals(existing.id)))
         .write(UserSettingsCompanion(avatarPath: Value(avatarPath)));
+  }
+
+  @override
+  Future<void> clearLock() async {
+    final existing = await get();
+    if (existing == null) return; // 没有设置行 = 本来就没锁，不必建行
+    await _db.customStatement(
+      'UPDATE user_settings SET lock_enabled = 0, pin_code = NULL WHERE id = ?',
+      <Object?>[existing.id],
+    );
   }
 
   @override

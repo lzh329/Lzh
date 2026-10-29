@@ -55,6 +55,29 @@ void main() {
       expect(unlocked, isTrue);
     });
 
+    testWidgets('忘记 PIN：二次确认后清锁（而不是把人永久锁在门外）', (tester) async {
+      var unlocked = false;
+      var forgotCalled = false;
+      await tester.pumpWidget(MaterialApp(
+        home: LockScreen(
+          correctPin: '1234',
+          onUnlocked: () => unlocked = true,
+          onForgotPin: () async => forgotCalled = true,
+        ),
+      ));
+
+      await tester.tap(find.text('忘记 PIN 码？'));
+      await tester.pumpAndSettle();
+      // 确认框必须说清"数据不会丢"，这是用户此刻最怕的事
+      expect(find.textContaining('数据不会被删除'), findsOneWidget);
+
+      await tester.tap(find.text('清除锁屏'));
+      await tester.pumpAndSettle();
+
+      expect(forgotCalled, isTrue);
+      expect(unlocked, isFalse, reason: '清锁走的是独立回调，不该冒充"输对了"');
+    });
+
     testWidgets('输错 PIN → 显示错误且不解锁', (tester) async {
       var unlocked = false;
       await pump(tester, pin: '1234', onUnlocked: () => unlocked = true);

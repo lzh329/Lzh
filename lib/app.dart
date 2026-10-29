@@ -162,22 +162,27 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
       // 封存态：不可返回的全屏页，只给"退出"一条出路
       return DatabaseSealedPage(detail: _sealedDetail);
     }
-    return _LockGate(
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark,
-        child: MaterialApp.router(
-          title: '减肥嘎',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          themeMode: ThemeMode.light,
-          supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          routerConfig: appRouter,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: MaterialApp.router(
+        title: '减肥嘎',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        themeMode: ThemeMode.light,
+        supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        // 锁屏必须挂在 MaterialApp **内部**（builder 里）。
+        // 挂在外面时它拿不到 Directionality / MediaQuery / Material 本地化，
+        // Scaffold 根本画不出来，但那一层 Positioned.fill 照样吞掉全部点击——
+        // 用户看到的就是「主页好好的，点什么都没反应」（2026-10-29 真实事故）。
+        builder: (context, child) => _LockGate(
+          child: child ?? const SizedBox.shrink(),
         ),
+        routerConfig: appRouter,
       ),
     );
   }
@@ -243,6 +248,23 @@ class _LockGateState extends ConsumerState<_LockGate>
     }
   }
 
+  /// 「忘记 PIN」的唯一出路：清掉锁（**只动锁，不动任何业务数据**）。
+  ///
+  /// 单人自用、本地无云，忘了 PIN 就等于永久失去 App —— 比防盗更值得防。
+  Future<void> _forgotPin() async {
+    try {
+      await ref.read(userSettingsRepoProvider).clearLock();
+      ref.invalidate(userSettingsProvider);
+    } catch (e) {
+      debugPrint('清除隐私锁失败: $e');
+    }
+    if (!mounted) return;
+    setState(() {
+      _correctPin = null;
+      _locked = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final pin = _correctPin;
@@ -256,6 +278,7 @@ class _LockGateState extends ConsumerState<_LockGate>
             child: LockScreen(
               correctPin: pin,
               onUnlocked: () => setState(() => _locked = false),
+              onForgotPin: _forgotPin,
             ),
           ),
       ],

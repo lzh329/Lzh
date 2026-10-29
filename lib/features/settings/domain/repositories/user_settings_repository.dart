@@ -35,6 +35,12 @@ abstract class UserSettingsRepository {
     double? fatTargetG,
   });
 
+  /// 关闭隐私锁并清空 PIN（"忘记 PIN" 的唯一出路）。
+  ///
+  /// 必须走显式 SQL：`save(pinCode: null)` 的语义是「不改」，用它清不掉 PIN。
+  /// 这一步只动锁，不动任何业务数据 —— 用户被锁在门外时，数据完好比什么都重要。
+  Future<void> clearLock();
+
   /// 误报计数 +1（原子自增，不做 read-modify-write —— 连续撤销会丢计数）。
   ///
   /// 对应 `user_settings.ai_health_override_count`；没有设置行时先建行再自增。

@@ -31,10 +31,14 @@ class LockScreen extends StatefulWidget {
   /// 校验通过
   final VoidCallback onUnlocked;
 
+  /// 忘记 PIN 时的唯一出路：清掉锁（调用方负责只清锁、不动业务数据）
+  final Future<void> Function()? onForgotPin;
+
   const LockScreen({
     super.key,
     required this.correctPin,
     required this.onUnlocked,
+    this.onForgotPin,
   });
 
   @override
@@ -73,6 +77,27 @@ class _LockScreenState extends State<LockScreen> {
       _input = '';
       _error = _failCount >= 3 ? 'PIN 码错误（已错 $_failCount 次）' : 'PIN 码错误';
     });
+  }
+
+  /// 忘记 PIN：二次确认后清锁（文案必须说清"数据不会丢"）
+  Future<void> _confirmForgotPin() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('忘记 PIN 码？'),
+        content: const Text('将关闭隐私锁并清除 PIN 码。\n\n'
+            '你的体重、饮食、训练、照片等数据不会被删除。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清除锁屏', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await widget.onForgotPin?.call();
   }
 
   @override
@@ -130,6 +155,13 @@ class _LockScreenState extends State<LockScreen> {
                 onPressed: () => SystemNavigator.pop(),
                 child: const Text('退出应用'),
               ),
+              // 单人自用、本地无云：忘了 PIN 就等于永久失去 App，
+              // 所以必须给一条"只清锁、不动数据"的出路。
+              if (widget.onForgotPin != null)
+                TextButton(
+                  onPressed: _confirmForgotPin,
+                  child: const Text('忘记 PIN 码？'),
+                ),
               const SizedBox(height: 8),
             ],
           ),

@@ -2507,6 +2507,10 @@ class _FakeSettingsRepo implements UserSettingsRepository {
   @override
   Future<void> resetAiHealthOverrideCount() async =>
       _previewMustNotWrite('settings.resetAiHealthOverrideCount');
+
+  @override
+  Future<void> clearLock() async =>
+      _previewMustNotWrite('settings.clearLock');
 }
 
 /// 假动作库：只读方法返回固定数据，写方法一律抛错（预览阶段绝不能写库）
