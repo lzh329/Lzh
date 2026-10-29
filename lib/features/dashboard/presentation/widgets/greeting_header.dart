@@ -74,16 +74,18 @@ class GreetingHeader extends StatelessWidget {
                     : greetingOf(now),
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                // 带上咕嘎形态名（如"你好呀，小嘎 · 新手"）可能超一行，
+                // 放宽到 2 行：截断成"你好呀，小…"比换行更伤
+                maxLines: 2,
               ),
               const SizedBox(height: 3),
               Text(
                 upgradeHint != null ? '$dateLabel · $upgradeHint' : dateLabel,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textTertiary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                // 带上咕嘎形态名（如"你好呀，小嘎 · 新手"）可能超一行，
+                // 放宽到 2 行：截断成"你好呀，小…"比换行更伤
+                maxLines: 2,
               ),
             ],
           ),

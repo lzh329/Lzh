@@ -11,7 +11,6 @@ import 'package:fittrack/features/dashboard/presentation/widgets/guga_puppet.dar
 import 'package:fittrack/features/dashboard/presentation/widgets/photo_compare_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/sick_day_banner.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
-import 'package:fittrack/features/dashboard/presentation/widgets/weigh_in_fab.dart';
 
 /// 主控页 —— v6「任务 + 对比」极简版
 ///
@@ -43,7 +42,6 @@ class DashboardPage extends ConsumerWidget {
         ),
         data: (data) => _DashboardBody(data: data),
       ),
-      floatingActionButton: const WeighInFab(),
     );
   }
 }
@@ -106,7 +104,34 @@ class _DashboardBody extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
 
-          // 2) 今日任务（打卡方块，紧跟问候区）
+          // 2) 咕嘎站立区（独立卡片 + 呼吸空间，首屏主角；点头像找 AI 教练）
+          //
+          // 需求 #11：咕嘎放大 30%（150 → 195），并给它独立的呼吸空间；
+          // 「今日打卡」下移到首屏之下，首屏让给问候语 + 咕嘎。
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: GugaPuppet(
+                  headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
+                  bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
+                  height: 195,
+                  lines: const [
+                    '点我聊聊，我在听',
+                    '今天吃啥好？问我',
+                    '训练有疑问？戳我',
+                  ],
+                  lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
+                  isChatEntry: true,
+                  onTap: () => context.push('/ai/coach'),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 3) 今日任务（打卡方块，下移到首屏之下）
           TodayTasksCard(
             todayWeightJin: data.todayMetric != null
                 ? data.todayMetric!.weightKg * 2
@@ -125,20 +150,6 @@ class _DashboardBody extends ConsumerWidget {
               }
             },
             onPhoto: () => _capturePhoto(context, ref),
-          ),
-          const SizedBox(height: 8),
-
-          // 3) 咕嘎站立区（点头像找 AI 教练）
-          Center(
-            child: GugaPuppet(
-              headAsset: guga.stage.asset.replaceFirst('.png', '_head.png'),
-              bodyAsset: guga.stage.asset.replaceFirst('.png', '_body.png'),
-              height: 150,
-              lines: const ['点我聊聊，我在听', '今天吃啥好？问我', '训练有疑问？戳我'],
-              lineIndex: doneCount == 0 ? 0 : (doneCount == 3 ? 2 : 1),
-              isChatEntry: true,
-              onTap: () => context.push('/ai/coach'),
-            ),
           ),
           const SizedBox(height: 14),
 
