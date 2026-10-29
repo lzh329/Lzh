@@ -45,11 +45,9 @@ class ProfilePage extends ConsumerWidget {
               // ③ 目标管理（纯搬运 goal_list_page，新建入口仍是右下角 FAB）
               Text('目标管理', style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
-              const SizedBox(
-                // 目标区块自己带滚动与 FAB，给一个固定高度让它有边界
-                height: 420,
-                child: ProfileGoalsSection(),
-              ),
+              // 目标区改用「标题 + 右侧新建」后不再需要固定高度：
+              // 列表本身跟随内容撑开（新建入口在标题行，不在右下角）
+              const ProfileGoalsSection(),
             ],
           ),
         ),

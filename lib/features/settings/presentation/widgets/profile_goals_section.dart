@@ -36,12 +36,34 @@ class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(goalRepoProvider);
+    final theme = Theme.of(context);
 
-    // 纯搬运：新页只有一个 FAB 槽位，所以把「新建目标」FAB 用 Stack 叠在
-    // 本区块右下角 —— 不发明新的交互形态，入口位置与原来一致（右下角）。
-    return Stack(
+    // 新建入口从原页面的右下角 FAB 改成区块标题右侧的「＋ 新建」：
+    // 新页不挂全局 FAB（那是整页级动作，不该只服务目标），
+    // 标题 + 右侧操作按钮的结构与训练页「我的模板」区保持一致。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Positioned.fill(
+        Row(
+          children: [
+            Text('新建一个',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textTertiary)),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _showCreateDialog(context, repo),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('新建'),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                foregroundColor: AppColors.primaryText,
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        Expanded(
           child: ref.watch(goalListProvider).when(
                 loading: () => const ShimmerList(),
                 error: (_, __) => Center(
@@ -81,16 +103,6 @@ class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
                   );
                 },
               ),
-        ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(
-            backgroundColor: _green,
-            foregroundColor: AppColors.onPrimary,
-            onPressed: () => _showCreateDialog(context, repo),
-            child: const Icon(Icons.add),
-          ),
         ),
       ],
     );

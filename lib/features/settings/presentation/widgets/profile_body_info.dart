@@ -297,7 +297,10 @@ class _ProfileBodyInfoState extends ConsumerState<ProfileBodyInfo> {
               foregroundColor: AppColors.onPrimary,
             ),
             onPressed: _save,
-            child: const Text('保存',
+            // 块内保存：只提交"身体信息"这一块。
+            // 目标那块的完成/删除是即时生效的，整页一个"保存"会让用户
+            // 困惑"我改了目标为什么还要点保存"。
+            child: const Text('保存身体信息',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ),
