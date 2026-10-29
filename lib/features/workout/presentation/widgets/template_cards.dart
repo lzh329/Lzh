@@ -30,17 +30,18 @@ class TemplateSectionHeader extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (trailingAction != null)
-          trailingAction!
-        else if (trailing != null)
+        // 数量与动作按钮**可以同时出现**：原来二选一，导致"模板 ≤2 个"时
+        // 只剩「新建」、展开/收起按钮整个消失（用户报的第 1 条）
+        if (trailing != null)
           Padding(
-            padding: const EdgeInsets.only(right: 2),
+            padding: EdgeInsets.only(right: trailingAction == null ? 2 : 6),
             child: Text(
               trailing!,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
             ),
           ),
+        if (trailingAction != null) trailingAction!,
       ],
     );
   }

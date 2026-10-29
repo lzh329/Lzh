@@ -324,44 +324,17 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 84,
-              height: 84,
-              decoration: BoxDecoration(
-                color: _green.withAlpha(26),
-                borderRadius: BorderRadius.circular(26),
-              ),
-              child: const Icon(Icons.flag, size: 38, color: _green),
-            ),
-            const SizedBox(height: 18),
-            Text('还没有目标', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              '设定目标，让每一次努力都有方向',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.textTertiary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 22),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: _green,
-                foregroundColor: AppColors.onPrimary,
-              ),
-              onPressed: onCreate,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('创建目标',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
+    // 空态只留一行轻文案：新建入口在区块标题行右侧（「＋ 新建」），
+    // 这里再放一个大按钮是重复入口，而且空态本身不该抢走半屏注意力。
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 8),
+      child: Text(
+        '还没有目标，点右上角「＋ 新建」添加',
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: AppColors.textTertiary),
+        textAlign: TextAlign.center,
       ),
     );
   }

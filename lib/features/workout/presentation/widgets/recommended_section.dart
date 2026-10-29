@@ -22,7 +22,8 @@ class RecommendedSection extends StatefulWidget {
 }
 
 class RecommendedSectionState extends State<RecommendedSection> {
-  bool _expanded = false;
+  // 默认展开：收起态现在什么都不渲染，默认收起会让首屏一片空
+  bool _expanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +35,7 @@ class RecommendedSectionState extends State<RecommendedSection> {
         TemplateSectionHeader(
           title: '推荐模板',
           trailing: '${list.length} 个',
-          trailingAction: list.length > 3
+          trailingAction: list.isNotEmpty
               ? TextButton(
                   onPressed: () {
                     setState(() => _expanded = !_expanded);
@@ -61,7 +62,9 @@ class RecommendedSectionState extends State<RecommendedSection> {
         else
           // 收起态也要渲染：原来这里什么都不画，用户看到"推荐模板 12 个"
           // 下面却是空的（需求 #1 顺手修的现存 bug）。与我的模板区对齐，显示前 2 个。
-          ...(_expanded ? list : list.take(2).toList()).map(
+          // 收起 = 全部收掉（用户语义预期）；标题行的「N 个」+「展开」还在，
+          // 用户不会以为没内容
+          ...(_expanded ? list : const []).map(
             (t) => TemplateCard(
               template: t,
               starting: widget.starting,

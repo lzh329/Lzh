@@ -53,25 +53,15 @@ class TemplateFilterBar extends StatelessWidget {
           TemplateFilterRow(
             label: '难度',
             children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: DifficultyChip(
-                  label: kAllFilter,
-                  selected: difficulties == kAllFilter,
-                  onTap: () => onDifficulty?.call(kAllFilter),
-                ),
+              // 难度组用**分段控件**，不是又一排 chip：
+              // 两组都做成一排圆角 chip 时，深色底上只看得出实心/描边，
+              // 用户根本分不清这是两个不同维度。一个整体边框 + 内部分隔线
+              // 一眼就能看出"这是另一类选择"。
+              DifficultySegmented(
+                value: difficulties,
+                counts: difficultyCounts ?? const {},
+                onSelect: (v) => onDifficulty?.call(v),
               ),
-              for (final d in kDifficultyOrder)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: DifficultyChip(
-                    label: d,
-                    selected: difficulties == d,
-                    // 当前场景下该档没有模板 → 置灰不可点（避免点了没结果）
-                    enabled: (difficultyCounts?[d] ?? 0) > 0,
-                    onTap: () => onDifficulty?.call(d),
-                  ),
-                ),
             ],
           ),
         ],
@@ -121,8 +111,10 @@ class TemplateFilterRow extends StatelessWidget {
     return Row(
       children: [
         Text(label,
-            style:
-                const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary)),
         const SizedBox(width: 8),
         Expanded(
           child: SingleChildScrollView(
@@ -221,6 +213,80 @@ class FocusChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 难度分段控件：全部 / 入门 / 中阶 / 高阶
+///
+/// 与场景组的胶囊 chip 在**形态上**区分（不是靠颜色深浅）：
+/// 一个整体圆角边框，内部按段平分，选中段填充主色、段间细分割线。
+/// 空档（当前场景下 0 个模板）整段置灰不可点。
+class DifficultySegmented extends StatelessWidget {
+  final String value;
+  final Map<String, int> counts;
+  final ValueChanged<String> onSelect;
+
+  const DifficultySegmented({
+    super.key,
+    required this.value,
+    required this.counts,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = <String>[kAllFilter, ...kDifficultyOrder];
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < options.length; i++)
+              _segment(
+                options[i],
+                showDivider: i > 0,
+                enabled:
+                    options[i] == kAllFilter || (counts[options[i]] ?? 0) > 0,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _segment(String label,
+      {required bool showDivider, required bool enabled}) {
+    final selected = value == label;
+    final color = !enabled
+        ? AppColors.textTertiary.withAlpha(110)
+        : (selected ? AppColors.onPrimary : AppColors.textSecondary);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showDivider)
+          Container(width: 1, height: 22, color: AppColors.border),
+        GestureDetector(
+          onTap: enabled ? () => onSelect(label) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            color: selected ? AppColors.primary : Colors.transparent,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

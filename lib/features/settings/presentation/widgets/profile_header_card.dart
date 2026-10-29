@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -18,6 +20,23 @@ class ProfileHeaderCard extends StatelessWidget {
   });
 
   static const _green = AppColors.primary;
+
+  /// 默认称呼（用户没设昵称时用）
+  static const defaultDisplayName = '减肥嘎用户';
+
+  /// 展示名：昵称 trim 后非空 → 昵称；否则默认名。**不会渲染 null/空**
+  String get displayName {
+    final n = settings?.nickname?.trim();
+    return (n == null || n.isEmpty || n == 'null') ? defaultDisplayName : n;
+  }
+
+  /// 头像文件：路径存在且文件可读 → File；否则 null（走占位）
+  File? get avatarFile {
+    final path = settings?.avatarPath;
+    if (path == null || path.isEmpty) return null;
+    final f = File(path);
+    return f.existsSync() ? f : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,9 +92,19 @@ class ProfileHeaderCard extends StatelessWidget {
                             color: _green.withAlpha(90),
                             width: 1,
                           ),
+                          image: avatarFile == null
+                              ? null
+                              : DecorationImage(
+                                  image: FileImage(avatarFile!),
+                                  fit: BoxFit.cover,
+                                  // 文件在但已损坏 → 保持占位底色，不红屏
+                                  onError: (_, __) {},
+                                ),
                         ),
-                        child: const Icon(Icons.person_outline,
-                            color: _green, size: 24),
+                        child: avatarFile == null
+                            ? const Icon(Icons.person_outline,
+                                color: _green, size: 24)
+                            : null,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -83,9 +112,13 @@ class ProfileHeaderCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '减肥嘎用户',
+                              // 昵称（trim 后非空）→ 否则默认名。
+                              // 原来这里硬编码 '减肥嘎用户'，用户设了昵称也不显示。
+                              displayName,
                               style: theme.textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(

@@ -12,7 +12,8 @@ class MyTemplatesSection extends StatefulWidget {
   final VoidCallback onCreate;
   final ValueChanged<WorkoutTemplateEntity> onEdit;
 
-  const MyTemplatesSection({super.key,
+  const MyTemplatesSection({
+    super.key,
     required this.templates,
     required this.starting,
     required this.onStart,
@@ -31,7 +32,9 @@ class MyTemplatesSectionState extends State<MyTemplatesSection> {
   @override
   Widget build(BuildContext context) {
     final list = widget.templates;
-    final visible = _expanded ? list : list.take(2).toList();
+    // 收起 = **全部收掉**（用户语义预期）。原来收起显示前 2 个，
+    // 用户看到"收起后还剩两张"，以为没收干净。
+    final visible = _expanded ? list : const [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +42,8 @@ class MyTemplatesSectionState extends State<MyTemplatesSection> {
         TemplateSectionHeader(
           title: '我的模板',
           trailing: list.isEmpty ? null : '${list.length} 个',
-          trailingAction: list.length > 2
+          // 只要列表非空就给展开/收起 —— 原来 >2 才有，模板少时按钮直接消失
+          trailingAction: list.isNotEmpty
               ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
