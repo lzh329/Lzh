@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_body_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
@@ -29,6 +30,7 @@ class AiToolExecutor {
     AiToolLibraryWriters(_repos),
     AiToolWorkoutLauncher(_repos),
     AiToolWipeWriter(_repos),
+    AiToolBodyWriters(_repos),
   ];
 
   AiToolExecutor({required AiToolRepos repos}) : _repos = repos;

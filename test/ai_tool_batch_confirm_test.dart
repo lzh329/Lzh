@@ -61,21 +61,26 @@ void main() {
       }
     });
 
-    test('21 个工具：写 16 + 只读 5 正好覆盖，危险 = delete_records + wipe_all_data', () {
+    test('24 个工具：写 18 + 只读 6 正好覆盖，危险 = 三个删除类', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toSet();
 
-      expect(registered, hasLength(21), reason: '工具总数没同步');
-      expect(AiToolSpecs.writeTools, hasLength(16), reason: '写工具应为 16 个');
-      expect(AiToolSpecs.readOnlyTools, hasLength(5), reason: '只读工具应为 5 个');
+      expect(registered, hasLength(24), reason: '工具总数没同步');
+      expect(AiToolSpecs.writeTools, hasLength(18), reason: '写工具应为 18 个');
+      expect(AiToolSpecs.readOnlyTools, hasLength(6), reason: '只读工具应为 6 个');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools}, registered,
           reason: '写 / 只读两集合必须正好划分已注册的工具');
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools), isEmpty,
           reason: '同一个工具不能既是写又是只读（否则可以绕过确认）');
-      expect(AiToolSpecs.destructiveTools,
-          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
-          reason: '危险工具：删记录 + 清空全部数据');
+      expect(
+          AiToolSpecs.destructiveTools,
+          {
+            AiToolSpecs.deleteRecords,
+            AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.wipeAllData,
+          },
+          reason: '危险工具：删记录 / 删身体记录 / 清空全部数据');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools), isEmpty,
           reason: '危险工具必须同时是写操作');
       expect(AiToolSpecs.writeTools, contains(AiToolSpecs.createExercises));

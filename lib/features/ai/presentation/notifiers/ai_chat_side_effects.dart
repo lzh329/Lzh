@@ -20,6 +20,11 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
     // 动作库列表页直接 watch 仓储，重建后按新数据重新拉取
     ref.invalidate(exerciseRepoProvider);
   }
+  if (call.name == AiToolSpecs.updateMeasurement ||
+      call.name == AiToolSpecs.deleteMeasurement) {
+    // 身体记录列表页直接 watch bodyMetricRepoProvider，重建后按新数据拉取
+    ref.invalidate(bodyMetricRepoProvider);
+  }
   if (call.name == AiToolSpecs.wipeAllData) {
     // 清空全部数据：核心 provider 全量 invalidate（不是只刷几个页面，
     // 否则会留旧数据），内存态归位。

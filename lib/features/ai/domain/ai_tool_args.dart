@@ -26,6 +26,12 @@ class AiToolArgs {
   }
 
   /// 宽松整数（保留旧行为：小数静默截断），用于杯数 / 分钟这类容错数值参数
+  static double? lenientDoubleOf(Object? v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim());
+    return null;
+  }
+
   static int? lenientIntOf(Object? v) {
     if (v is int) return v;
     final d = numOf(v);
@@ -286,10 +292,41 @@ class AiToolArgs {
       }
     }
 
+    // 目标体重：单位是**斤**（与用户口语一致），内部转公斤存库
+    double? targetWeightKg;
+    final rawTarget = args['target_weight_jin'];
+    if (rawTarget != null && !(rawTarget is String && rawTarget.trim().isEmpty)) {
+      final jin = lenientDoubleOf(rawTarget);
+      if (jin == null || jin < 50 || jin > 500) {
+        throw const AiToolException('目标体重不合理（应在 50~500 斤之间）');
+      }
+      targetWeightKg = jin / 2;
+    }
+
+    // 活动水平
+    String? activityLevel;
+    final rawActivity = args['activity_level'];
+    if (rawActivity is String && rawActivity.trim().isNotEmpty) {
+      final level = rawActivity.trim().toLowerCase();
+      if (!const [
+        'sedentary',
+        'light',
+        'moderate',
+        'active',
+        'very_active',
+      ].contains(level)) {
+        throw const AiToolException(
+            'activity_level 必须是 sedentary / light / moderate / active / very_active 之一');
+      }
+      activityLevel = level;
+    }
+
     final input = AiProfileInput(
       heightCm: heightCm,
       gender: gender,
       birthYear: birthYear,
+      targetWeightKg: targetWeightKg,
+      activityLevel: activityLevel,
     );
     if (input.isEmpty) {
       throw const AiToolException('至少要给一项身体信息（身高 / 性别 / 出生年份）');
@@ -316,6 +353,42 @@ class AiToolArgs {
   }
 
   // ───────────── set_reminder ─────────────
+
+  /// 可选数值（缺省 null，**不兜 0** —— 0 代表"真的给了 0"）
+  static double? optionalDouble(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v == null || (v is String && v.trim().isEmpty)) return null;
+    if (v is num) return v.toDouble();
+    final parsed = double.tryParse(v.toString().trim());
+    if (parsed == null) throw AiToolException('$key 格式不正确');
+    return parsed;
+  }
+
+  // ───────────── 身体记录（body_metrics） ─────────────
+
+  /// 可选记录 id
+  static int? optionalMeasurementId(Map<String, dynamic> args) =>
+      lenientIntOf(args['id']);
+
+  /// 可选日期（yyyy-MM-dd）
+  static DateTime? optionalMeasurementDate(Map<String, dynamic> args) {
+    final raw = args['date'];
+    if (raw is! String || raw.trim().isEmpty) return null;
+    final parsed = DateTime.tryParse(raw.trim());
+    if (parsed == null) throw const AiToolException('日期格式应为 yyyy-MM-dd');
+    return parsed;
+  }
+
+  /// 部位：waist / hip / chest / weight
+  static String measurementPart(Map<String, dynamic> args) {
+    final raw = args['part'];
+    final part = raw is String ? raw.trim().toLowerCase() : '';
+    if (!const ['waist', 'hip', 'chest', 'weight'].contains(part)) {
+      throw const AiToolException(
+          'part 必须是 waist（腰围）/ hip（臀围）/ chest（胸围）/ weight（体重）之一');
+    }
+    return part;
+  }
 
   /// 必填布尔（开关类参数）：缺失或无法解析直接抛异常
   static bool boolArg(Map<String, dynamic> args, String key, String label) {

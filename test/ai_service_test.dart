@@ -8,6 +8,7 @@ import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_body_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
@@ -635,7 +636,9 @@ void main() {
     test('危险工具有两个：delete_records + wipe_all_data', () {
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.deleteRecords));
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.wipeAllData));
-      expect(AiToolSpecs.destructiveTools, hasLength(2));
+      expect(AiToolSpecs.destructiveTools,
+          contains(AiToolSpecs.deleteMeasurement));
+      expect(AiToolSpecs.destructiveTools, hasLength(3));
       expect(AiToolSpecs.isDestructive(AiToolSpecs.deleteRecords), isTrue);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.logWeight), isFalse);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.manageGoal), isFalse);
@@ -736,12 +739,12 @@ void main() {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(21));
-      expect(names.toSet(), hasLength(21));
+      expect(names, hasLength(24));
+      expect(names.toSet(), hasLength(24));
       expect(names.toSet(),
           {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(21));
+          hasLength(24));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -867,6 +870,9 @@ void main() {
         AiToolSpecs.manageGoal,
         AiToolSpecs.deleteRecords,
         AiToolSpecs.wipeAllData,
+        AiToolSpecs.queryMeasurements,
+        AiToolSpecs.updateMeasurement,
+        AiToolSpecs.deleteMeasurement,
         AiToolSpecs.queryStats,
         AiToolSpecs.searchFood,
         AiToolSpecs.queryExercises,
@@ -894,12 +900,17 @@ void main() {
           reason: '三集合并集必须覆盖全部工具');
       expect(write.length + readOnly.length, all.length,
           reason: '写 + 只读应正好划分全部工具');
-      expect(readOnly, hasLength(5),
+      expect(readOnly, hasLength(6),
           reason: '只允许 query_stats / search_food / query_exercises / '
-              'web_search / fetch_url 自动执行');
-      expect(AiToolSpecs.destructiveTools,
-          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
-          reason: '危险工具有两个：删记录 + 清空全部数据');
+              'query_measurements / web_search / fetch_url 自动执行');
+      expect(
+          AiToolSpecs.destructiveTools,
+          {
+            AiToolSpecs.deleteRecords,
+            AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.wipeAllData,
+          },
+          reason: '危险工具有三个：删记录 / 删身体记录 / 清空全部数据');
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.queryExercises), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.webSearch), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.fetchUrl), isTrue);
@@ -918,6 +929,7 @@ void main() {
       final repos = _fakeReposWithData();
       final groups = <Set<String>>[
         const {AiToolSpecs.wipeAllData},
+        AiToolBodyWriters(repos).toolNames,
         AiToolReaders(repos).toolNames,
         AiToolWebReaders(repos).toolNames,
         AiToolWriters(repos).toolNames,
@@ -1025,11 +1037,14 @@ void main() {
           const AiGoalCommand(action: AiGoalActions.complete, goalId: 3)
               .isDestructive,
           isFalse);
-      // manage_goal 的危险语义仍只来自 delete 动作；工具级危险另有
-      // delete_records 与 wipe_all_data 两个
+      // manage_goal 的危险语义仍只来自 delete 动作；工具级危险另有三个
       expect(
           AiToolSpecs.destructiveTools,
-          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData});
+          {
+            AiToolSpecs.deleteRecords,
+            AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.wipeAllData,
+          });
     });
 
     test('未注册的工具名一律拦截（模型无法绕过白名单）', () async {
@@ -2065,6 +2080,10 @@ Set<String> _defToolNames() => AiToolSpecs.defs
 
 /// 每个工具一份合法参数，用于跑通预览层
 const _validArgs = <String, Map<String, dynamic>>{
+  AiToolSpecs.queryMeasurements: {},
+  AiToolSpecs.updateMeasurement:
+      {'id': 1, 'part': 'waist', 'value': 80},
+  AiToolSpecs.deleteMeasurement: {'id': 1},
   AiToolSpecs.logWeight: {'weight_jin': 160},
   AiToolSpecs.logWater: {'cups': 6},
   AiToolSpecs.logFood: {
@@ -2229,6 +2248,9 @@ AiToolRepos _fakeReposWithExercises(List<ExerciseEntity> exercises) =>
 Never _previewMustNotWrite(String op) => throw StateError('预览阶段不应写库：$op');
 
 class _FakeBodyRepo implements BodyMetricRepository {
+
+  @override
+  Future<List<BodyMetricEntity>> getRecent({int limit = 10}) async => const [];
   _FakeBodyRepo(this.rows);
 
   final List<BodyMetricEntity> rows;

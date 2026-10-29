@@ -182,6 +182,9 @@ class AiPromptBuilder {
     }
 
     buf
+      ..writeln('- 用户问"我腰围多少 / 最近身体记录"→ query_measurements；'
+          '要改数值用 update_measurement（给出 id 或日期+部位，确认卡会列改前→改后）；'
+          '删记录用 delete_measurement（按 id，需用户确认）')
       ..writeln('- wipe_all_data 是毁灭性操作：只在用户明确说"清空/删除全部数据"时'
           '才能调用，调用前必须先告诉用户会自动保留一份完整备份')
       ..writeln('- 上一条任务已经回执 ok:true 后就**不要重复执行**；'

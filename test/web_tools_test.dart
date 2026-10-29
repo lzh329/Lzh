@@ -314,13 +314,13 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('21 个工具、唯一、写/只读互斥并集全覆盖，危险 = delete_records + wipe_all_data', () {
+    test('24 个工具、唯一、写/只读互斥并集全覆盖，危险 = 三个删除类', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(registered, hasLength(21), reason: '工具总数应为 21');
-      expect(registered.toSet(), hasLength(21), reason: '工具名不能重复');
+      expect(registered, hasLength(24), reason: '工具总数应为 24');
+      expect(registered.toSet(), hasLength(24), reason: '工具名不能重复');
       expect({
         ...AiToolSpecs.writeTools,
         ...AiToolSpecs.readOnlyTools
@@ -328,9 +328,14 @@ void main() {
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty,
           reason: '同一工具不能既写又只读（否则可以绕过确认）');
-      expect(AiToolSpecs.destructiveTools,
-          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
-          reason: '21 个里有两个危险操作：删记录 + 清空全部数据');
+      expect(
+          AiToolSpecs.destructiveTools,
+          {
+            AiToolSpecs.deleteRecords,
+            AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.wipeAllData,
+          },
+          reason: '24 个里有三个危险操作：删记录 / 删身体记录 / 清空全部数据');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools),
           isEmpty);
 

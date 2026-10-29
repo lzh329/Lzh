@@ -34,6 +34,14 @@ class BodyMetricRepositoryImpl implements BodyMetricRepository {
   }
 
   @override
+  Future<List<BodyMetricEntity>> getRecent({int limit = 10}) async {
+    final rows = await (_db.select(_db.bodyMetrics)
+          ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+        .get();
+    return rows.map(_toEntity).toList().take(limit).toList();
+  }
+
+  @override
   Future<BodyMetricEntity> create({
     required DateTime date,
     required double weightKg,

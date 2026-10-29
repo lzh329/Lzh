@@ -15,6 +15,11 @@ class AiToolSpecs {
   static const setDietTarget = 'set_diet_target';
   static const setReminder = 'set_reminder';
 
+  // ── 身体记录类（围度/体脂，body_metrics 表） ──
+  static const queryMeasurements = 'query_measurements';
+  static const updateMeasurement = 'update_measurement';
+  static const deleteMeasurement = 'delete_measurement';
+
   // ── 管理类（写，需确认；delete_records / wipe_all_data 为危险操作） ──
   static const manageGoal = 'manage_goal';
   static const deleteRecords = 'delete_records';
@@ -38,7 +43,11 @@ class AiToolSpecs {
   static const fetchUrl = 'fetch_url';
 
   /// 危险工具（删除数据）：确认卡必须用警示样式
-  static const Set<String> destructiveTools = {deleteRecords, wipeAllData};
+  static const Set<String> destructiveTools = {
+    deleteRecords,
+    deleteMeasurement,
+    wipeAllData,
+  };
 
   /// 只读工具：无需用户确认，直接执行
   ///
@@ -47,6 +56,7 @@ class AiToolSpecs {
     queryStats,
     searchFood,
     queryExercises,
+    queryMeasurements,
     webSearch,
     fetchUrl,
   };
@@ -67,6 +77,8 @@ class AiToolSpecs {
     setReminder,
     manageGoal,
     deleteRecords,
+    deleteMeasurement,
+    updateMeasurement,
     wipeAllData,
     createExercise,
     createExercises,
@@ -263,6 +275,22 @@ class AiToolSpecs {
             'birth_year': {
               'type': 'integer',
               'description': '出生年份，如 1995；1920 到（今年-10）之间',
+            },
+            'target_weight_jin': {
+              'type': 'number',
+              'description': '目标体重（斤），50~500；注意是斤不是公斤',
+            },
+            'activity_level': {
+              'type': 'string',
+              'enum': [
+                'sedentary',
+                'light',
+                'moderate',
+                'active',
+                'very_active',
+              ],
+              'description':
+                  '活动水平：久坐 / 轻度 / 中度 / 高 / 极高（用于算 TDEE）',
             },
           },
         },
@@ -650,7 +678,62 @@ class AiToolSpecs {
           'required': ['url'],
         },
       },
-    },    // ───────── 管理类：清空全部数据（毁灭性，红卡 + 二次确认） ─────────
+    },    // ───────── 身体记录类：围度 / 体脂（body_metrics 表） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': queryMeasurements,
+        'description':
+            '查询围度/体脂记录（腰围、臀围、胸围、体重）与各部位最新值。'
+                '用户问"我腰围多少 / 最近身体记录"时调用。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'limit': {
+              'type': 'integer',
+              'description': '最近几条（1~30，默认 10）',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': updateMeasurement,
+        'description':
+            '修改一条围度/体脂记录的数值。给出 id，或"日期 + 部位"来定位；'
+                '至少给出一个要改的数值字段。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'id': {'type': 'integer', 'description': '记录 id（query_measurements 里能看到）'},
+            'date': {'type': 'string', 'description': '记录日期，如 2025-03-04（与 part 搭配定位）'},
+            'part': {
+              'type': 'string',
+              'enum': ['waist', 'hip', 'chest', 'weight'],
+              'description': '部位：waist=腰围 / hip=臀围 / chest=胸围 / weight=体重',
+            },
+            'value': {'type': 'number', 'description': '新数值（厘米或公斤）'},
+            'note': {'type': 'string', 'description': '备注（可选）'},
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': deleteMeasurement,
+        'description': '删除一条围度/体脂记录（危险操作，需要用户确认）。按 id 删除。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'id': {'type': 'integer', 'description': '要删除的记录 id（query_measurements 里能看到）'},
+          },
+        },
+      },
+    },
+    // ───────── 管理类：清空全部数据（毁灭性，红卡 + 二次确认） ─────────
     {
       'type': 'function',
       'function': {

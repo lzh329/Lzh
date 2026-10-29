@@ -1,4 +1,4 @@
-import 'package:fittrack/features/ai/domain/ai_tool_exception.dart';
+import 'ai_tool.dart';
 
 /// 围度输入：三项都可空，但至少要有一项（由 [AiToolArgs.measurements] 保证）
 class AiMeasurements {
@@ -31,9 +31,26 @@ class AiProfileInput {
   final String? gender; // male / female
   final int? birthYear;
 
-  const AiProfileInput({this.heightCm, this.gender, this.birthYear});
+  /// 目标体重（**公斤**，内部口径；工具入参用斤）
+  final double? targetWeightKg;
 
-  bool get isEmpty => heightCm == null && gender == null && birthYear == null;
+  /// 活动水平：sedentary / light / moderate / active / very_active
+  final String? activityLevel;
+
+  const AiProfileInput({
+    this.heightCm,
+    this.gender,
+    this.birthYear,
+    this.targetWeightKg,
+    this.activityLevel,
+  });
+
+  bool get isEmpty =>
+      heightCm == null &&
+      gender == null &&
+      birthYear == null &&
+      targetWeightKg == null &&
+      activityLevel == null;
 
   static const genderLabels = {'male': '男', 'female': '女'};
 
@@ -46,6 +63,18 @@ class AiProfileInput {
     }
     if (gender != null) parts.add(genderLabels[gender!] ?? gender!);
     if (birthYear != null) parts.add('$birthYear 年生');
+        if (targetWeightKg != null) {
+      parts.add('目标体重 ${AiToolFormat.jinFromKg(targetWeightKg!)} 斤');
+    }
+    if (activityLevel != null) {
+      parts.add(const {
+        'sedentary': '久坐',
+        'light': '轻度活动',
+        'moderate': '中度活动',
+        'active': '高活动',
+        'very_active': '极高活动',
+      }[activityLevel]!);
+    }
     return parts.join(' · ');
   }
 }

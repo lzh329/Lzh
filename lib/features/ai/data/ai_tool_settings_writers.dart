@@ -104,12 +104,16 @@ class AiToolSettingsWriters extends AiToolHandler {
       gender: input.gender,
       birthDate:
           input.birthYear == null ? null : DateTime(input.birthYear!, 1, 1),
+      targetWeightKg: input.targetWeightKg,
+      activityLevel: input.activityLevel,
     );
     return jsonEncode({
       'ok': true,
       'height_cm': input.heightCm,
       'gender': input.gender,
       'birth_year': input.birthYear,
+      'target_weight_kg': input.targetWeightKg,
+      'activity_level': input.activityLevel,
     });
   }
 
