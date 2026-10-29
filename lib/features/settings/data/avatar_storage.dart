@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -34,7 +36,8 @@ Future<String?> copyAvatarToPrivate(
     // 删旧文件：不删的话每次换头像都会留一份，越攒越多且没人再引用
     await deleteAvatarIfUnused(previousPath, keepPath: dest.path);
     return dest.path;
-  } catch (_) {
+  } catch (e) {
+    debugPrint('头像拷贝失败: $e');
     return null;
   }
 }
@@ -56,7 +59,8 @@ Future<void> deleteAvatarIfUnused(
     // 只删 avatar 目录下的，别的地方的文件一概不动（防止误删用户相册原图）
     if (!p.split(previousPath).contains('avatar')) return;
     await file.delete();
-  } catch (_) {
-    // 删不掉不影响功能
+  } catch (e) {
+    // 删除失败不阻断（换头像已经成功了，旧文件残留只是垃圾，不是错误）
+    debugPrint('旧头像删除失败: $e');
   }
 }

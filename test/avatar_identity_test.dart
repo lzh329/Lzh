@@ -94,4 +94,35 @@ void main() {
 
     expect(target.existsSync(), isTrue);
   });
+
+  test('旧路径为空 → 不报错（首次设头像）', () async {
+    final picked = await pick('first.jpg');
+    final path = await copyAvatarToPrivate(
+      picked.path,
+      docsDir: docs,
+      previousPath: null,
+      now: DateTime(2025, 3, 5, 12),
+    );
+    expect(path, isNotNull);
+    expect(File(path!).existsSync(), isTrue);
+  });
+
+  test('旧文件已被外部删掉 → 换头像仍成功，不报错', () async {
+    final first = await copyAvatarToPrivate(
+      (await pick('x.jpg')).path,
+      docsDir: docs,
+      now: DateTime(2025, 3, 5, 13),
+    );
+    await File(first!).delete(); // 模拟被系统/用户清理
+
+    final second = await copyAvatarToPrivate(
+      (await pick('y.jpg')).path,
+      docsDir: docs,
+      previousPath: first,
+      now: DateTime(2025, 3, 5, 14),
+    );
+
+    expect(second, isNotNull);
+    expect(File(second!).existsSync(), isTrue);
+  });
 }

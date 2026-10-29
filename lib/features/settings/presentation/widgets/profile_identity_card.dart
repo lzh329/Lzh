@@ -61,6 +61,9 @@ class ProfileIdentityCard extends ConsumerWidget {
                           : DecorationImage(
                               image: FileImage(avatarFile),
                               fit: BoxFit.cover,
+                              // 文件在但内容损坏（截断/非图片）→ 保持占位底色，
+                              // 不让解码异常变成红屏
+                              onError: (_, __) {},
                             ),
                     ),
                     child: avatarFile == null
@@ -185,7 +188,14 @@ class ProfileIdentityCard extends ConsumerWidget {
     if (result == null) return; // 取消
 
     // 留空 = 清除 → 写 NULL（不是空串），问候语回到咕嘎形态名
-    final value = result.isEmpty ? null : result;
+    final trimmed = result.trim();
+    // 超长截断（TextField 的 maxLength 已经挡了一层，这里兜底，
+    // 防止粘贴/输入法绕过）→ 留空即清除
+    final value = trimmed.isEmpty
+        ? null
+        : (trimmed.length > maxNicknameLength
+            ? trimmed.substring(0, maxNicknameLength)
+            : trimmed);
     await ref.read(userSettingsRepoProvider).saveNickname(value);
     ref.invalidate(userSettingsProvider);
   }
