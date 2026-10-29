@@ -20,6 +20,18 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
     // 动作库列表页直接 watch 仓储，重建后按新数据重新拉取
     ref.invalidate(exerciseRepoProvider);
   }
+  if (call.name == AiToolSpecs.wipeAllData) {
+    // 清空全部数据：核心 provider 全量 invalidate（不是只刷几个页面，
+    // 否则会留旧数据），内存态归位。
+    ref.invalidate(dashboardDataProvider);
+    ref.invalidate(trendsDataProvider);
+    ref.invalidate(goalListProvider);
+    ref.invalidate(userSettingsProvider);
+    ref.invalidate(exerciseRepoProvider);
+    ref.invalidate(workoutTemplatesProvider);
+    ref.invalidate(aiChatRepoProvider);
+    ref.read(reminderEnabledProvider.notifier).state = false;
+  }
   if (call.name == AiToolSpecs.createTemplate) {
     // create_template 可能顺手新建了缺失动作（create_missing_exercises），
     // 所以动作库与训练页「模板」分段两个数据源都要刷新

@@ -6,6 +6,7 @@ import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_settings_writers.dart';
+import 'package:fittrack/features/ai/data/ai_tool_wipe_writer.dart';
 import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_workout_launcher.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
@@ -27,6 +28,7 @@ class AiToolExecutor {
     AiToolAdminWriters(_repos),
     AiToolLibraryWriters(_repos),
     AiToolWorkoutLauncher(_repos),
+    AiToolWipeWriter(_repos),
   ];
 
   AiToolExecutor({required AiToolRepos repos}) : _repos = repos;

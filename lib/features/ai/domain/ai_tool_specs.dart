@@ -15,9 +15,10 @@ class AiToolSpecs {
   static const setDietTarget = 'set_diet_target';
   static const setReminder = 'set_reminder';
 
-  // ── 管理类（写，需确认；delete_records 为危险操作） ──
+  // ── 管理类（写，需确认；delete_records / wipe_all_data 为危险操作） ──
   static const manageGoal = 'manage_goal';
   static const deleteRecords = 'delete_records';
+  static const wipeAllData = 'wipe_all_data';
 
   // ── 动作库 / 模板类（create_* 写需确认，query_exercises 只读） ──
   static const createExercise = 'create_exercise';
@@ -37,7 +38,7 @@ class AiToolSpecs {
   static const fetchUrl = 'fetch_url';
 
   /// 危险工具（删除数据）：确认卡必须用警示样式
-  static const Set<String> destructiveTools = {deleteRecords};
+  static const Set<String> destructiveTools = {deleteRecords, wipeAllData};
 
   /// 只读工具：无需用户确认，直接执行
   ///
@@ -66,6 +67,7 @@ class AiToolSpecs {
     setReminder,
     manageGoal,
     deleteRecords,
+    wipeAllData,
     createExercise,
     createExercises,
     createTemplate,
@@ -648,6 +650,26 @@ class AiToolSpecs {
           'required': ['url'],
         },
       },
+    },    // ───────── 管理类：清空全部数据（毁灭性，红卡 + 二次确认） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': wipeAllData,
+        'description':
+            '清空 APP 内的全部数据（训练/体重/饮食/饮水/目标/聊天记录/照片），'
+                '并自动保留一份完整备份。只在用户明确说"清空/删除全部数据"时才可调用，'
+                '调用前必须先告知会自动留备份。不可逆。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'confirm': {
+              'type': 'string',
+              'description': '用户原话，例如"清空全部数据"（用于留痕）',
+            },
+          },
+        },
+      },
     },
+
   ];
 }

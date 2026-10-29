@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
+import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
@@ -60,20 +61,21 @@ void main() {
       }
     });
 
-    test('20 个工具：写 15 + 只读 5 正好覆盖，危险仍只 delete_records', () {
+    test('21 个工具：写 16 + 只读 5 正好覆盖，危险 = delete_records + wipe_all_data', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toSet();
 
-      expect(registered, hasLength(20), reason: '工具总数没同步');
-      expect(AiToolSpecs.writeTools, hasLength(15), reason: '写工具应为 15 个');
+      expect(registered, hasLength(21), reason: '工具总数没同步');
+      expect(AiToolSpecs.writeTools, hasLength(16), reason: '写工具应为 16 个');
       expect(AiToolSpecs.readOnlyTools, hasLength(5), reason: '只读工具应为 5 个');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools}, registered,
           reason: '写 / 只读两集合必须正好划分已注册的工具');
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools), isEmpty,
           reason: '同一个工具不能既是写又是只读（否则可以绕过确认）');
-      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
-          reason: '危险工具仍然只能是 delete_records');
+      expect(AiToolSpecs.destructiveTools,
+          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
+          reason: '危险工具：删记录 + 清空全部数据');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools), isEmpty,
           reason: '危险工具必须同时是写操作');
       expect(AiToolSpecs.writeTools, contains(AiToolSpecs.createExercises));
@@ -477,6 +479,7 @@ AiToolRepos _repos({
   _MemoryTemplateRepo? template,
 }) =>
     AiToolRepos(
+      database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),
       workout: const _UntouchedWorkoutRepo(),

@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
+import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/data/ai_tool_library_writers.dart';
@@ -631,9 +632,10 @@ void main() {
       expect(() => AiToolArgs.recordType({}), throwsA(isA<AiToolException>()));
     });
 
-    test('delete_records 是唯一的危险工具', () {
+    test('危险工具有两个：delete_records + wipe_all_data', () {
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.deleteRecords));
-      expect(AiToolSpecs.destructiveTools, hasLength(1));
+      expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.wipeAllData));
+      expect(AiToolSpecs.destructiveTools, hasLength(2));
       expect(AiToolSpecs.isDestructive(AiToolSpecs.deleteRecords), isTrue);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.logWeight), isFalse);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.manageGoal), isFalse);
@@ -734,12 +736,12 @@ void main() {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(20));
-      expect(names.toSet(), hasLength(20));
+      expect(names, hasLength(21));
+      expect(names.toSet(), hasLength(21));
       expect(names.toSet(),
           {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(20));
+          hasLength(21));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -780,6 +782,11 @@ void main() {
       expect(names, containsAll(['web_search', 'fetch_url']));
       // 第六批新增 1 个（按模板直接开练，需确认但不落库）
       expect(names, containsAll(['start_workout']));
+      // 第七批新增 1 个（一键清空全部数据：毁灭性，红卡 + 二次确认）
+      expect(names, containsAll(['wipe_all_data']));
+      expect(AiToolSpecs.destructiveTools, contains('wipe_all_data'));
+      expect(AiToolSpecs.writeTools, contains('wipe_all_data'),
+          reason: '写操作从第一天起就弹确认卡，没有"降级前可直接生效"的空间');
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -859,6 +866,7 @@ void main() {
         AiToolSpecs.setReminder,
         AiToolSpecs.manageGoal,
         AiToolSpecs.deleteRecords,
+        AiToolSpecs.wipeAllData,
         AiToolSpecs.queryStats,
         AiToolSpecs.searchFood,
         AiToolSpecs.queryExercises,
@@ -889,8 +897,9 @@ void main() {
       expect(readOnly, hasLength(5),
           reason: '只允许 query_stats / search_food / query_exercises / '
               'web_search / fetch_url 自动执行');
-      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
-          reason: '危险工具仍然只有 delete_records');
+      expect(AiToolSpecs.destructiveTools,
+          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
+          reason: '危险工具有两个：删记录 + 清空全部数据');
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.queryExercises), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.webSearch), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.fetchUrl), isTrue);
@@ -908,6 +917,7 @@ void main() {
     test('七组 handler 白名单互不重叠，并集 = defs', () {
       final repos = _fakeReposWithData();
       final groups = <Set<String>>[
+        const {AiToolSpecs.wipeAllData},
         AiToolReaders(repos).toolNames,
         AiToolWebReaders(repos).toolNames,
         AiToolWriters(repos).toolNames,
@@ -944,7 +954,7 @@ void main() {
       }
     });
 
-    test('只有 delete_records 的预览是危险样式', () async {
+    test('delete_records 的预览是危险样式', () async {
       final executor = AiToolExecutor(repos: _fakeReposWithData());
       for (final type in AiRecordTypes.all) {
         final preview = await executor.preview(AiToolCall(
@@ -1015,8 +1025,11 @@ void main() {
           const AiGoalCommand(action: AiGoalActions.complete, goalId: 3)
               .isDestructive,
           isFalse);
-      // delete_records 仍是唯一按工具名判定的危险工具
-      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords});
+      // manage_goal 的危险语义仍只来自 delete 动作；工具级危险另有
+      // delete_records 与 wipe_all_data 两个
+      expect(
+          AiToolSpecs.destructiveTools,
+          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData});
     });
 
     test('未注册的工具名一律拦截（模型无法绕过白名单）', () async {
@@ -2148,6 +2161,7 @@ const _fakeExercises = <ExerciseEntity>[
 
 /// 全空数据：用于验证"没数据不许假删"
 AiToolRepos _fakeRepos() => AiToolRepos(
+      database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),
       workout: _FakeWorkoutRepo(const []),
@@ -2162,6 +2176,7 @@ AiToolRepos _fakeRepos() => AiToolRepos(
 AiToolRepos _fakeReposWithData() {
   final today = DateTime.now();
   return AiToolRepos(
+    database: fakeDatabase(),
     body: _FakeBodyRepo([
       BodyMetricEntity(id: 1, date: today, weightKg: 80, waistCm: 80),
     ]),
@@ -2199,6 +2214,7 @@ AiToolRepos _fakeReposWithData() {
 /// 只关心动作库内容时用：其他仓储留空
 AiToolRepos _fakeReposWithExercises(List<ExerciseEntity> exercises) =>
     AiToolRepos(
+        database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),
       workout: _FakeWorkoutRepo(const []),
@@ -2560,6 +2576,7 @@ AiToolRepos _mutableRepos({
   _MutableTemplateRepo? template,
 }) =>
     AiToolRepos(
+        database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),
       workout: _FakeWorkoutRepo(const []),

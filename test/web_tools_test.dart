@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'fake_database.dart';
 import 'package:fittrack/core/services/web_tools_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
@@ -313,13 +314,13 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('20 个工具、唯一、写/只读互斥并集全覆盖，危险仍只 delete_records', () {
+    test('21 个工具、唯一、写/只读互斥并集全覆盖，危险 = delete_records + wipe_all_data', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(registered, hasLength(20), reason: '工具总数应为 20');
-      expect(registered.toSet(), hasLength(20), reason: '工具名不能重复');
+      expect(registered, hasLength(21), reason: '工具总数应为 21');
+      expect(registered.toSet(), hasLength(21), reason: '工具名不能重复');
       expect({
         ...AiToolSpecs.writeTools,
         ...AiToolSpecs.readOnlyTools
@@ -327,8 +328,9 @@ void main() {
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty,
           reason: '同一工具不能既写又只读（否则可以绕过确认）');
-      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords},
-          reason: '20 个里仍只有 delete_records 是危险操作');
+      expect(AiToolSpecs.destructiveTools,
+          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData},
+          reason: '21 个里有两个危险操作：删记录 + 清空全部数据');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools),
           isEmpty);
 
@@ -577,6 +579,7 @@ class SocketExceptionStub implements Exception {
 /// 只关心 settings 的仓储集合（其余仓储一旦被碰就报错）
 AiToolRepos _repos({required String? apiKey, bool webEnabled = true}) =>
     AiToolRepos(
+      database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),
       workout: const _UntouchedWorkoutRepo(),

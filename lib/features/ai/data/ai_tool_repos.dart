@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
@@ -15,6 +16,9 @@ import 'package:fittrack/features/workout/domain/repositories/workout_template_r
 ///
 /// 集中注入，避免每个处理器都摊开一长串构造参数。
 class AiToolRepos {
+  /// 数据库本体（wipe 这类全表操作要直接跑 DELETE，不经过单个仓储）
+  final AppDatabase database;
+
   final BodyMetricRepository body;
   final WaterRepository water;
   final WorkoutRepository workout;
@@ -29,6 +33,7 @@ class AiToolRepos {
   final WorkoutTemplateRepository template;
 
   const AiToolRepos({
+    required this.database,
     required this.body,
     required this.water,
     required this.workout,
@@ -41,6 +46,7 @@ class AiToolRepos {
 
   /// 从 providers 构建（工具执行时即时读取，不做 watch）
   factory AiToolRepos.fromRef(Ref ref) => AiToolRepos(
+        database: ref.read(databaseProvider),
         body: ref.read(bodyMetricRepoProvider),
         water: ref.read(waterRepoProvider),
         workout: ref.read(workoutRepoProvider),

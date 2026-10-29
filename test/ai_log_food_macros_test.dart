@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
+import 'fake_database.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
@@ -302,6 +303,7 @@ Future<int> _seedFood(
 
 /// 只给 diet 真仓储，其余一律拦下（log_food 不该碰它们）
 AiToolRepos _repos(DietRepositoryImpl diet) => AiToolRepos(
+        database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),
       workout: const _UntouchedWorkoutRepo(),

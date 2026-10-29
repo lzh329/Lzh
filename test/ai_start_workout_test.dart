@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_workout_launcher.dart';
@@ -36,29 +37,30 @@ void main() {
   // ═══════════ 1. 工具集合 ═══════════
 
   group('start_workout 在工具集合里的位置', () {
-    test('20 个工具、唯一、写 15 + 只读 5 正好划分', () {
+    test('21 个工具、唯一、写 16 + 只读 5 正好划分', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(names, hasLength(20), reason: '19 → 20，总数要同步');
-      expect(names.toSet(), hasLength(20), reason: '工具名不能重复');
+      expect(names, hasLength(21), reason: '20 → 21，总数要同步');
+      expect(names.toSet(), hasLength(21), reason: '工具名不能重复');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools},
           names.toSet(),
           reason: '写 / 只读两集合必须正好划分已注册的工具');
-      expect(AiToolSpecs.writeTools, hasLength(15));
+      expect(AiToolSpecs.writeTools, hasLength(16));
       expect(AiToolSpecs.readOnlyTools, hasLength(5));
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
     });
 
-    test('start_workout 是写工具但非危险；危险仍只有 delete_records', () {
+    test('start_workout 是写工具但非危险；危险是 delete_records + wipe_all_data', () {
       expect(AiToolSpecs.writeTools, contains(AiToolSpecs.startWorkout));
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.startWorkout), isFalse,
           reason: '要跳界面，不能自动执行');
       expect(AiToolSpecs.isDestructive(AiToolSpecs.startWorkout), isFalse,
           reason: '不删数据，不能挂危险样式');
-      expect(AiToolSpecs.destructiveTools, {AiToolSpecs.deleteRecords});
+      expect(AiToolSpecs.destructiveTools,
+          {AiToolSpecs.deleteRecords, AiToolSpecs.wipeAllData});
     });
 
     test('schema 只要求 template_name，rest_sec 可选', () {
@@ -490,6 +492,7 @@ AiToolExecutor _executor({
 }) =>
     AiToolExecutor(
       repos: AiToolRepos(
+        database: fakeDatabase(),
         body: const _UntouchedBodyRepo(),
         water: const _UntouchedWaterRepo(),
         workout: const _UntouchedWorkoutRepo(),
