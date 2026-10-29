@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
+import 'package:fittrack/features/workout/domain/template_filter.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 import 'package:fittrack/features/workout/presentation/widgets/history_segment.dart';
 import 'package:fittrack/features/workout/presentation/widgets/plan_segment.dart';
@@ -18,7 +19,7 @@ const _green = AppColors.primary;
 
 /// 分类筛选的固定顺序（"全部"始终在最前）
 const _focusOrder = <String>['全身', '放松', '碎片'];
-const _allFocus = '全部';
+const _allFocus = kAllFilter;
 
 /// 训练页 —— 模板化开练（v3：Keep 课程列表风格，封面图优先）
 class QuickStartPage extends ConsumerStatefulWidget {
@@ -36,6 +37,9 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
 
   /// 当前分类筛选（纯前端过滤已加载列表）
   String _focus = _allFocus;
+
+  /// 难度筛选（固定三档，空档置灰不可点）
+  String _difficulty = kAllFilter;
 
   Future<void> _startTemplate(WorkoutTemplateEntity template) async {
     if (_starting) return;
@@ -165,9 +169,11 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
         final filters = _buildFilters(recommended);
         // 选中的分类在数据变化后可能已不存在 → 回落到 "全部"
         final active = filters.contains(_focus) ? _focus : _allFocus;
-        final visible = active == _allFocus
-            ? recommended
-            : recommended.where((t) => t.focus == active).toList();
+        // 场景 × 难度 AND 组合（纯函数，见 template_filter.dart）
+        final visible = filterTemplates(recommended,
+            focus: active, difficulty: _difficulty);
+        // 各难度档在当前场景下的数量：为 0 的档位置灰（避免"点了没结果"）
+        final diffs = difficultyCounts(recommended, focus: active);
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -177,6 +183,9 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
               filters: filters,
               active: active,
               onSelect: (f) => setState(() => _focus = f),
+              difficulty: _difficulty,
+              difficultyCounts: diffs,
+              onDifficulty: (d) => setState(() => _difficulty = d),
             ),
 
             const SizedBox(height: 18),
@@ -213,58 +222,173 @@ class _FilterBar extends StatelessWidget {
   final String active;
   final ValueChanged<String> onSelect;
 
+  /// 难度组（固定三档 + 「全部」）；null = 不显示这一组
+  final String? difficulty;
+  final Map<String, int>? difficultyCounts;
+  final ValueChanged<String>? onDifficulty;
+
   const _FilterBar({
     required this.filters,
     required this.active,
     required this.onSelect,
+    this.difficulty,
+    this.difficultyCounts,
+    this.onDifficulty,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 34,
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final f in filters)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FocusChip(
-                        label: f,
-                        selected: f == active,
-                        onTap: () => onSelect(f),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          SizedBox(
-            height: 34,
-            child: OutlinedButton.icon(
-              onPressed: () => context.push('/workout/custom'),
-              icon: const Icon(Icons.tune, size: 14),
-              label: const Text('自定义',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                side: const BorderSide(color: AppColors.borderStrong),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
+    final difficulties = difficulty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FilterRow(
+          label: '场景',
+          trailing: _customButton(context),
+          children: [
+            for (final f in filters)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _FocusChip(
+                  label: f,
+                  selected: f == active,
+                  onTap: () => onSelect(f),
                 ),
               ),
-            ),
+          ],
+        ),
+        if (difficulties != null) ...[
+          const SizedBox(height: 8),
+          _FilterRow(
+            label: '难度',
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _DifficultyChip(
+                  label: kAllFilter,
+                  selected: difficulties == kAllFilter,
+                  onTap: () => onDifficulty?.call(kAllFilter),
+                ),
+              ),
+              for (final d in kDifficultyOrder)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _DifficultyChip(
+                    label: d,
+                    selected: difficulties == d,
+                    // 当前场景下该档没有模板 → 置灰不可点（避免点了没结果）
+                    enabled: (difficultyCounts?[d] ?? 0) > 0,
+                    onTap: () => onDifficulty?.call(d),
+                  ),
+                ),
+            ],
           ),
         ],
+      ],
+    );
+  }
+
+  /// 右侧「自定义」入口
+  Widget _customButton(BuildContext context) {
+    return SizedBox(
+      height: 34,
+      child: OutlinedButton.icon(
+        onPressed: () => context.push('/workout/custom'),
+        icon: const Icon(Icons.tune, size: 14),
+        label: const Text('自定义',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          side: const BorderSide(color: AppColors.borderStrong),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(17),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一行筛选：左侧小标题 + 横向滚动的 chips + 右侧可选动作
+class _FilterRow extends StatelessWidget {
+  final String label;
+  final List<Widget> children;
+  final Widget? trailing;
+
+  const _FilterRow({
+    required this.label,
+    required this.children,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(label,
+            style:
+                const TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: children),
+          ),
+        ),
+        if (trailing != null) ...[const SizedBox(width: 4), trailing!],
+      ],
+    );
+  }
+}
+
+/// 难度 chip：描边样式，与场景组的实心 chip 视觉区分
+class _DifficultyChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _DifficultyChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = !enabled
+        ? AppColors.textTertiary.withAlpha(110)
+        : (selected ? AppColors.primary : AppColors.textSecondary);
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            // 描边 + 透明底：与场景组（实心底）一眼能分开
+            color:
+                selected ? AppColors.primary.withAlpha(14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: selected ? AppColors.primary : AppColors.border,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: color,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -719,7 +843,8 @@ class _MyTemplatesSection extends StatefulWidget {
 }
 
 class _MyTemplatesSectionState extends State<_MyTemplatesSection> {
-  bool _expanded = false;
+  // 需求 #1：我的模板默认展开（用户来这里就是要点自己的模板）
+  bool _expanded = true;
   static const _green = AppColors.primary;
 
   @override
@@ -840,8 +965,10 @@ class _RecommendedSectionState extends State<_RecommendedSection> {
         const SizedBox(height: 10),
         if (list.isEmpty)
           const _HintCard(text: '该分类下暂无模板，换个分类试试')
-        else if (_expanded)
-          ...list.map(
+        else
+          // 收起态也要渲染：原来这里什么都不画，用户看到"推荐模板 12 个"
+          // 下面却是空的（需求 #1 顺手修的现存 bug）。与我的模板区对齐，显示前 2 个。
+          ...(_expanded ? list : list.take(2).toList()).map(
             (t) => _TemplateCard(
               template: t,
               starting: widget.starting,
