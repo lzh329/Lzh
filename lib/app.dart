@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'features/migration/presentation/pages/database_sealed_page.dart';
+import 'features/settings/presentation/pages/lock_screen.dart';
 import 'core/providers.dart';
 import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/database/db_replaced_marker.dart';
@@ -192,12 +193,20 @@ class _LockGate extends ConsumerStatefulWidget {
 
 class _LockGateState extends ConsumerState<_LockGate>
     with WidgetsBindingObserver {
-  bool _locked = false;
+  /// 初始就按**锁着**处理：异步读设置之前谁也不知道该不该锁，
+  /// 这时唯一的正确姿势是"宁可多锁一秒，也不泄露一秒"。
+  /// （原实现初始 false → 冷启动不锁，只有切后台回来才校验，等于锁只在
+  ///  App 已经在运行的情况下才生效。）
+  bool _locked = true;
+
+  /// 已确认可以解锁的 PIN；null = 还没读到设置
+  String? _correctPin;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadLockState();
   }
 
   @override
@@ -206,67 +215,50 @@ class _LockGateState extends ConsumerState<_LockGate>
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkLock();
-    if (state == AppLifecycleState.paused) _locked = true;
+  /// 冷启动时读设置，决定是否需要锁
+  Future<void> _loadLockState() async {
+    UserSettingsEntity? s;
+    try {
+      s = await ref.read(userSettingsProvider.future);
+    } catch (_) {
+      s = null;
+    }
+    if (!mounted) return;
+    final pin = s?.pinCode;
+    final needLock = shouldLockOnColdStart(
+      lockEnabled: s?.lockEnabled == true,
+      pinCode: pin,
+    );
+    setState(() {
+      _correctPin = needLock ? pin : null;
+      _locked = needLock;
+    });
   }
 
-  void _checkLock() {
-    if (!_locked) return;
-    _locked = false;
-    final s = ref.read(userSettingsProvider).valueOrNull;
-    if (s?.lockEnabled == true && s?.pinCode != null) {
-      _showUnlockDialog(s!.pinCode!);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 进后台立刻遮住（用 setState 才能让遮罩立刻生效，而不是等回来才画）
+    if (state == AppLifecycleState.paused && _correctPin != null) {
+      setState(() => _locked = true);
     }
   }
 
-  void _showUnlockDialog(String correctPin) {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          title: const Text('隐私锁'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('请输入 PIN 码解锁'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                autofocus: true,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-                onChanged: (v) {
-                  if (v.length == 4) {
-                    if (v == correctPin) {
-                      Navigator.pop(ctx);
-                    } else {
-                      ctrl.clear();
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text('PIN 码错误')));
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => SystemNavigator.pop(),
-              child: const Text('退出应用'),
+  @override
+  Widget build(BuildContext context) {
+    final pin = _correctPin;
+    return Stack(
+      children: [
+        // ⚠️ 用**叠层**而不是替换 child：替换会把路由栈销毁，
+        // 解锁后用户被扔回首页、丢掉原来的上下文。
+        widget.child,
+        if (_locked && pin != null)
+          Positioned.fill(
+            child: LockScreen(
+              correctPin: pin,
+              onUnlocked: () => setState(() => _locked = false),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }
