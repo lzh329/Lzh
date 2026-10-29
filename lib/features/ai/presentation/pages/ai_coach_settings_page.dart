@@ -8,6 +8,8 @@ import 'package:fittrack/core/services/web_tools_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
+import 'package:fittrack/features/ai/presentation/widgets/ai_coach_presets.dart';
+import 'package:fittrack/features/ai/presentation/widgets/ai_model_config_card.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 
 /// 教练设定 —— 自由调教嘎教练
@@ -35,12 +37,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
 
   final _inputCtrl = TextEditingController();
 
-  static const _presets = [
-    '回答里不要出现我的具体体重数字',
-    '推荐食物时给出具体克数',
-    '先反问我一个问题再给建议',
-    '不要用感叹号，语气平实一点',
-  ];
+  static const _presets = kAiCoachPresetConstraints;
 
   @override
   void initState() {
@@ -118,7 +115,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
-                _ModelConfigCard(webSearch: _webSearch),
+                AiModelConfigCard(webSearch: _webSearch),
                 const SizedBox(height: 20),
                 const AiCoachSectionTitle('教练风格'),
                 const SizedBox(height: 8),
@@ -297,57 +294,6 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 ),
               ],
             ),
-    );
-  }
-}
-
-/// 「当前模型配置」只读信息卡（需求 #8）
-///
-/// 三行全部是**事实陈述**，没有任何可点的东西：
-/// ① 模型名来自 [AiService.modelName]（编译期注入，如实展示）；
-/// ② 深度思考是**刻意关闭**的 —— 工具调用模式下开着会稳定 400
-///   （见 AiService.disabledThinking 的注释），这里必须写"暂不支持"，
-///    绝对不能提供开关，也不能展示成"可以打开"；
-/// ③ 联网搜索是设置页里真实存在的开关，这里只是镜像呈现当前状态。
-class _ModelConfigCard extends StatelessWidget {
-  const _ModelConfigCard({required this.webSearch});
-
-  final bool webSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Row row(String label, String value) => Row(
-          children: [
-            SizedBox(
-              width: 76,
-              child: Text(label,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.textTertiary)),
-            ),
-            Expanded(
-              child: Text(value, style: theme.textTheme.bodySmall),
-            ),
-          ],
-        );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('当前模型配置', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 10),
-            row('模型', AiService.modelName),
-            const SizedBox(height: 4),
-            row('深度思考', '关闭（工具调用模式下暂不支持）'),
-            const SizedBox(height: 4),
-            row('联网搜索', webSearch ? '开启' : '关闭'),
-          ],
-        ),
-      ),
     );
   }
 }
