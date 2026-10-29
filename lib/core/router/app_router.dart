@@ -172,8 +172,22 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/ai/coach',
-      pageBuilder: (context, state) =>
-          _subPageTransition(const AiChatPage(), state),
+      pageBuilder: (context, state) {
+        // extra 支持两种：纯文本（预填问题）或 {imagePath, text}
+        final extra = state.extra;
+        String? imagePath;
+        String? text;
+        if (extra is String) {
+          text = extra;
+        } else if (extra is Map) {
+          imagePath = extra['imagePath'] as String?;
+          text = extra['text'] as String?;
+        }
+        return _subPageTransition(
+          AiChatPage(initialImagePath: imagePath, initialText: text),
+          state,
+        );
+      },
     ),
     GoRoute(
       path: '/ai/settings',

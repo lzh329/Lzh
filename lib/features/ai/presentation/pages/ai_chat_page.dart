@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/compare_review_launcher.dart'
+    show resolveInitialImage;
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_bubbles.dart';
@@ -21,7 +23,14 @@ import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 /// - 数据上下文自动注入（见 AiPromptBuilder）
 /// - 支持发图片（视觉提问）
 class AiChatPage extends ConsumerStatefulWidget {
-  const AiChatPage({super.key});
+  /// 从别处带进来的待发送图片（如对比页的截图）
+  final String? initialImagePath;
+
+  /// 预填输入框的文本（**不自动发送**：图像请求要花钱，
+  /// 且用户可能想换个问法，别替他做决定）
+  final String? initialText;
+
+  const AiChatPage({super.key, this.initialImagePath, this.initialText});
 
   @override
   ConsumerState<AiChatPage> createState() => _AiChatPageState();
@@ -40,6 +49,14 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     '我吃多了怎么办',
     '点评我的进度',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _image = resolveInitialImage(widget.initialImagePath);
+    final text = widget.initialText;
+    if (text != null && text.isNotEmpty) _inputCtrl.text = text;
+  }
 
   @override
   void dispose() {
@@ -232,7 +249,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         content: const Text('确定删除全部对话吗？此操作不可恢复。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('清空', style: TextStyle(color: AppColors.danger)),

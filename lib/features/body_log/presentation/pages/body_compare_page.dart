@@ -2,10 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/compare_empty_state.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/compare_import.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/compare_panel.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/compare_review_launcher.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_page.dart'
     show photoDayKey;
 
@@ -22,7 +26,9 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
   Map<String, double> _weights = const {};
   bool _loading = true;
 
-  static const _orange = AppColors.primary;
+  /// 截屏用的 key（只包并排对比区域，不把按钮和底栏截进去）
+  final GlobalKey _captureKey = GlobalKey();
+
   static const _green = AppColors.success;
 
   @override
@@ -53,10 +59,51 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
     return kg == null ? null : kg * 2;
   }
 
+  /// 从相册导入一张对比照（走 photoRepo.addPhoto，文件拷贝由仓储负责）
+  Future<void> _importFromGallery() async {
+    final result = await importPhotoFromGallery(
+      repo: ref.read(photoRepoProvider),
+    );
+    if (!mounted) return;
+    switch (result.outcome) {
+      case PhotoImportOutcome.imported:
+        await _load();
+        if (!mounted) return;
+        _toast('已导入，可在对比里查看');
+      case PhotoImportOutcome.cancelled:
+        return; // 用户取消：静默，不弹任何提示
+      case PhotoImportOutcome.failed:
+        // 相册权限被拒是最常见原因，给可操作提示而不是干巴巴的"失败了"
+        final denied = '${result.error}'.toLowerCase().contains('permission');
+        _toast(denied
+            ? '没有相册权限，去系统设置里允许「照片」后重试'
+            : '导入失败：${result.error ?? '未知原因'}');
+    }
+  }
+
+  /// 把并排对比画面截成一张图，带去嘎教练页让 AI 点评
+  Future<void> _askCoachToReview() async {
+    final png = await captureBoundaryPng(_captureKey);
+    if (png == null) {
+      _toast('截图失败，先自己看看两张照片吧');
+      return;
+    }
+    final file = await writeCompareSnapshot(png);
+    if (!mounted) return;
+    context.push('/ai/coach', extra: {
+      'imagePath': file.path,
+      'text': compareReviewPrompt,
+    });
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -64,28 +111,7 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
     }
 
     if (_photos.length < 2) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('身体对比'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.compare,
-                  size: 48, color: AppColors.borderStrong),
-              const SizedBox(height: 14),
-              Text('至少需要两张照片才能对比', style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text(
-                '去「身体相册」拍一张，和最早的照片对比',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textTertiary),
-              ),
-            ],
-          ),
-        ),
-      );
+      return CompareEmptyState(onImport: _importFromGallery);
     }
 
     final latest = _photos.first;
@@ -101,9 +127,9 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
         title: const Text('身体对比'),
         actions: [
           IconButton(
-            tooltip: '去相册',
-            icon: const Icon(Icons.photo_library_outlined),
-            onPressed: () => Navigator.pop(context),
+            tooltip: '从相册导入',
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            onPressed: _importFromGallery,
           ),
         ],
       ),
@@ -112,13 +138,40 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
           children: [
             // ── 左右全屏并排 ──
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _panel(context, earliest, '最早', leftJin),
-                  Container(width: 2, color: AppColors.background),
-                  _panel(context, latest, '最新', rightJin),
-                ],
+              // RepaintBoundary 包住"用户看到的这块画面"：
+              // DeepSeek 视觉一次只吃一张图，所以截整块而不是分两次发两张
+              child: RepaintBoundary(
+                key: _captureKey,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ComparePhotoPanel(
+                      photo: earliest,
+                      label: '最早',
+                      jin: leftJin,
+                      onTap: () => _preview(context, earliest),
+                    ),
+                    Container(width: 2, color: AppColors.background),
+                    ComparePhotoPanel(
+                      photo: latest,
+                      label: '最新',
+                      jin: rightJin,
+                      onTap: () => _preview(context, latest),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ── 让嘎教练点评（预填问题，不自动发送）──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _askCoachToReview,
+                  icon: const Icon(Icons.smart_toy_outlined, size: 18),
+                  label: const Text('让嘎教练点评'),
+                ),
               ),
             ),
             // ── 底部数据条 ──
@@ -206,104 +259,6 @@ class _BodyComparePageState extends ConsumerState<BodyComparePage> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// 单侧照片（铺满、角标、底部渐变信息、点击放大）
-  Widget _panel(BuildContext context, Photo photo, String label, double? jin) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _preview(context, photo),
-        child: ColoredBox(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 背景：原图铺满并压暗（只做氛围，不承担"看人"的职责）
-              Image.file(
-                File(photo.filePath),
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.low,
-                opacity: const AlwaysStoppedAnimation(0.26),
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-              // 前景：完整人像（contain 不裁切 + 高质量滤波）
-              Image.file(
-                File(photo.filePath),
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-                errorBuilder: (_, __, ___) => Center(
-                  child: Icon(Icons.broken_image,
-                      size: 36, color: Colors.white.withAlpha(60)),
-                ),
-              ),
-              // 顶部标签
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: label == '最新' ? _orange : Colors.black54,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: label == '最新' ? Colors.black : Colors.white70,
-                    ),
-                  ),
-                ),
-              ),
-              // 底部渐变 + 日期 / 体重
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withAlpha(210),
-                      ],
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('yyyy.MM.dd').format(photo.date),
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.white.withAlpha(200),
-                        ),
-                      ),
-                      if (jin != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${jin.toStringAsFixed(1)} 斤',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
