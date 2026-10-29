@@ -650,6 +650,13 @@ class _StubSettingsRepo implements UserSettingsRepository {
       throw UnimplementedError('联网工具不该写设置');
 
   @override
+  @override
+  Future<void> saveNickname(String? nickname) async {}
+
+  @override
+  Future<void> saveAvatarPath(String? avatarPath) async {}
+
+  @override
   Future<void> incrementAiHealthOverrideCount() async =>
       throw UnimplementedError('联网工具不该改误报计数');
 

@@ -2494,6 +2494,13 @@ class _FakeSettingsRepo implements UserSettingsRepository {
       _previewMustNotWrite('settings.save');
 
   @override
+  @override
+  Future<void> saveNickname(String? nickname) async {}
+
+  @override
+  Future<void> saveAvatarPath(String? avatarPath) async {}
+
+  @override
   Future<void> incrementAiHealthOverrideCount() async =>
       _previewMustNotWrite('settings.incrementAiHealthOverrideCount');
 

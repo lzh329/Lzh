@@ -38,6 +38,12 @@ abstract class UserSettingsRepository {
   /// 误报计数 +1（原子自增，不做 read-modify-write —— 连续撤销会丢计数）。
   ///
   /// 对应 `user_settings.ai_health_override_count`；没有设置行时先建行再自增。
+  /// 设置昵称；传 null = **清除**（写回 NULL，不是空串）
+  Future<void> saveNickname(String? nickname);
+
+  /// 设置头像路径；传 null = 清除
+  Future<void> saveAvatarPath(String? avatarPath);
+
   Future<void> incrementAiHealthOverrideCount();
 
   /// 误报计数清零（设置页「重置 AI 健康建议」手动兜底；本期不自动衰减）。

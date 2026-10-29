@@ -161,6 +161,14 @@ class UserSettings extends Table {
   // （只计数，**不记录病名/症状**；「我的 → 数据管理」仅在 > 0 时展示）
   IntColumn get aiHealthOverrideCount =>
       integer().withDefault(const Constant(0))();
+
+  // v22：用户自定义头像与昵称
+  // 两列都允许 null；**null = 用户没设置**，绝不用空串冒充 ——
+  // 空串会让"清除昵称"和"从没设过"分不清，问候语就会显示成空。
+  TextColumn get nickname => text().nullable()();
+
+  /// 头像文件路径（应用私有目录下的副本，不是系统相册路径）
+  TextColumn get avatarPath => text().nullable()();
 }
 
 class FoodLibrary extends Table {
@@ -313,7 +321,7 @@ class WeeklyReportCache extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 21;
+const int kSchemaVersion = 22;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -553,6 +561,15 @@ class AppDatabase extends _$AppDatabase {
                 step = 'index:${_indexNameOf(sql)}';
                 await customStatement(sql);
               }
+            }
+
+            // v22: 自定义头像 + 昵称（两列都可空；ADD COLUMN 幂等）
+            if (from < 22) {
+              step = 'addColumn:nickname';
+              await addColumnIfNotExists(m, userSettings, userSettings.nickname);
+              step = 'addColumn:avatar_path';
+              await addColumnIfNotExists(
+                  m, userSettings, userSettings.avatarPath);
             }
 
             // 成功：清掉可能存在的旧失败标记（清不掉不影响正确性）

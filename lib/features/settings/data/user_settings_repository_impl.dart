@@ -202,6 +202,26 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
   // （用户点得快 / 两个入口并发）时 read-modify-write 会丢一次计数。
   // COALESCE 是保险：老库加列时若写入过 NULL，+1 不会变成 NULL。
 
+  /// 昵称：**null 表示清除**，所以这里显式写 `Value(null)`，
+  /// 而不是像 `save()` 那样用 `Value.absent()`（那是"不改"的意思）
+  @override
+  Future<void> saveNickname(String? nickname) async {
+    final existing = await get();
+    if (existing == null) return;
+    await (_db.update(_db.userSettings)
+          ..where((t) => t.id.equals(existing.id)))
+        .write(UserSettingsCompanion(nickname: Value(nickname)));
+  }
+
+  @override
+  Future<void> saveAvatarPath(String? avatarPath) async {
+    final existing = await get();
+    if (existing == null) return;
+    await (_db.update(_db.userSettings)
+          ..where((t) => t.id.equals(existing.id)))
+        .write(UserSettingsCompanion(avatarPath: Value(avatarPath)));
+  }
+
   @override
   Future<void> incrementAiHealthOverrideCount() async {
     final id = await _rowIdOrCreate();
@@ -267,6 +287,8 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         aiReplyLength: row.aiReplyLength,
         aiTemperature: row.aiTemperature,
         aiPersonaCustom: row.aiPersonaCustom,
+        nickname: row.nickname,
+        avatarPath: row.avatarPath,
         aiWebSearchEnabled: row.aiWebSearchEnabled,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,

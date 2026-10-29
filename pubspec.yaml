@@ -40,6 +40,8 @@ dev_dependencies:
   build_runner: ^2.4.12
   drift_dev: ^2.20.3
   flutter_launcher_icons: ^0.13.1
+  # 仅测试用：直接造旧版本 sqlite 文件来验证迁移
+  sqlite3: ^2.4.0
 
 # sqlite3 的原生资产钩子默认从 github.com 下载预编译库，
 # 本机网络无法访问该域名，故在 Windows（宿主测试）上改用系统自带的 winsqlite3.dll。

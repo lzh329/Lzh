@@ -45,6 +45,12 @@ class UserSettingsEntity {
   /// 用户自定义人设文案（多行，只替换「角色」段；null / 空串 = 用风格默认）
   final String? aiPersonaCustom;
 
+  /// 用户自定义昵称（null = 没设置，问候语回落咕嘎形态名）
+  final String? nickname;
+
+  /// 用户自定义头像文件路径（应用私有目录下的副本；null = 没设置）
+  final String? avatarPath;
+
   /// AI 教练「联网搜索」开关（默认开）
   ///
   /// 关闭后请求里不注册 web_search / fetch_url，提示词里也不出现联网规则，
@@ -94,6 +100,8 @@ class UserSettingsEntity {
     this.aiReplyLength,
     this.aiTemperature,
     this.aiPersonaCustom,
+    this.nickname,
+    this.avatarPath,
     this.aiWebSearchEnabled = true,
     this.dailyCalorieTarget,
     this.proteinTargetG,

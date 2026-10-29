@@ -84,7 +84,8 @@ void main() {
       expect(indexes, containsAll(_expectedIndexes),
           reason: '@TableIndex 只覆盖新装用户，漏了这条新装库里就没有索引');
 
-      expect(await DatabaseFileHealth.readUserVersion(file), 21);
+      // schema 已到 22：打开即一路升到最新，断言最新版本
+expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       await db.close();
     });
 
@@ -192,7 +193,8 @@ void main() {
       expect(metrics.length, 1);
       expect(metrics.single.weightKg, 72.5);
 
-      expect(await DatabaseFileHealth.readUserVersion(file), 21);
+      // schema 已到 22：打开即一路升到最新，断言最新版本
+expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       await db.close();
     });
 
@@ -210,7 +212,8 @@ void main() {
 
       db = open();
       await db.customSelect('SELECT 1').get();
-      expect(await DatabaseFileHealth.readUserVersion(file), 21);
+      // schema 已到 22：打开即一路升到最新，断言最新版本
+expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       // 重置版本的迁移块重跑后，索引不会变成两倍
       final indexes = await _indexNames(db);
       expect(
@@ -268,7 +271,7 @@ void main() {
 
       final marker = await MigrationFailureMarker.read(baseDir: markerDir);
       expect(marker, isNotNull);
-      expect(marker!.targetVersion, 21);
+      expect(marker!.targetVersion, kSchemaVersion);
       expect(
         marker.failingStep,
         'index:idx_food_log_date',
@@ -321,7 +324,8 @@ void main() {
       await raw.customSelect('SELECT 1').get();
       final metrics = await raw.select(raw.bodyMetrics).get();
       expect(metrics.single.weightKg, 66.6, reason: 'v21 是纯 DDL，失败不该动用户数据一个字节');
-      expect(await DatabaseFileHealth.readUserVersion(file), 21);
+      // schema 已到 22：打开即一路升到最新，断言最新版本
+expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       await raw.close();
     });
   });
