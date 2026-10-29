@@ -496,6 +496,7 @@ AiToolExecutor _executor({
 }) =>
     AiToolExecutor(
       repos: AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
         database: fakeDatabase(),
         body: const _UntouchedBodyRepo(),
         water: const _UntouchedWaterRepo(),

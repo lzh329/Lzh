@@ -2180,6 +2180,7 @@ const _fakeExercises = <ExerciseEntity>[
 
 /// 全空数据：用于验证"没数据不许假删"
 AiToolRepos _fakeRepos() => AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
       database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),
@@ -2195,6 +2196,7 @@ AiToolRepos _fakeRepos() => AiToolRepos(
 AiToolRepos _fakeReposWithData() {
   final today = DateTime.now();
   return AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
     database: fakeDatabase(),
     body: _FakeBodyRepo([
       BodyMetricEntity(id: 1, date: today, weightKg: 80, waistCm: 80),
@@ -2233,6 +2235,7 @@ AiToolRepos _fakeReposWithData() {
 /// 只关心动作库内容时用：其他仓储留空
 AiToolRepos _fakeReposWithExercises(List<ExerciseEntity> exercises) =>
     AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
         database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),
@@ -2598,6 +2601,7 @@ AiToolRepos _mutableRepos({
   _MutableTemplateRepo? template,
 }) =>
     AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
         database: fakeDatabase(),
       body: _FakeBodyRepo(const []),
       water: _FakeWaterRepo(0),

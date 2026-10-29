@@ -584,6 +584,7 @@ class SocketExceptionStub implements Exception {
 /// 只关心 settings 的仓储集合（其余仓储一旦被碰就报错）
 AiToolRepos _repos({required String? apiKey, bool webEnabled = true}) =>
     AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
       database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),

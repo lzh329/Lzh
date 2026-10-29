@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/reminder_scheduler.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
@@ -19,6 +20,9 @@ class AiToolRepos {
   /// 数据库本体（wipe 这类全表操作要直接跑 DELETE，不经过单个仓储）
   final AppDatabase database;
 
+  /// 提醒排期入口（AI 改提醒必须与设置页落到同一个 id，不能自己排一套）
+  final ReminderScheduler reminderScheduler;
+
   final BodyMetricRepository body;
   final WaterRepository water;
   final WorkoutRepository workout;
@@ -34,6 +38,7 @@ class AiToolRepos {
 
   const AiToolRepos({
     required this.database,
+    required this.reminderScheduler,
     required this.body,
     required this.water,
     required this.workout,
@@ -47,6 +52,7 @@ class AiToolRepos {
   /// 从 providers 构建（工具执行时即时读取，不做 watch）
   factory AiToolRepos.fromRef(Ref ref) => AiToolRepos(
         database: ref.read(databaseProvider),
+        reminderScheduler: ref.read(reminderSchedulerProvider),
         body: ref.read(bodyMetricRepoProvider),
         water: ref.read(waterRepoProvider),
         workout: ref.read(workoutRepoProvider),

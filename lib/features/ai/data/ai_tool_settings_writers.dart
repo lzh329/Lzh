@@ -1,17 +1,12 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show debugPrint;
 
-import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 
 /// 设置类写操作：set_target_weight / update_profile / set_diet_target / set_reminder
 class AiToolSettingsWriters extends AiToolHandler {
   const AiToolSettingsWriters(super.repos);
-
-  /// 每日称重提醒的通知 id（与设置页 100~106 的排期区分开，避免被 cancelAll 之外的逻辑覆盖）
-  static const weighInReminderId = 9001;
 
   /// 提醒时间缺省值 09:00
   static const defaultHour = 9;
@@ -144,37 +139,20 @@ class AiToolSettingsWriters extends AiToolHandler {
       reminderHour: hour,
       reminderMinute: minute,
     );
-    await _applyReminder(enabled: enabled, hour: hour, minute: minute);
+    // 走与设置页同一个 ReminderScheduler 入口：
+    // 以前这里用独立 id 9001 自己排一条，设置页排 100~106，
+    // 两套互不取消 → 同一时刻弹两条；且 AI 关掉提醒时设置页那条还在。
+    await repos.reminderScheduler.rescheduleWeighInOnly(
+      enabled: enabled,
+      hour: hour,
+      minute: minute,
+    );
     return jsonEncode({
       'ok': true,
       'enabled': enabled,
       'hour': hour,
       'minute': minute,
     });
-  }
-
-  /// 同步系统通知：开启则排期，关闭则取消
-  ///
-  /// 通知权限被拒 / 平台不支持时静默失败 —— 设置本身已经写库，不影响聊天继续。
-  Future<void> _applyReminder({
-    required bool enabled,
-    required int hour,
-    required int minute,
-  }) async {
-    final ns = NotificationService();
-    try {
-      if (enabled) {
-        await ns.scheduleDailyWeighInReminder(
-          id: weighInReminderId,
-          hour: hour,
-          minute: minute,
-        );
-      } else {
-        await ns.cancelById(weighInReminderId);
-      }
-    } catch (e) {
-      debugPrint('AI 提醒设置失败: $e');
-    }
   }
 
   static String _hhmm(int hour, int minute) =>

@@ -20,10 +20,17 @@ class WorkoutReminderSlot {
   final int dayOfWeek;
 }
 
-/// 称重提醒的通知 id（100 段，避开训练提醒的 0 段）。
+/// 称重提醒的**唯一**通知 id（100 段，避开训练提醒的 0 段）。
 ///
-/// 与 `scheduleDailyWeighInReminder` 的历史用法保持一致：每天一条、共 7 个 id。
-const List<int> kWeighInReminderIds = <int>[
+/// 历史上是 100~106 共 7 个 id 各排一条每日重复通知 —— 等于同一时刻每天
+/// 弹 7 条。现在统一成 1 个 id 1 条。
+const int kWeighInReminderId = 100;
+
+/// 历史遗留的 7 个 id：init / 重排时逐个 cancel 一次，清掉老版本的重复排期。
+///
+/// 不能只 cancel 新 id —— 老用户设备上 101~106 的排期还活着，不清就会继续
+/// 每天多弹 6 条，且永远没人再管它们。
+const List<int> kLegacyWeighInReminderIds = <int>[
   100,
   101,
   102,
@@ -179,7 +186,7 @@ class ReminderScheduler {
     required int hour,
     required int minute,
     required List<WorkoutReminderSlot> workoutSlots,
-    required List<int> weighInIds,
+    required int weighInId,
   }) async {
     await sink.cancelAll();
     if (!enabled) return;
@@ -205,14 +212,42 @@ class ReminderScheduler {
       );
     }
 
-    if (paused) return; // 称重提醒今天也不排（T03-D2）
-    for (final id in weighInIds) {
-      await sink.scheduleDailyWeighInReminder(
-        id: id,
-        hour: hour,
-        minute: minute,
-      );
+    // 历史遗留 id 先清掉（老版本排的 101~106 会一直活着）
+    for (final legacy in kLegacyWeighInReminderIds) {
+      if (legacy == weighInId) continue;
+      await sink.cancelById(legacy);
     }
+
+    if (paused) return; // 称重提醒今天也不排（T03-D2）
+    await sink.scheduleDailyWeighInReminder(
+      id: weighInId,
+      hour: hour,
+      minute: minute,
+    );
+  }
+
+  /// 只重排「每日称重提醒」（AI 改提醒设置走这里，与设置页同一个落点）
+  ///
+  /// 不调 [reschedule] 是因为那条路要顺带重排训练提醒，需要 plan 数据；
+  /// AI 只改了时间/开关，没必要惊动训练排期。但**产出的 id 必须与
+  /// [reschedule] 一致**（都是 [kWeighInReminderId]），否则又会分叉成两套。
+  Future<void> rescheduleWeighInOnly({
+    required bool enabled,
+    required int hour,
+    required int minute,
+  }) async {
+    for (final legacy in kLegacyWeighInReminderIds) {
+      if (legacy == kWeighInReminderId) continue;
+      await sink.cancelById(legacy);
+    }
+    await sink.cancelById(kWeighInReminderId);
+    if (!enabled) return;
+    if (await _pausedAt(_now())) return; // 今天被生病闸门暂停 → 今天不排
+    await sink.scheduleDailyWeighInReminder(
+      id: kWeighInReminderId,
+      hour: hour,
+      minute: minute,
+    );
   }
 
   Future<bool> _pausedAt(DateTime now) async {

@@ -484,6 +484,7 @@ AiToolRepos _repos({
   _MemoryTemplateRepo? template,
 }) =>
     AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
       database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),

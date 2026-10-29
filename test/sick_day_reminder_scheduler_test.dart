@@ -97,7 +97,7 @@ void main() {
       hour: 8,
       minute: 0,
       workoutSlots: _allWeekSlots(),
-      weighInIds: kWeighInReminderIds,
+      weighInId: kWeighInReminderId,
     );
   }
 
@@ -139,14 +139,14 @@ void main() {
       await reschedule();
 
       expect(sink.workoutSlots, [0, 1, 2, 3, 4, 5, 6]);
-      expect(sink.weighInIds, kWeighInReminderIds);
+      expect(sink.weighInIds, [kWeighInReminderId]);
     });
 
     test('当天没有覆盖 → 照常排（口径只认今天）', () async {
       await reschedule();
 
       expect(sink.workoutSlots, [0, 1, 2, 3, 4, 5, 6]);
-      expect(sink.weighInIds, kWeighInReminderIds);
+      expect(sink.weighInIds, [kWeighInReminderId]);
     });
 
     test('昨天的覆盖不影响今天', () async {
@@ -293,7 +293,7 @@ void main() {
         hour: 8,
         minute: 0,
         workoutSlots: _allWeekSlots(),
-        weighInIds: kWeighInReminderIds,
+        weighInId: kWeighInReminderId,
       );
 
       expect(sink.workoutSlots, contains(2), reason: '周二那条跨天后要恢复');

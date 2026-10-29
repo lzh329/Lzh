@@ -86,7 +86,7 @@ Future<void> scheduleReminders(WidgetRef ref) async {
         hour: hour,
         minute: minute,
         workoutSlots: buildWorkoutSlots(plans),
-        weighInIds: kWeighInReminderIds,
+        weighInId: kWeighInReminderId,
       );
 }
 

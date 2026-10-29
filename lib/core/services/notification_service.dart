@@ -15,6 +15,10 @@ class NotificationService {
     if (_initialized) return;
 
     tz_data.initializeTimeZones();
+    // 排期按 tz.local 计算，不设就是 UTC —— 中国用户会偏 8 小时
+    // （19:00 的提醒变成凌晨 3:00）。这里固定 Asia/Shanghai：
+    // 单人自用、中国时区可接受；将来要多时区再引 flutter_timezone 换成本机时区。
+    tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');

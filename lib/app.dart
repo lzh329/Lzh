@@ -134,7 +134,7 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
           hour: ref.read(reminderHourProvider),
           minute: ref.read(reminderMinuteProvider),
           workoutSlots: buildWorkoutSlots(plans),
-          weighInIds: kWeighInReminderIds,
+          weighInId: kWeighInReminderId,
         );
     _scheduledDay = _dayOf(DateTime.now());
   }

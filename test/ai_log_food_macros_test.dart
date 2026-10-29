@@ -303,6 +303,7 @@ Future<int> _seedFood(
 
 /// 只给 diet 真仓储，其余一律拦下（log_food 不该碰它们）
 AiToolRepos _repos(DietRepositoryImpl diet) => AiToolRepos(
+        reminderScheduler: fakeReminderScheduler(),
         database: fakeDatabase(),
       body: const _UntouchedBodyRepo(),
       water: const _UntouchedWaterRepo(),
