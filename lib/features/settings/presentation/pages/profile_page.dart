@@ -42,7 +42,7 @@ class ProfilePage extends ConsumerWidget {
               const ProfileBodyInfo(),
               const SizedBox(height: 22),
 
-              // ③ 目标管理（纯搬运 goal_list_page，新建入口仍是右下角 FAB）
+              // ③ 目标管理（新建入口在区块标题行右侧，不用 FAB）
               Text('目标管理', style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               // 目标区改用「标题 + 右侧新建」后不再需要固定高度：

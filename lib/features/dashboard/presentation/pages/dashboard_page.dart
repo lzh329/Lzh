@@ -95,6 +95,8 @@ class _DashboardBody extends ConsumerWidget {
           const SizedBox(height: 10),
           // 1) 问候 + 连续打卡 + 咕嘎小头像
           GreetingHeader(
+            // 用户设了昵称就用昵称，没设回落咕嘎形态名（组件内部处理）
+            nickname: ref.watch(userSettingsProvider).valueOrNull?.nickname,
             streakDays: streak,
             avatarAsset: guga.stage.asset,
             gugaName: guga.stage.name,

@@ -36,7 +36,6 @@ class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(goalRepoProvider);
-    final theme = Theme.of(context);
 
     // 新建入口从原页面的右下角 FAB 改成区块标题右侧的「＋ 新建」：
     // 新页不挂全局 FAB（那是整页级动作，不该只服务目标），
@@ -46,9 +45,7 @@ class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
       children: [
         Row(
           children: [
-            Text('新建一个',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textTertiary)),
+            // 左侧标题由外层「个人档案」页给，这里只留右侧操作
             const Spacer(),
             TextButton.icon(
               onPressed: () => _showCreateDialog(context, repo),

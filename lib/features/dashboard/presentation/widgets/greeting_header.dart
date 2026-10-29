@@ -12,6 +12,9 @@ class GreetingHeader extends StatelessWidget {
   /// 当前咕嘎形态名（拼接在问候语后，如"晚上好，肥咕嘎"）
   final String? gugaName;
 
+  /// 用户自定义昵称（null / 空串 = 没设 → 回落咕嘎形态名）
+  final String? nickname;
+
   /// 距升级提示（如"距升级 12.0 斤"）
   final String? upgradeHint;
 
@@ -20,12 +23,20 @@ class GreetingHeader extends StatelessWidget {
     this.streakDays = 0,
     this.avatarAsset,
     this.gugaName,
+    this.nickname,
     this.upgradeHint,
   });
 
   static const _green = AppColors.primary;
 
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+
+  /// 拼「问候语，称呼」；称呼为空时只返回问候语（不留空尾）
+  static String greetingWithName(String greeting, String? name) {
+    final n = name?.trim();
+    if (n == null || n.isEmpty || n == 'null') return greeting;
+    return '$greeting，$n';
+  }
 
   static String greetingOf(DateTime now) {
     final h = now.hour;
@@ -69,9 +80,10 @@ class GreetingHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                gugaName != null
-                    ? '${greetingOf(now)}，$gugaName'
-                    : greetingOf(now),
+                // 称呼优先级：昵称 → 咕嘎形态名 → 什么都不加。
+                // 三处都可能为空，所以拼之前必须过滤空串，
+                // 否则会出现「下午好，」这种空尾（或更糟的「下午好，null」）。
+                greetingWithName(greetingOf(now), nickname ?? gugaName),
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w600),
                 // 带上咕嘎形态名（如"你好呀，小嘎 · 新手"）可能超一行，
