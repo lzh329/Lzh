@@ -193,26 +193,39 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                               _stretchGuides.containsKey(ex.name)
                           ? () => _showStretchGuide(context, ex.name)
                           : null,
-                      trailing: ex.isCustom
-                          ? PopupMenuButton<String>(
-                              onSelected: (action) {
-                                if (action == 'edit') {
-                                  _showEditDialog(context, exercise: ex);
-                                }
-                                if (action == 'delete') {
-                                  _confirmDelete(context, ex);
-                                }
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'edit', child: Text('编辑')),
-                                PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('删除',
-                                        style: TextStyle(
-                                            color: AppColors.danger))),
-                              ],
-                            )
-                          : null,
+                      // 所有动作都有菜单：分类是"我的动作库怎么归类"，
+                      // 不该因为是内置动作就不让改
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (action) {
+                          switch (action) {
+                            case 'category':
+                              _showCategoryDialog(context, ex);
+                            case 'guide':
+                              _showStretchGuide(context, ex.name);
+                            case 'edit':
+                              _showEditDialog(context, exercise: ex);
+                            case 'delete':
+                              _confirmDelete(context, ex);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                              value: 'category', child: Text('改分类')),
+                          if (_stretchGuides.containsKey(ex.name) &&
+                              ex.category == 'stretch')
+                            const PopupMenuItem(
+                                value: 'guide', child: Text('拉伸指引')),
+                          if (ex.isCustom) ...[
+                            const PopupMenuItem(
+                                value: 'edit', child: Text('编辑')),
+                            const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('删除',
+                                    style:
+                                        TextStyle(color: AppColors.danger))),
+                          ],
+                        ],
+                      ),
                     );
                   },
                 );
@@ -232,7 +245,6 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
 
   void _showEditDialog(BuildContext context, {ExerciseEntity? exercise}) {
     final nameCtrl = TextEditingController(text: exercise?.name ?? '');
-    final muscleCtrl = TextEditingController(text: exercise?.muscleGroup ?? '');
     String category = exercise?.category ?? 'strength';
 
     showDialog(
@@ -248,11 +260,7 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                   decoration:
                       const InputDecoration(labelText: '动作名称', isDense: true),
                   autofocus: true),
-              const SizedBox(height: 12),
-              TextField(
-                  controller: muscleCtrl,
-                  decoration: const InputDecoration(
-                      labelText: '目标肌群（可选）', isDense: true)),
+
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: category,
@@ -277,23 +285,72 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
                 if (name.isEmpty) return;
                 final repo = ref.read(exerciseRepoProvider);
                 if (exercise == null) {
-                  await repo.create(
-                      name,
-                      category,
-                      muscleCtrl.text.trim().isEmpty
-                          ? null
-                          : muscleCtrl.text.trim());
+                  // 部位不再可编辑：库里的旧值保留不动，新建时为空
+                  await repo.create(name, category, null);
                 } else {
                   await repo.update(ExerciseEntity(
                     id: exercise.id,
                     name: name,
                     category: category,
-                    muscleGroup: muscleCtrl.text.trim().isEmpty
-                        ? null
-                        : muscleCtrl.text.trim(),
+                    // 部位不再可编辑：沿用库里原值，不覆盖
+                    muscleGroup: exercise.muscleGroup,
                     isCustom: exercise.isCustom,
                   ));
                 }
+                if (ctx.mounted) Navigator.pop(ctx);
+                setState(() {});
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 只改分类（内置动作也能改）
+  ///
+  /// 分类是 JOIN 动作表取的，模板条目本身不存 category —— 所以**不需要**
+  /// 同步改模板数据，但用户要知道这件事会影响到哪些模板。
+  void _showCategoryDialog(BuildContext context, ExerciseEntity ex) {
+    var category = ex.category;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('改分类 · ${ex.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: category,
+                decoration:
+                    const InputDecoration(labelText: '分类', isDense: true),
+                items: AppTheme.categoryLabels.entries
+                    .map((e) =>
+                        DropdownMenuItem(value: e.key, child: Text(e.value)))
+                    .toList(),
+                onChanged: (v) => setDialogState(() => category = v!),
+              ),
+              const SizedBox(height: 10),
+              const Text('改分类会影响已引用它的训练模板',
+                  style: TextStyle(
+                      fontSize: 11, color: AppColors.textTertiary)),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            FilledButton(
+              onPressed: () async {
+                await ref.read(exerciseRepoProvider).update(ExerciseEntity(
+                      id: ex.id,
+                      name: ex.name,
+                      category: category,
+                      muscleGroup: ex.muscleGroup,
+                      isCustom: ex.isCustom,
+                    ));
                 if (ctx.mounted) Navigator.pop(ctx);
                 setState(() {});
               },
