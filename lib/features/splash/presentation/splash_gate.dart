@@ -73,32 +73,15 @@ class _SplashImage extends StatelessWidget {
     return const ColoredBox(
       color: AppColors.background,
       child: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image(
-              image: AssetImage('assets/splash.jpg'),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              gaplessPlayback: true,
-              errorBuilder: _onImageError,
-            ),
-            // 诊断标记：能看见这行字 = Flutter 启动页确实渲染了（不是系统闪屏）
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 28,
-              child: Text(
-                'v1.1.1',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
+        // contain 而不是 cover：cover 会按屏幕高度放大、左右裁掉，
+        // 用户实测"图有点大"。contain 保证整张插画完整可见，
+        // 上下留白用同色背景补齐，视觉上更克制。
+        child: Image(
+          image: AssetImage('assets/splash.jpg'),
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          gaplessPlayback: true,
+          errorBuilder: _onImageError,
         ),
       ),
     );
