@@ -73,12 +73,12 @@ class _SplashImage extends StatelessWidget {
     return const ColoredBox(
       color: AppColors.background,
       child: SizedBox.expand(
-        // contain 而不是 cover：cover 会按屏幕高度放大、左右裁掉，
-        // 用户实测"图有点大"。contain 保证整张插画完整可见，
-        // 上下留白用同色背景补齐，视觉上更克制。
+        // cover：铺满整屏、不留上下白边（用户要求）。
+        // 代价是图比屏幕"宽"，左右各裁掉约 11%——主体（两只企鹅）在中部，
+        // 裁的是两侧背景，观感无损。
         child: Image(
           image: AssetImage('assets/splash.jpg'),
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
           alignment: Alignment.center,
           gaplessPlayback: true,
           errorBuilder: _onImageError,
