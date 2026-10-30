@@ -7,8 +7,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- 精确定时：到点即响；没有它只能 inexact（可能延后几分钟） -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <!-- 重启后恢复已排期的通知，否则手机一重启提醒就永久消失 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="减肥嘎"
         android:name="${applicationName}"
@@ -35,20 +33,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- flutter_local_notifications 的两个 receiver（缺一个提醒就不响/重启后失效） -->
+        <!-- flutter_local_notifications 的定时通知 receiver：到点后由它真正弹出通知（必须保留）。
+             注意：这里**故意不配** ScheduledNotificationBootReceiver —— 它在 release 下
+             用 Gson 反序列化排期缓存时报 "Missing type parameter" 导致冷启动闪退
+             （2026-10-30 真机：杀后台后第一次点图标必崩、第二次才进）。
+             代价是"手机重启后已排期通知不会自动恢复"，但单人自用、每次打开 App
+             的 init 里都会重排期，这个能力不是必需，换来的是启动稳定。 -->
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <receiver
-            android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
-            </intent-filter>
-        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
