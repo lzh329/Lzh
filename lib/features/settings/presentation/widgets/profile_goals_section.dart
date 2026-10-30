@@ -82,7 +82,7 @@ class _ProfileGoalsSectionState extends ConsumerState<ProfileGoalsSection> {
                         onCreate: () => _showCreateDialog(context, repo));
                   }
                   return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                     itemCount: goals.length,
                     itemBuilder: (context, index) {
                       final goal = goals[index];

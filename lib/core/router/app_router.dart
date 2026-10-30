@@ -16,6 +16,7 @@ import 'package:fittrack/features/plan/presentation/pages/plan_create_page.dart'
 import 'package:fittrack/features/plan/presentation/pages/plan_detail_page.dart';
 
 import 'package:fittrack/features/settings/presentation/pages/profile_page.dart';
+import 'package:fittrack/features/goal/presentation/pages/goals_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/data_management_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/voice_settings_page.dart';
 import 'package:fittrack/features/ai/presentation/pages/ai_chat_page.dart';
@@ -164,7 +165,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) =>
           _subPageTransition(const ProfilePage(), state),
     ),
-    // 老入口保留并重定向：别处（AI 建议文案、旧通知等）可能还在跳这两个路径，
+    // 老入口保留并重定向：别处（AI 建议文案、旧通知等）可能还在跳这个路径，
     // 直接删会断链，用户点进去是白屏
     GoRoute(
       path: '/settings/body-info',
@@ -172,7 +173,8 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/goals',
-      redirect: (_, __) => '/settings/profile',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const GoalsPage(), state),
     ),
 
     GoRoute(

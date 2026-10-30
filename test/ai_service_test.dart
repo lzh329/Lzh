@@ -94,6 +94,15 @@ void main() {
       expect(prompt, contains('目标体重'));
     });
 
+    test('联网与工具规则：调用即执行、结果即答案（不做空承诺）', () {
+      // 联网默认开启（settings null = 按开启处理），应带「立刻调用」的硬规则
+      final prompt =
+          AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      expect(prompt, contains('调用即执行、结果即答案'));
+      expect(prompt, contains('立刻在这一次回复里调用 web_search'));
+      expect(prompt, contains('完整答案一次说完'));
+    });
+
     test('注入体重 / 目标 / 训练等关键数据', () {
       final now = DateTime.now();
       final metrics = [

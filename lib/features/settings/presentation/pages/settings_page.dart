@@ -52,14 +52,19 @@ class SettingsPage extends ConsumerWidget {
           SettingsSection(
             title: '我的档案',
             children: [
-              // 原来的「目标管理」「身体信息」两个入口已合并成一页：
-              // 它们在用户心里是同一件事，分两个入口只会来回找
               SettingsTile(
                 icon: Icons.badge_outlined,
                 color: _green,
                 title: '个人档案',
                 subtitle: _bodyInfoSubtitle(ref),
                 onTap: () => context.push('/settings/profile'),
+              ),
+              SettingsTile(
+                icon: Icons.flag_outlined,
+                color: _purple,
+                title: '目标管理',
+                subtitle: '设定体重目标与打卡频率',
+                onTap: () => context.push('/goals'),
               ),
               SettingsTile(
                 icon: Icons.fitness_center,

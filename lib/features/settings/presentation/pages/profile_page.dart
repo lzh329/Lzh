@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_body_info.dart';
-import 'package:fittrack/features/settings/presentation/widgets/profile_goals_section.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_identity_card.dart';
 
 /// 个人档案 —— 把原来的「身体信息」页与「目标管理」页合并成一页
@@ -40,14 +39,6 @@ class ProfilePage extends ConsumerWidget {
               Text('身体信息', style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               const ProfileBodyInfo(),
-              const SizedBox(height: 22),
-
-              // ③ 目标管理（新建入口在区块标题行右侧，不用 FAB）
-              Text('目标管理', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              // 目标区改用「标题 + 右侧新建」后不再需要固定高度：
-              // 列表本身跟随内容撑开（新建入口在标题行，不在右下角）
-              const ProfileGoalsSection(),
             ],
           ),
         ),
