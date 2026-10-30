@@ -9,18 +9,12 @@ class TemplateMetaChips extends StatelessWidget {
   final List<String> difficulties;
   final String difficulty;
   final ValueChanged<String> onDifficulty;
-  final List<String> focuses;
-  final String focus;
-  final ValueChanged<String> onFocus;
 
   const TemplateMetaChips({
     super.key,
     required this.difficulties,
     required this.difficulty,
     required this.onDifficulty,
-    required this.focuses,
-    required this.focus,
-    required this.onFocus,
   });
 
   @override
@@ -52,23 +46,12 @@ class TemplateMetaChips extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        group(
-          label: '难度',
-          options: difficulties,
-          selected: difficulty,
-          onSelect: onDifficulty,
-        ),
-        const SizedBox(height: 14),
-        group(
-          label: '部位',
-          options: focuses,
-          selected: focus,
-          onSelect: onFocus,
-        ),
-      ],
+    // 「部位」与「场景」两维已按产品决策删除：模板只保留 类型 + 难度
+    return group(
+      label: '难度',
+      options: difficulties,
+      selected: difficulty,
+      onSelect: onDifficulty,
     );
   }
 }

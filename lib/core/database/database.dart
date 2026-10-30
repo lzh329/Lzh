@@ -219,6 +219,13 @@ class WorkoutTemplates extends Table {
   TextColumn get name => text().withLength(min: 1, max: 100)();
   TextColumn get difficulty => text()(); // 入门 / 中阶 / 高阶
   TextColumn get focus => text()(); // 全身 / 放松 / 碎片
+
+  /// 模板类型：strength（力量）/ cardio（有氧）
+  ///
+  /// 非空 + 默认 strength：老库里的模板全是"组×次"形态，默认归类为力量
+  /// 是安全的；迁移里再把"含 cardio 动作"的模板改成 cardio。
+  /// `focus` 列保留不删（兼容风险），但代码不再读它。
+  TextColumn get type => text().withDefault(const Constant('strength'))();
   IntColumn get minutes => integer().withDefault(const Constant(15))();
   TextColumn get description => text().nullable()();
   TextColumn get accentKey => text().withDefault(const Constant('green'))();
@@ -321,7 +328,7 @@ class WeeklyReportCache extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 22;
+const int kSchemaVersion = 23;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -345,6 +352,17 @@ const List<String> kV21Indexes = [
   'CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_template_id '
       'ON workout_template_exercises (template_id)',
 ];
+
+/// 迁移中判断表是否存在（半迁移现场 / 极老库可能还没建）
+Future<bool> _tableExists(AppDatabase db, String name) async {
+  final rows = await db
+      .customSelect(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        variables: [Variable.withString(name)],
+      )
+      .get();
+  return rows.isNotEmpty;
+}
 
 /// 从 `CREATE INDEX IF NOT EXISTS idx_xxx ON ...` 里取出索引名，用于步骤级诊断。
 String _indexNameOf(String sql) {
@@ -572,6 +590,44 @@ class AppDatabase extends _$AppDatabase {
                   m, userSettings, userSettings.avatarPath);
             }
 
+            // v23: 模板类型 + 动作分类合并（bodyweight/gym → strength）
+            if (from < 23) {
+              step = 'addColumn:workout_templates.type';
+              // 表可能还没建（半迁移现场 / 极老库）→ 先确认再 ALTER
+              if (await _tableExists(this, 'workout_templates')) {
+                await addColumnIfNotExists(
+                    m, workoutTemplates, workoutTemplates.type);
+              }
+
+              // 半迁移现场（表还没建全）也要能继续：先确认表在再改数据，
+              // 否则会在 v20→v21 之前的残缺库上直接崩
+              step = 'update:exercises.category';
+              if (await _tableExists(this, 'exercises')) {
+                // 动作库三类：strength / cardio / stretch
+                // （bodyweight、gym 都是"按组按次"的力量动作，合并成一个）
+                await customStatement(
+                  "UPDATE exercises SET category = 'strength' "
+                  "WHERE category IN ('bodyweight', 'gym')",
+                );
+              }
+
+              // 含 cardio 动作的模板自动归为有氧
+              // ⚠️ 注意：工作表中的 category 在 exercises 上，不在 items 上 ——
+              // 必须 JOIN 动作表，否则会报 "no such column: category"
+              step = 'update:workout_templates.type';
+              if (await _tableExists(this, 'workout_templates') &&
+                  await _tableExists(this, 'workout_template_items') &&
+                  await _tableExists(this, 'exercises')) {
+                await customStatement(
+                "UPDATE workout_templates SET type = 'cardio' "
+                'WHERE id IN ('
+                'SELECT DISTINCT i.template_id FROM workout_template_items i '
+                'JOIN exercises e ON e.id = i.exercise_id '
+                  "WHERE e.category = 'cardio')",
+                );
+              }
+            }
+
             // 成功：清掉可能存在的旧失败标记（清不掉不影响正确性）
             await MigrationFailureMarker.clear(baseDir: markerBaseDir);
           } catch (e) {
@@ -605,30 +661,30 @@ QueryExecutor _openConnection() {
 Future<void> _seedExercises(AppDatabase db) async {
   final exercises = [
     // 徒手
-    ('俯卧撑', 'bodyweight', '胸部'),
-    ('钻石俯卧撑', 'bodyweight', '肱三头肌'),
-    ('宽距俯卧撑', 'bodyweight', '胸部'),
-    ('平板支撑', 'bodyweight', '核心'),
-    ('仰卧起坐', 'bodyweight', '腹部'),
-    ('卷腹', 'bodyweight', '腹部'),
-    ('深蹲', 'bodyweight', '腿部'),
-    ('弓步蹲', 'bodyweight', '腿部'),
-    ('臀桥', 'bodyweight', '臀部'),
-    ('引体向上', 'bodyweight', '背部'),
-    ('悬垂举腿', 'bodyweight', '腹部'),
+    ('俯卧撑', 'strength', '胸部'),
+    ('钻石俯卧撑', 'strength', '肱三头肌'),
+    ('宽距俯卧撑', 'strength', '胸部'),
+    ('平板支撑', 'strength', '核心'),
+    ('仰卧起坐', 'strength', '腹部'),
+    ('卷腹', 'strength', '腹部'),
+    ('深蹲', 'strength', '腿部'),
+    ('弓步蹲', 'strength', '腿部'),
+    ('臀桥', 'strength', '臀部'),
+    ('引体向上', 'strength', '背部'),
+    ('悬垂举腿', 'strength', '腹部'),
     // 器械
-    ('杠铃深蹲', 'gym', '腿部'),
-    ('杠铃卧推', 'gym', '胸部'),
-    ('杠铃硬拉', 'gym', '背部'),
-    ('杠铃划船', 'gym', '背部'),
-    ('杠铃推举', 'gym', '肩部'),
-    ('哑铃弯举', 'gym', '肱二头肌'),
-    ('哑铃侧平举', 'gym', '肩部'),
-    ('哑铃飞鸟', 'gym', '胸部'),
-    ('腿举', 'gym', '腿部'),
-    ('腿弯举', 'gym', '腿部'),
-    ('坐姿划船', 'gym', '背部'),
-    ('高位下拉', 'gym', '背部'),
+    ('杠铃深蹲', 'strength', '腿部'),
+    ('杠铃卧推', 'strength', '胸部'),
+    ('杠铃硬拉', 'strength', '背部'),
+    ('杠铃划船', 'strength', '背部'),
+    ('杠铃推举', 'strength', '肩部'),
+    ('哑铃弯举', 'strength', '肱二头肌'),
+    ('哑铃侧平举', 'strength', '肩部'),
+    ('哑铃飞鸟', 'strength', '胸部'),
+    ('腿举', 'strength', '腿部'),
+    ('腿弯举', 'strength', '腿部'),
+    ('坐姿划船', 'strength', '背部'),
+    ('高位下拉', 'strength', '背部'),
     // 有氧
     ('跑步', 'cardio', '全身'),
     ('跳绳', 'cardio', '全身'),
@@ -733,6 +789,7 @@ class _TemplateSeed {
   final String name;
   final String difficulty;
   final String focus;
+  final String type; // strength / cardio
   final int minutes;
   final String accent;
   final String description;
@@ -742,6 +799,7 @@ class _TemplateSeed {
     required this.name,
     required this.difficulty,
     required this.focus,
+    this.type = 'strength',
     required this.minutes,
     required this.accent,
     required this.description,
@@ -768,6 +826,7 @@ const _templateSeeds = [
     name: '燃脂训练',
     difficulty: '中阶',
     focus: '全身',
+    type: 'cardio',
     minutes: 20,
     accent: 'orange',
     description: '中等强度全身燃脂，高效消耗热量',
@@ -782,6 +841,7 @@ const _templateSeeds = [
     name: '高效HIIT',
     difficulty: '高阶',
     focus: '全身',
+    type: 'cardio',
     minutes: 15,
     accent: 'red',
     description: '高强度间歇训练，快速燃烧',
@@ -836,6 +896,7 @@ Future<void> _seedWorkoutTemplates(AppDatabase db) async {
             name: t.name,
             difficulty: t.difficulty,
             focus: t.focus,
+            type: Value(t.type),
             minutes: Value(t.minutes),
             description: Value(t.description),
             accentKey: Value(t.accent),

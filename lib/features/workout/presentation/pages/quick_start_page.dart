@@ -17,10 +17,6 @@ final workoutTemplatesProvider =
   return ref.watch(workoutTemplateRepoProvider).getAll();
 });
 
-/// 分类筛选的固定顺序（"全部"始终在最前）
-const _focusOrder = <String>['全身', '放松', '碎片'];
-const _allFocus = kAllFilter;
-
 /// 训练页 —— 模板化开练（v3：Keep 课程列表风格，封面图优先）
 class QuickStartPage extends ConsumerStatefulWidget {
   const QuickStartPage({super.key});
@@ -36,7 +32,7 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
   int _segment = 1;
 
   /// 当前分类筛选（纯前端过滤已加载列表）
-  String _focus = _allFocus;
+  String _type = kAllFilter;
 
   /// 难度筛选（固定三档，空档置灰不可点）
   String _difficulty = kAllFilter;
@@ -75,19 +71,6 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
     } finally {
       if (mounted) setState(() => _starting = false);
     }
-  }
-
-  /// 依据推荐模板的 focus 生成分类 chips（"全部" + 存在数据的分类）
-  List<String> _buildFilters(List<WorkoutTemplateEntity> recommended) {
-    final existing = recommended.map((t) => t.focus).toSet();
-    // 兜底：数据里出现未知 focus 时排在已知分类之后（按字典序）
-    final unknown = existing.where((f) => !_focusOrder.contains(f)).toList()
-      ..sort();
-    return <String>[
-      _allFocus,
-      ..._focusOrder.where(existing.contains),
-      ...unknown,
-    ];
   }
 
   @override
@@ -166,23 +149,19 @@ class _QuickStartPageState extends ConsumerState<QuickStartPage> {
       data: (templates) {
         final recommended = templates.where((t) => t.isRecommended).toList();
         final mine = templates.where((t) => !t.isRecommended).toList();
-        final filters = _buildFilters(recommended);
-        // 选中的分类在数据变化后可能已不存在 → 回落到 "全部"
-        final active = filters.contains(_focus) ? _focus : _allFocus;
-        // 场景 × 难度 AND 组合（纯函数，见 template_filter.dart）
-        final visible = filterTemplates(recommended,
-            focus: active, difficulty: _difficulty);
-        // 各难度档在当前场景下的数量：为 0 的档位置灰（避免"点了没结果"）
-        final diffs = difficultyCounts(recommended, focus: active);
+        // 类型（力量/有氧）× 难度 AND 组合（纯函数，见 template_filter.dart）
+        final visible =
+            filterTemplates(recommended, type: _type, difficulty: _difficulty);
+        // 各难度档在当前类型下的数量：为 0 的档位置灰（避免"点了没结果"）
+        final diffs = difficultyCounts(recommended, type: _type);
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             // ── 分类 chips + 自定义入口 ──
             TemplateFilterBar(
-              filters: filters,
-              active: active,
-              onSelect: (f) => setState(() => _focus = f),
+              type: _type,
+              onType: (t) => setState(() => _type = t),
               difficulty: _difficulty,
               difficultyCounts: diffs,
               onDifficulty: (d) => setState(() => _difficulty = d),

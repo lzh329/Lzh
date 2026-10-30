@@ -4,13 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/workout/domain/template_filter.dart';
 
-/// 训练页筛选栏：场景组（实心 chip）+ 难度组（描边 chip，空档置灰）。
+/// 训练页筛选栏：类型组（全部/力量/有氧）+ 难度组（全部/入门/中阶/高阶）
 ///
-/// 两组视觉刻意不同：场景是可累积浏览的"频道"，难度是对同一批结果的收窄。
+/// 两组都用**分段控件**（一个整体边框、内部按段平分、选中段填充主色）——
+/// 产品决策：原来的「场景」维度删除，类型成为新的第一维度；
+/// 两组形态统一，用户不需要辨认"哪种样式代表哪个维度"。
 class TemplateFilterBar extends StatelessWidget {
-  final List<String> filters;
-  final String active;
-  final ValueChanged<String> onSelect;
+  /// 类型筛选值（中文标签：全部/力量/有氧）
+  final String type;
+  final ValueChanged<String> onType;
 
   /// 难度组（固定三档 + 「全部」）；null = 不显示这一组
   final String? difficulty;
@@ -19,9 +21,8 @@ class TemplateFilterBar extends StatelessWidget {
 
   const TemplateFilterBar({
     super.key,
-    required this.filters,
-    required this.active,
-    required this.onSelect,
+    required this.type,
+    required this.onType,
     this.difficulty,
     this.difficultyCounts,
     this.onDifficulty,
@@ -33,19 +34,17 @@ class TemplateFilterBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 「场景」维度已整组删除（产品决策）：现在两组都是分段控件，
+        // 第一组选类型、第二组选难度，形态统一、语义更清楚。
         TemplateFilterRow(
-          label: '场景',
+          label: '类型',
           trailing: _customButton(context),
           children: [
-            for (final f in filters)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FocusChip(
-                  label: f,
-                  selected: f == active,
-                  onTap: () => onSelect(f),
-                ),
-              ),
+            SegmentedRow(
+              options: const [kAllFilter, ...kTypeOrder],
+              value: type,
+              onSelect: onType,
+            ),
           ],
         ),
         if (difficulties != null) ...[
@@ -57,9 +56,12 @@ class TemplateFilterBar extends StatelessWidget {
               // 两组都做成一排圆角 chip 时，深色底上只看得出实心/描边，
               // 用户根本分不清这是两个不同维度。一个整体边框 + 内部分隔线
               // 一眼就能看出"这是另一类选择"。
-              DifficultySegmented(
+              // 难度：空档置灰（当前类型下 0 个模板）
+              SegmentedRow(
+                options: const [kAllFilter, ...kDifficultyOrder],
                 value: difficulties,
-                counts: difficultyCounts ?? const {},
+                disabled: (v) =>
+                    v != kAllFilter && (difficultyCounts?[v] ?? 0) == 0,
                 onSelect: (v) => onDifficulty?.call(v),
               ),
             ],
@@ -217,26 +219,28 @@ class FocusChip extends StatelessWidget {
   }
 }
 
-/// 难度分段控件：全部 / 入门 / 中阶 / 高阶
+/// 通用分段控件：一个整体圆角边框，内部按段平分，选中段填充主色
 ///
-/// 与场景组的胶囊 chip 在**形态上**区分（不是靠颜色深浅）：
-/// 一个整体圆角边框，内部按段平分，选中段填充主色、段间细分割线。
-/// 空档（当前场景下 0 个模板）整段置灰不可点。
-class DifficultySegmented extends StatelessWidget {
+/// 类型组与难度组共用它 —— 形态统一，语义差异只体现在小标题上。
+class SegmentedRow extends StatelessWidget {
+  final List<String> options;
   final String value;
-  final Map<String, int> counts;
+
+  /// 某一段是否置灰不可点（难度组的空档用）
+  final bool Function(String option)? disabled;
+
   final ValueChanged<String> onSelect;
 
-  const DifficultySegmented({
+  const SegmentedRow({
     super.key,
+    required this.options,
     required this.value,
-    required this.counts,
     required this.onSelect,
+    this.disabled,
   });
 
   @override
   Widget build(BuildContext context) {
-    final options = <String>[kAllFilter, ...kDifficultyOrder];
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(9),
@@ -248,20 +252,15 @@ class DifficultySegmented extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var i = 0; i < options.length; i++)
-              _segment(
-                options[i],
-                showDivider: i > 0,
-                enabled:
-                    options[i] == kAllFilter || (counts[options[i]] ?? 0) > 0,
-              ),
+              _segment(options[i], showDivider: i > 0),
           ],
         ),
       ),
     );
   }
 
-  Widget _segment(String label,
-      {required bool showDivider, required bool enabled}) {
+  Widget _segment(String label, {required bool showDivider}) {
+    final enabled = !(disabled?.call(label) ?? false);
     final selected = value == label;
     final color = !enabled
         ? AppColors.textTertiary.withAlpha(110)

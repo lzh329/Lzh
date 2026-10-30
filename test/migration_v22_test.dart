@@ -12,8 +12,8 @@ import 'package:fittrack/features/settings/data/user_settings_repository_impl.da
 ///
 /// 这两列都可空，null = 用户没设置。迁移只做 ADD COLUMN，不动任何老数据。
 void main() {
-  test('kSchemaVersion 已推进到 22', () {
-    expect(kSchemaVersion, 22, reason: '改 schema 必须同步此断言，并补迁移用例');
+  test('kSchemaVersion 已到 22+', () {
+    expect(kSchemaVersion, greaterThanOrEqualTo(22));
   });
 
   test('老库（v21）升到 v22：老数据完整、新列存在且为 null、可重复执行', () async {
@@ -68,7 +68,7 @@ void main() {
     await db.customSelect('SELECT 1').get();
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 22, reason: '迁移后 user_version 必须推进');
+    expect(version.data.values.first, kSchemaVersion);
 
     final repo = UserSettingsRepositoryImpl(db);
     final s = await repo.get();

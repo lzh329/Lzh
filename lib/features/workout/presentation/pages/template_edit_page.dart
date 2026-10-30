@@ -7,6 +7,8 @@ import 'package:fittrack/features/workout/presentation/widgets/exercise_item_edi
 import 'package:fittrack/features/workout/presentation/widgets/exercise_picker_sheet.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_items_list.dart';
+import 'package:fittrack/features/workout/domain/template_filter.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_filter_bar.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_meta_chips.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
@@ -25,16 +27,15 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   String _difficulty = '入门';
-  String _focus = '全身';
+  String _type = 'strength'; // strength（力量）/ cardio（有氧）
+
+  String _existingFocus = '全身'; // focus 已不展示，编辑时沿用旧值
   int _minutes = 15;
   final List<EditItem> _items = [];
   bool _loading = false;
   bool _saving = false;
 
   static const _green = AppColors.primary;
-  static const _difficulties = ['入门', '中阶', '高阶'];
-  static const _focuses = ['全身', '放松', '碎片'];
-
   @override
   void initState() {
     super.initState();
@@ -53,7 +54,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
         _nameCtrl.text = t.name;
         _descCtrl.text = t.description ?? '';
         _difficulty = t.difficulty;
-        _focus = t.focus;
+        _type = t.type;
+        _existingFocus = t.focus;
         _minutes = t.minutes;
         _items
           ..clear()
@@ -99,7 +101,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
         await repo.create(
           name: name,
           difficulty: _difficulty,
-          focus: _focus,
+          focus: _existingFocus,
+          type: _type,
           minutes: _minutes,
           description: desc.isEmpty ? null : desc,
           items: inputs,
@@ -109,7 +112,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
           id: widget.templateId!,
           name: name,
           difficulty: _difficulty,
-          focus: _focus,
+          focus: _existingFocus,
+          type: _type,
           minutes: _minutes,
           description: desc.isEmpty ? null : desc,
           items: inputs,
@@ -189,7 +193,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
 
   @override
   Widget build(BuildContext context) {
-
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -226,13 +229,19 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
             ),
           ),
           const SizedBox(height: 4),
+          const TemplateSectionLabel('类型'),
+          SegmentedRow(
+            options: const ['力量', '有氧'],
+            value: _type == 'cardio' ? '有氧' : '力量',
+            onSelect: (v) => setState(() {
+              _type = v == '有氧' ? 'cardio' : 'strength';
+              _items.clear(); // 类型切换后动作语义变了（组×次 ↔ 时长）
+            }),
+          ),
           TemplateMetaChips(
-            difficulties: _difficulties,
+            difficulties: kDifficultyOrder,
             difficulty: _difficulty,
             onDifficulty: (v) => setState(() => _difficulty = v),
-            focuses: _focuses,
-            focus: _focus,
-            onFocus: (v) => setState(() => _focus = v),
           ),
           const SizedBox(height: 14),
           Row(

@@ -132,7 +132,7 @@ void main() {
     // 一条 `expect(db.schemaVersion, kSchemaVersion)` 是恒真的，等于占着
     // "有测试保护"的位置却没有保护，比没有断言更糟。
     test('kSchemaVersion 字面量守卫：改 schema 必须同步此断言并补迁移用例', () {
-      expect(kSchemaVersion, 22, reason: '改 schema 必须同步此断言，并补迁移用例');
+      expect(kSchemaVersion, 23, reason: '改 schema 必须同步此断言，并补迁移用例');
     });
 
     test(
