@@ -199,7 +199,9 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   }
 
   Future<void> _editItem(int index) async {
-    final updated = await showExerciseItemEditor(context, item: _items[index]);
+    // 有氧模板只让填时长：多出的组数/次数格子是有氧里不存在的概念
+    final updated = await showExerciseItemEditor(context,
+        item: _items[index], isCardio: _isCardio);
     if (updated == null || !mounted) return;
     setState(() => _items[index] = updated);
   }
