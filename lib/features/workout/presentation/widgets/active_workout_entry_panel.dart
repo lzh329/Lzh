@@ -113,7 +113,9 @@ class ActiveWorkoutEntryPanel extends StatelessWidget {
     }
 
     // 重量（器械动作）
-    if (category == 'gym') {
+    // v23 之后器械与徒手统一是 strength：都可能负重，所以重量输入对所有
+    // 力量动作都显示，且保持可选（留空 = 自重）
+    if (category == 'strength') {
       fields.add(
         _buildField(
           controller: weightController,
