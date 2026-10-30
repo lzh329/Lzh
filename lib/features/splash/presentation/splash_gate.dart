@@ -73,15 +73,27 @@ class _SplashImage extends StatelessWidget {
     return const ColoredBox(
       color: AppColors.background,
       child: SizedBox.expand(
-        // cover：铺满整屏、不留上下白边（用户要求）。
-        // 代价是图比屏幕"宽"，左右各裁掉约 11%——主体（两只企鹅）在中部，
-        // 裁的是两侧背景，观感无损。
-        child: Image(
-          image: AssetImage('assets/splash.jpg'),
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          gaplessPlayback: true,
-          errorBuilder: _onImageError,
+        // 双层：底层是同图的模糊放大版（铺满整屏、不裁内容、无白边），
+        // 上层是完整插画（contain）。单纯 cover 会裁掉两侧文字（"邪恶肥咕嘎"
+        // / "减肥计划"被切），单纯 contain 又留上下白边 —— 模糊补边是这两者
+        // 之外的第三条路，也是主流启动页的做法。
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image(
+              image: AssetImage('assets/splash_bg.jpg'),
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: _onImageError,
+            ),
+            Image(
+              image: AssetImage('assets/splash.jpg'),
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              gaplessPlayback: true,
+              errorBuilder: _onImageError,
+            ),
+          ],
         ),
       ),
     );

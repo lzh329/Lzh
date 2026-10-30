@@ -14,8 +14,8 @@ void main() {
       ),
     );
 
-    // 首帧：插画在，child 还没出来
-    expect(find.byType(Image), findsOneWidget);
+    // 首帧：两层图都在（模糊底 + 完整前景），child 还没出来
+    expect(find.byType(Image), findsNWidgets(2));
     expect(find.text('主界面'), findsNothing);
 
     // 等 hold 结束 + 切换动画
