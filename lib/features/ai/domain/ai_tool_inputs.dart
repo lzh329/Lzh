@@ -227,6 +227,7 @@ class AiExerciseCategories {
   /// 中文 / 英文别名 → 数据库枚举值
   static const aliases = <String, String>{
     strength: strength,
+    '力量': strength,
     // 旧值兼容：老库 / 模型可能仍说 bodyweight / gym / 徒手 / 器械
     'bodyweight': strength,
     'body_weight': strength,

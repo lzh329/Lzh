@@ -521,7 +521,7 @@ class AiToolArgs {
     if (raw is! String || raw.trim().isEmpty) return null;
     final category = AiExerciseCategories.normalize(raw);
     if (category == null) {
-      throw AiToolException('不支持的分类"${raw.trim()}"（只能是 徒手 / 器械 / 有氧 / 拉伸）');
+      throw AiToolException('不支持的分类"${raw.trim()}"（只能是 力量 / 有氧 / 拉伸）');
     }
     return category;
   }
@@ -530,7 +530,7 @@ class AiToolArgs {
   static String exerciseCategory(Map<String, dynamic> args) {
     final raw = args['category'];
     if (raw is! String || raw.trim().isEmpty) {
-      throw const AiToolException('缺少动作分类（只能是 徒手 / 器械 / 有氧 / 拉伸）');
+      throw const AiToolException('缺少动作分类（只能是 力量 / 有氧 / 拉伸）');
     }
     return optionalExerciseCategory(args)!;
   }
