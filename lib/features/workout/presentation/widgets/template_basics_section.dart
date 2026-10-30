@@ -2,25 +2,20 @@ import 'package:flutter/material.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/workout/domain/template_filter.dart';
-import 'package:fittrack/features/workout/presentation/widgets/template_cardio_minutes_field.dart';
-import 'package:fittrack/features/workout/presentation/widgets/template_filter_bar.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_meta_chips.dart';
 
-/// 模板基础信息区：名称 / 类型 / 难度 / 时长
+/// 模板基础信息区：名称 / 难度 / 预计时长 / 描述
 ///
-/// 时长控件随类型切换：
-/// - 力量 → 「预计时长」滑块 5~60（沿用旧交互）
-/// - 有氧 → 「总时长（分钟）」数字输入 5~180（滑块拖不出 90 分钟，也看不出越界）
+/// **不再有「类型」选择器**：模板是力量还是有氧，由里面放了什么动作决定
+/// （见 `deriveTemplateType`）。用户不需要理解"类型"这个抽象概念，
+/// 他只知道"我要练什么"。
 class TemplateBasicsSection extends StatelessWidget {
   final TextEditingController nameCtrl;
   final TextEditingController descCtrl;
 
-  /// strength / cardio
-  final String type;
   final String difficulty;
   final int minutes;
 
-  final ValueChanged<String> onType;
   final ValueChanged<String> onDifficulty;
   final ValueChanged<int> onMinutes;
 
@@ -28,15 +23,11 @@ class TemplateBasicsSection extends StatelessWidget {
     super.key,
     required this.nameCtrl,
     required this.descCtrl,
-    required this.type,
     required this.difficulty,
     required this.minutes,
-    required this.onType,
     required this.onDifficulty,
     required this.onMinutes,
   });
-
-  bool get _isCardio => type == 'cardio';
 
   @override
   Widget build(BuildContext context) {
@@ -53,21 +44,13 @@ class TemplateBasicsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        const TemplateSectionLabel('类型'),
-        SegmentedRow(
-          options: const ['力量', '有氧'],
-          value: _isCardio ? '有氧' : '力量',
-          onSelect: (v) => onType(v == '有氧' ? 'cardio' : 'strength'),
-        ),
         TemplateMetaChips(
           difficulties: kDifficultyOrder,
           difficulty: difficulty,
           onDifficulty: onDifficulty,
         ),
         const SizedBox(height: 14),
-        if (_isCardio)
-          TemplateCardioMinutesField(minutes: minutes, onChanged: onMinutes)
-        else ...[
+        ...[
           Row(
             children: [
               const TemplateSectionLabel('预计时长'),

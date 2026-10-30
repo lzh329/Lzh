@@ -25,7 +25,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   String _difficulty = '入门';
-  String _type = 'strength'; // strength（力量）/ cardio（有氧）
 
   String _existingFocus = '全身'; // focus 已不展示，编辑时沿用旧值
   int _minutes = 15;
@@ -35,7 +34,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
 
   static const _green = AppColors.primary;
 
-  bool get _isCardio => _type == 'cardio';
   @override
   void initState() {
     super.initState();
@@ -54,7 +52,6 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
         _nameCtrl.text = t.name;
         _descCtrl.text = t.description ?? '';
         _difficulty = t.difficulty;
-        _type = t.type;
         _existingFocus = t.focus;
         _minutes = t.minutes;
         _items
@@ -79,14 +76,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       _snack('请输入模板名称');
       return;
     }
-    if (_isCardio) {
-      // 有氧允许 0 个动作（纯时长跑步之类），只校验总时长
-      final err = cardioMinutesError(_minutes);
-      if (err != null) {
-        _snack(err);
-        return;
-      }
-    } else if (_items.isEmpty) {
+    if (_items.isEmpty) {
       _snack('请至少添加一个动作');
       return;
     }
@@ -94,24 +84,17 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(workoutTemplateRepoProvider);
-      final inputs = _items.map((i) {
-        if (!_isCardio) {
-          return TemplateItemInput(
-            exerciseId: i.exerciseId,
-            targetSets: i.sets,
-            targetReps: i.reps,
-            targetDurationSec: i.durationSec,
-          );
-        }
-        // 有氧：每行只填时长 → sets=1 / durationSec=分钟×60 / reps=null
-        final v = cardioItemValues(((i.durationSec ?? 0) / 60).round());
-        return TemplateItemInput(
-          exerciseId: i.exerciseId,
-          targetSets: v.sets,
-          targetReps: v.reps,
-          targetDurationSec: v.durationSec,
-        );
-      }).toList();
+      // 每行的计量方式已在编辑弹窗里按动作分类定好，这里直接搬运
+      final inputs = _items
+          .map((i) => TemplateItemInput(
+                exerciseId: i.exerciseId,
+                targetSets: i.sets,
+                targetReps: i.reps,
+                targetDurationSec: i.durationSec,
+              ))
+          .toList();
+      // 模板类型由动作构成派生（含任一有氧动作 → cardio），不让用户手选
+      final derivedType = deriveTemplateType(_items.map((i) => i.category));
       final desc = _descCtrl.text.trim();
 
       if (widget.templateId == null) {
@@ -119,7 +102,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
           name: name,
           difficulty: _difficulty,
           focus: _existingFocus,
-          type: _type,
+          type: derivedType,
           minutes: _minutes,
           description: desc.isEmpty ? null : desc,
           items: inputs,
@@ -130,7 +113,7 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
           name: name,
           difficulty: _difficulty,
           focus: _existingFocus,
-          type: _type,
+          type: derivedType,
           minutes: _minutes,
           description: desc.isEmpty ? null : desc,
           items: inputs,
@@ -200,8 +183,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
 
   Future<void> _editItem(int index) async {
     // 有氧模板只让填时长：多出的组数/次数格子是有氧里不存在的概念
-    final updated = await showExerciseItemEditor(context,
-        item: _items[index], isCardio: _isCardio);
+    // 弹窗形态由该动作自己的分类决定（同一模板可混排力量/有氧）
+    final updated = await showExerciseItemEditor(context, item: _items[index]);
     if (updated == null || !mounted) return;
     setState(() => _items[index] = updated);
   }
@@ -241,23 +224,14 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
           TemplateBasicsSection(
             nameCtrl: _nameCtrl,
             descCtrl: _descCtrl,
-            type: _type,
             difficulty: _difficulty,
             minutes: _minutes,
-            onType: (t) => setState(() {
-              _type = t;
-              // 不静默改数据：动作保留，但计量方式会随类型变
-              if (_items.isNotEmpty) {
-                _snack('已切换为${t == 'cardio' ? '有氧' : '力量'}，动作的计量方式会跟着变');
-              }
-            }),
             onDifficulty: (d) => setState(() => _difficulty = d),
             onMinutes: (m) => setState(() => _minutes = m),
           ),
           const SizedBox(height: 10),
           TemplateItemsList(
             items: _items,
-            isCardio: _isCardio,
             onAdd: _addExercise,
             onEdit: _editItem,
             onRemove: (i) => setState(() => _items.removeAt(i)),

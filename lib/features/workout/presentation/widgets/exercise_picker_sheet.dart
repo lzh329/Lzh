@@ -117,16 +117,36 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                         itemCount: exercises.length,
                         itemBuilder: (_, i) {
                           final ex = exercises[i];
-                          return ListTile(
-                            dense: true,
-                            title: Text(ex.name,
-                                style: theme.textTheme.bodyMedium),
-                            subtitle: Text(ex.muscleGroup ?? '',
-                                style: theme.textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.textTertiary)),
-                            trailing:
-                                const Icon(Icons.add_circle_outline, size: 20),
-                            onTap: () => widget.onPick(ex),
+                          // 分组标题：让用户点之前就知道这个动作要填什么
+                          final showGroup = i == 0 ||
+                              exercises[i - 1].category != ex.category;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showGroup)
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 10, 16, 2),
+                                  child: Text(
+                                    categoryLabel(ex.category),
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary),
+                                  ),
+                                ),
+                              ListTile(
+                                dense: true,
+                                title: Text(ex.name,
+                                    style: theme.textTheme.bodyMedium),
+                                subtitle: Text(ex.muscleGroup ?? '',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color: AppColors.textTertiary)),
+                                trailing: const Icon(Icons.add_circle_outline,
+                                    size: 20),
+                                onTap: () => widget.onPick(ex),
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -136,3 +156,12 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
     );
   }
 }
+
+/// 动作分类的中文标签（选择器分组标题用）
+///
+/// 用户点之前就该知道这个动作要填什么：按次数、按秒、还是按分钟。
+String categoryLabel(String category) => switch (category) {
+      'cardio' => '有氧（按时间）',
+      'stretch' => '拉伸（按时间）',
+      _ => '力量（按次数）',
+    };

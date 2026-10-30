@@ -2,40 +2,65 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';
 
-/// 有氧语义：总时长边界 + 动作行存储形态
+/// 计量方式由**动作分类**决定（不是模板类型）+ 模板类型自动派生
 void main() {
-  group('cardioMinutesError：总时长边界（5~180）', () {
-    test('5 / 30 / 180 都合法', () {
-      expect(cardioMinutesError(5), isNull);
-      expect(cardioMinutesError(30), isNull);
-      expect(cardioMinutesError(180), isNull);
+  group('deriveTemplateType：模板类型由动作构成派生', () {
+    test('纯力量 → strength', () {
+      expect(deriveTemplateType(['strength', 'strength']), 'strength');
     });
 
-    test('4 → 提示至少 5 分钟', () {
-      expect(cardioMinutesError(4), contains('至少'));
+    test('含一个有氧动作 → cardio（混排也算有氧）', () {
+      expect(deriveTemplateType(['strength', 'cardio']), 'cardio');
+      expect(deriveTemplateType(['cardio']), 'cardio');
     });
 
-    test('300 → 提示最多 180 分钟（拒绝，不静默截断）', () {
-      expect(cardioMinutesError(300), contains('180'));
-    });
-
-    test('0 / 负数 → 拒绝', () {
-      expect(cardioMinutesError(0), isNotNull);
-      expect(cardioMinutesError(-10), isNotNull);
+    test('空模板 / 只有拉伸 → strength', () {
+      expect(deriveTemplateType(const []), 'strength');
+      expect(deriveTemplateType(['stretch']), 'strength');
     });
   });
 
-  group('cardioItemValues：有氧动作的存储形态', () {
-    test('sets=1、reps=null、durationSec=分钟×60', () {
-      final v = cardioItemValues(30);
-      expect(v.sets, 1);
-      expect(v.reps, isNull, reason: '有氧没有"次数"概念，必须写 null');
-      expect(v.durationSec, 30 * 60);
+  group('EditItem.detail：按类别展示（有氧用分钟、静力用秒）', () {
+    EditItem item({
+      required String category,
+      int sets = 3,
+      int? reps,
+      int? durationSec,
+    }) =>
+        EditItem(
+          exerciseId: 1,
+          name: 'x',
+          category: category,
+          sets: sets,
+          reps: reps,
+          durationSec: durationSec,
+        );
+
+    test('力量：3 × 12', () {
+      expect(item(category: 'strength', reps: 12).detail, '3 × 12');
     });
 
-    test('边界值同样按秒换算', () {
-      expect(cardioItemValues(5).durationSec, 300);
-      expect(cardioItemValues(180).durationSec, 10800);
+    test('有氧：3 × 5 分钟（不是 300 秒）', () {
+      expect(
+        item(category: 'cardio', reps: null, durationSec: 300).detail,
+        '3 × 5 分钟',
+      );
     });
+
+    test('静力/拉伸：3 × 30 秒', () {
+      expect(
+        item(category: 'stretch', reps: null, durationSec: 30).detail,
+        '3 × 30 秒',
+      );
+      expect(
+        item(category: 'strength', reps: null, durationSec: 60).detail,
+        '3 × 60 秒',
+      );
+    });
+  });
+
+  test('cardioSeconds：分钟 → 秒', () {
+    expect(cardioSeconds(5), 300);
+    expect(cardioSeconds(15), 900);
   });
 }
