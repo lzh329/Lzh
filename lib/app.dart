@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'features/splash/presentation/splash_gate.dart';
 import 'features/migration/presentation/pages/database_sealed_page.dart';
 import 'features/settings/presentation/pages/lock_screen.dart';
 import 'core/providers.dart';
@@ -179,8 +180,13 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
         // 挂在外面时它拿不到 Directionality / MediaQuery / Material 本地化，
         // Scaffold 根本画不出来，但那一层 Positioned.fill 照样吞掉全部点击——
         // 用户看到的就是「主页好好的，点什么都没反应」（2026-10-29 真实事故）。
-        builder: (context, child) => _LockGate(
-          child: child ?? const SizedBox.shrink(),
+        //
+        // 启动插画包在最外层：Android 12+ 的系统 SplashScreen 只显示应用图标
+        // （windowBackground 在那套机制下不生效），全屏插画只能在 Flutter 首帧画。
+        builder: (context, child) => SplashGate(
+          child: _LockGate(
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
         routerConfig: appRouter,
       ),
