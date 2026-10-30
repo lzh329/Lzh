@@ -7,6 +7,7 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
+import 'package:fittrack/features/ai/domain/ai_stall_promise.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/domain/ai_workout_intent.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_round.dart';
@@ -36,6 +37,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 当前轮的工具上下文（assistant tool_calls + tool 结果）
   final AiToolContext _tool = AiToolContext();
 
+  /// 本轮已拦截的空承诺次数（防死循环：最多补发一次，再犯就老实交出来）
+  int _stallNudgeCount = 0;
+
   /// 测试注入点；null = 生产路径
   final AiChatRoundRunner? _roundRunnerOverride;
 
@@ -48,9 +52,15 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     ref: _ref,
     read: () => state,
     write: (next) => state = next,
-    resetToolContext: _tool.reset,
+    resetToolContext: _resetToolContext,
     requestRound: _request,
   );
+
+  /// 重置工具上下文 + 空承诺计数（新对话 / 重试 / 清空历史时调用）
+  void _resetToolContext() {
+    _tool.reset();
+    _stallNudgeCount = 0;
+  }
 
   AiChatNotifier(this._ref, {AiChatRoundRunner? roundRunner})
       : _roundRunnerOverride = roundRunner,
@@ -203,6 +213,23 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         await _handleToolCalls(round.toolCalls);
         return;
       }
+      // ── 空承诺拦截 ──
+      // 模型回了「我去搜一下」这类纯文本、却没带任何工具调用 → 这句就是
+      // 本轮最终答复，用户得再催一次才会真的搜。这里拦截：不把空承诺落库，
+      // 追加一条 system 内部指令让模型立刻执行工具，重新请求一轮。
+      // （联网已关闭时不拦：没工具可调，拦了只会死循环）
+      if (webEnabled && isStallPromise(round.content, _tool.messages)) {
+        _stallNudgeCount++;
+        if (_stallNudgeCount <= 1) {
+          // 把空承诺当作 assistant 历史带上，再用 system 指令逼它真的搜
+          _tool.appendSystem('系统提示：你上一句只说「要搜」却没真正调用 '
+              'web_search 工具。现在请**立刻调用 web_search** 完成搜索，'
+              '不要再说「我去搜一下」之类的空承诺，直接给出搜索结果。');
+          await _request();
+          return;
+        }
+        // 已经补发过一轮还是空承诺 → 放弃拦截，老实交给用户（防死循环）
+      }
       await _ref.read(aiChatRepoProvider).add('assistant', round.content);
       state = state.copyWith(
         messages: [
@@ -223,7 +250,6 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
           isStreaming: false, clearStreaming: true, error: '出错了，请稍后再试');
     }
   }
-
   /// 处理模型请求的工具调用（次数上限只防死循环，写操作仍逐次确认）
   ///
   /// 一轮可能带多个调用：只读的依次执行；遇到需要确认的写操作就停下等用户

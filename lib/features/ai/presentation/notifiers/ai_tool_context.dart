@@ -39,6 +39,18 @@ class AiToolContext {
     ];
   }
 
+  /// 追加一条 system 内部指令（不改变对话可见内容，只给模型下一轮的行为加约束）。
+  ///
+  /// 用于「空承诺兜底」：模型回了「我去搜一下」却没调工具时，补发一条
+  /// 指令让它立刻执行搜索。system 消息不走 tool 协议，不会破坏
+  /// DeepSeek 对 tool 消息必须配对 assistant tool_calls 的约束。
+  void appendSystem(String content) {
+    _messages = [
+      ..._messages,
+      AiMessage(role: 'system', content: content),
+    ];
+  }
+
   /// 新的一轮对话 / 重试 / 清空历史时丢弃上下文
   void reset() {
     _messages = const [];
