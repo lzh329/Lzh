@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+
+export 'package:fittrack/features/workout/presentation/widgets/selected_exercise.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/theme/app_theme.dart';
 import 'package:fittrack/features/exercise/domain/entities/exercise.dart';
+import 'package:fittrack/features/workout/presentation/widgets/exercise_item_editor.dart';
+import 'package:fittrack/features/workout/presentation/widgets/exercise_category_chip.dart';
+import 'package:fittrack/features/workout/presentation/widgets/selected_exercise.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 
@@ -46,7 +52,11 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
         if (ex != null) {
           final setsForEx = last.sets.where((s) => s.exerciseId == id).length;
           _selected.add(SelectedExercise(
-              exercise: ex, targetSets: setsForEx.clamp(1, 10)));
+            exercise: ex,
+            targetSets: setsForEx.clamp(1, 10),
+            targetReps: ex.category == 'cardio' ? null : ex.defaultReps,
+            targetDurationSec: ex.defaultDurationSec,
+          ));
         }
       }
       _copiedLast = true;
@@ -101,8 +111,7 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
                                     color: AppTheme
                                         .categoryColors[se.exercise.category]),
                               ),
-                              label: Text(
-                                  '${se.exercise.name} × ${se.targetSets}组',
+                              label: Text('${se.exercise.name} ${se.detail}',
                                   style: const TextStyle(fontSize: 12)),
                               deleteIcon: const Icon(Icons.close, size: 16),
                               onDeleted: () =>
@@ -130,7 +139,7 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: Row(
                   children: [
-                    _CatChip(
+                    ExerciseCategoryChip(
                         label: '全部',
                         value: 'all',
                         selected: _selectedCategory,
@@ -139,7 +148,7 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
                               _cachedFuture = null;
                             })),
                     ...AppTheme.categoryLabels.entries.map(
-                      (e) => _CatChip(
+                      (e) => ExerciseCategoryChip(
                           label: e.value,
                           value: e.key,
                           selected: _selectedCategory,
@@ -235,54 +244,28 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
     return repo.getByCategory(_selectedCategory);
   }
 
-  void _addExercise(BuildContext context, ExerciseEntity exercise) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        int sets = 3;
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) => AlertDialog(
-            title: Text(exercise.name),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('目标组数'),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed:
-                          sets > 1 ? () => setDialogState(() => sets--) : null,
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    Text('$sets',
-                        style: Theme.of(context).textTheme.headlineMedium),
-                    IconButton(
-                      onPressed:
-                          sets < 10 ? () => setDialogState(() => sets++) : null,
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-              FilledButton(
-                onPressed: () {
-                  setState(() => _selected.add(
-                      SelectedExercise(exercise: exercise, targetSets: sets)));
-                  Navigator.pop(ctx);
-                },
-                child: const Text('添加'),
-              ),
-            ],
-          ),
-        );
-      },
+  /// 添加动作：计量方式由**动作自己的分类**决定（复用模板编辑那套判定）
+  ///
+  /// 之前这里只有"组数"一个输入，力量动作记不了次数、有氧记不了时长，
+  /// 用户说的"没区分有氧按时间"就是这个。
+  Future<void> _addExercise(
+      BuildContext context, ExerciseEntity exercise) async {
+    final seed = EditItem(
+      exerciseId: exercise.id,
+      name: exercise.name,
+      category: exercise.category,
+      sets: 3,
+      reps: exercise.category == 'cardio' ? null : (exercise.defaultReps ?? 12),
+      durationSec: exercise.defaultDurationSec,
     );
+    final result = await showExerciseItemEditor(context, item: seed);
+    if (result == null || !mounted) return;
+    setState(() => _selected.add(SelectedExercise(
+          exercise: exercise,
+          targetSets: result.sets,
+          targetReps: result.reps,
+          targetDurationSec: result.durationSec,
+        )));
   }
 
   void _startWorkout(BuildContext context) {
@@ -292,42 +275,13 @@ class _CustomWorkoutPageState extends ConsumerState<CustomWorkoutPage> {
               exerciseName: se.exercise.name,
               category: se.exercise.category,
               targetSets: se.targetSets,
-              targetReps: se.exercise.defaultReps,
+              // 用户填的值优先，没填才退回动作默认值
+              targetReps: se.targetReps ?? se.exercise.defaultReps,
               targetWeightKg: se.exercise.defaultWeightKg,
-              targetDurationSec: se.exercise.defaultDurationSec,
+              targetDurationSec:
+                  se.targetDurationSec ?? se.exercise.defaultDurationSec,
             ))
         .toList();
     context.pushReplacement('/workout/active', extra: slots);
-  }
-}
-
-class SelectedExercise {
-  final ExerciseEntity exercise;
-  final int targetSets;
-  const SelectedExercise({required this.exercise, required this.targetSets});
-}
-
-class _CatChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final String selected;
-  final ValueChanged<String> onTap;
-  const _CatChip(
-      {required this.label,
-      required this.value,
-      required this.selected,
-      required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: value == selected,
-        onSelected: (_) => onTap(value),
-        visualDensity: VisualDensity.compact,
-      ),
-    );
   }
 }

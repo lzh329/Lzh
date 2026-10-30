@@ -40,11 +40,12 @@ class EditItem {
   ///
   /// 不能只看 `durationSec != null` —— 有氧和静力都走时长，但**单位不同**
   /// （分钟 vs 秒），用户看到「3 × 300 秒」会以为哪里算错了。
-  String get detail {
-    if (isCardio) return '$sets × ${((durationSec ?? 0) / 60).round()} 分钟';
-    if (reps != null) return '$sets × $reps';
-    return '$sets × ${durationSec ?? 0} 秒';
-  }
+  String get detail => setsDetail(
+        category: category,
+        sets: sets,
+        reps: reps,
+        durationSec: durationSec,
+      );
 }
 
 /// 有氧动作：分钟 → 秒（存库统一按秒，开练页计时也按秒）
@@ -57,3 +58,20 @@ int cardioSeconds(int minutes) => minutes * 60;
 /// 它确实是一次以有氧为主的训练，而用户不需要理解"类型"这个概念。
 String deriveTemplateType(Iterable<String> categories) =>
     categories.any((c) => c == 'cardio') ? 'cardio' : 'strength';
+
+/// 统一的计量展示：力量 `3 × 12` / 有氧 `3 × 5 分钟` / 静力 `3 × 30 秒`
+///
+/// 抽成顶层函数是为了让「自定义训练」页复用同一份规则 —— 两处各写一遍
+/// 迟早会出现"模板里显示分钟、自定义里显示秒"这种不一致。
+String setsDetail({
+  required String category,
+  required int sets,
+  int? reps,
+  int? durationSec,
+}) {
+  if (category == 'cardio') {
+    return '$sets × ${((durationSec ?? 0) / 60).round()} 分钟';
+  }
+  if (reps != null) return '$sets × $reps';
+  return '$sets × ${durationSec ?? 0} 秒';
+}
