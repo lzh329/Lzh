@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 底部先垫一层 App 主题背景色，避免超长屏两侧露白 -->
-    <item android:drawable="@android:color/transparent">
+    <!-- 第一层：纯色底（浅米白），图片未铺满的区域用它填充 -->
+    <item>
         <shape android:shape="rectangle">
             <solid android:color="#F7F4F0"/>
         </shape>
     </item>
-    <!-- 启动图居中显示（不拉伸变形） -->
+    <!-- 第二层：启动插画铺满 -->
     <item>
-        <bitmap android:gravity="center" android:src="@drawable/background"/>
+        <bitmap android:gravity="fill" android:src="@drawable/background"/>
     </item>
 </layer-list>

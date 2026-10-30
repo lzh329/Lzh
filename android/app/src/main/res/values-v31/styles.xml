@@ -2,16 +2,16 @@
 <resources>
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <!-- Android 12+ 默认走 SplashScreen API，这里显式关闭它，
-             回落到传统 windowBackground 显示全屏插画（否则闪屏图不显示） -->
-        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
-        <item name="android:windowSplashScreenAnimationDuration">0</item>
+        <!-- 全屏插画闪屏：用 windowBackground 显示 drawable/launch_background。
+             注意：Android 12+ 会同时叠加系统的 SplashScreen，这里**不设**
+             windowSplashScreenAnimatedIcon（设成 transparent 会导致白屏），
+             让系统的默认行为与我们 windowBackground 共存。 -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">#F7F4F0</item>
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <item name="android:windowSplashScreenBackground">#F7F4F0</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your
