@@ -7,9 +7,7 @@ import 'package:fittrack/features/workout/presentation/widgets/exercise_item_edi
 import 'package:fittrack/features/workout/presentation/widgets/exercise_picker_sheet.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_items_list.dart';
-import 'package:fittrack/features/workout/domain/template_filter.dart';
-import 'package:fittrack/features/workout/presentation/widgets/template_filter_bar.dart';
-import 'package:fittrack/features/workout/presentation/widgets/template_meta_chips.dart';
+import 'package:fittrack/features/workout/presentation/widgets/template_basics_section.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 
@@ -36,6 +34,8 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
   bool _saving = false;
 
   static const _green = AppColors.primary;
+
+  bool get _isCardio => _type == 'cardio';
   @override
   void initState() {
     super.initState();
@@ -79,7 +79,14 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       _snack('请输入模板名称');
       return;
     }
-    if (_items.isEmpty) {
+    if (_isCardio) {
+      // 有氧允许 0 个动作（纯时长跑步之类），只校验总时长
+      final err = cardioMinutesError(_minutes);
+      if (err != null) {
+        _snack(err);
+        return;
+      }
+    } else if (_items.isEmpty) {
       _snack('请至少添加一个动作');
       return;
     }
@@ -87,14 +94,24 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(workoutTemplateRepoProvider);
-      final inputs = _items
-          .map((i) => TemplateItemInput(
-                exerciseId: i.exerciseId,
-                targetSets: i.sets,
-                targetReps: i.reps,
-                targetDurationSec: i.durationSec,
-              ))
-          .toList();
+      final inputs = _items.map((i) {
+        if (!_isCardio) {
+          return TemplateItemInput(
+            exerciseId: i.exerciseId,
+            targetSets: i.sets,
+            targetReps: i.reps,
+            targetDurationSec: i.durationSec,
+          );
+        }
+        // 有氧：每行只填时长 → sets=1 / durationSec=分钟×60 / reps=null
+        final v = cardioItemValues(((i.durationSec ?? 0) / 60).round());
+        return TemplateItemInput(
+          exerciseId: i.exerciseId,
+          targetSets: v.sets,
+          targetReps: v.reps,
+          targetDurationSec: v.durationSec,
+        );
+      }).toList();
       final desc = _descCtrl.text.trim();
 
       if (widget.templateId == null) {
@@ -219,62 +236,26 @@ class _TemplateEditPageState extends ConsumerState<TemplateEditPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
-          TextField(
-            controller: _nameCtrl,
-            maxLength: 20,
-            decoration: const InputDecoration(
-              labelText: '模板名称',
-              hintText: '例如：周末燃脂',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 4),
-          const TemplateSectionLabel('类型'),
-          SegmentedRow(
-            options: const ['力量', '有氧'],
-            value: _type == 'cardio' ? '有氧' : '力量',
-            onSelect: (v) => setState(() {
-              _type = v == '有氧' ? 'cardio' : 'strength';
-              _items.clear(); // 类型切换后动作语义变了（组×次 ↔ 时长）
-            }),
-          ),
-          TemplateMetaChips(
-            difficulties: kDifficultyOrder,
+          TemplateBasicsSection(
+            nameCtrl: _nameCtrl,
+            descCtrl: _descCtrl,
+            type: _type,
             difficulty: _difficulty,
-            onDifficulty: (v) => setState(() => _difficulty = v),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const TemplateSectionLabel('预计时长'),
-              const Spacer(),
-              Text('$_minutes 分钟',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryText)),
-            ],
-          ),
-          Slider(
-            value: _minutes.toDouble(),
-            min: 5,
-            max: 60,
-            divisions: 11,
-            label: '$_minutes 分钟',
-            onChanged: (v) => setState(() => _minutes = v.round()),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _descCtrl,
-            maxLength: 40,
-            decoration: const InputDecoration(
-              labelText: '一句话描述（可选）',
-              border: OutlineInputBorder(),
-            ),
+            minutes: _minutes,
+            onType: (t) => setState(() {
+              _type = t;
+              // 不静默改数据：动作保留，但计量方式会随类型变
+              if (_items.isNotEmpty) {
+                _snack('已切换为${t == 'cardio' ? '有氧' : '力量'}，动作的计量方式会跟着变');
+              }
+            }),
+            onDifficulty: (d) => setState(() => _difficulty = d),
+            onMinutes: (m) => setState(() => _minutes = m),
           ),
           const SizedBox(height: 10),
           TemplateItemsList(
             items: _items,
+            isCardio: _isCardio,
             onAdd: _addExercise,
             onEdit: _editItem,
             onRemove: (i) => setState(() => _items.removeAt(i)),

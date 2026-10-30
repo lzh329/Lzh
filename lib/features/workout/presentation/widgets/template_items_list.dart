@@ -8,6 +8,9 @@ import 'template_edit_item.dart';
 /// 纯展示 + 两个回调（编辑 / 移除），不持有状态 —— 状态留在页面。
 class TemplateItemsList extends StatelessWidget {
   final List<EditItem> items;
+
+  /// 有氧模板：行内只显示「时长」，不出现组/次字样
+  final bool isCardio;
   final VoidCallback onAdd;
   final void Function(int index) onEdit;
   final void Function(int index) onRemove;
@@ -15,6 +18,7 @@ class TemplateItemsList extends StatelessWidget {
   const TemplateItemsList({
     super.key,
     required this.items,
+    this.isCardio = false,
     required this.onAdd,
     required this.onEdit,
     required this.onRemove,
@@ -61,7 +65,10 @@ class TemplateItemsList extends StatelessWidget {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
                 title: Text(item.name, style: theme.textTheme.bodyMedium),
-                subtitle: Text(item.detail,
+                subtitle: Text(
+                    isCardio
+                        ? '${((item.durationSec ?? 0) / 60).round()} 分钟'
+                        : item.detail,
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppColors.textTertiary)),
                 trailing: Row(
