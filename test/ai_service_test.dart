@@ -1235,11 +1235,11 @@ void main() {
   group('query_exercises / create_exercise 参数校验', () {
     test('分类中文、英文都归一化成英文枚举值', () {
       const cases = {
-        '徒手': 'bodyweight',
-        ' bodyweight ': 'bodyweight',
-        '自重': 'bodyweight',
-        '器械': 'gym',
-        'GYM': 'gym',
+        '力量': 'strength',
+        ' bodyweight ': 'strength', // 旧值兼容
+        '徒手': 'strength',
+        '器械': 'strength',
+        'GYM': 'strength',
         '有氧': 'cardio',
         'cardio': 'cardio',
         '拉伸': 'stretch',
@@ -1321,20 +1321,20 @@ void main() {
       expect(
           const AiExerciseInput(
             name: '保加利亚分腿蹲',
-            category: 'gym',
+            category: 'strength',
             muscleGroup: '腿部',
             defaultReps: 12,
           ).metaLabel,
-          '器械 · 腿部 · 默认 12 次');
+          '力量 · 腿部 · 默认 12 次');
       expect(
           const AiExerciseInput(
             name: '平板支撑',
-            category: 'bodyweight',
+            category: 'strength',
             defaultDurationSec: 45,
           ).metaLabel,
-          '徒手 · 默认 45 秒');
+          '力量 · 默认 45 秒');
       expect(
-          const AiExerciseInput(name: '深蹲', category: 'gym').metaLabel, '器械');
+          const AiExerciseInput(name: '深蹲', category: 'strength').metaLabel, '力量');
     });
 
     test('动作搜索关键词可选，≤20 字', () {
@@ -1348,12 +1348,12 @@ void main() {
     test('create_exercise 组合入参（分类 + 默认值）', () {
       final input = AiToolArgs.exercise({
         'name': ' 保加利亚分腿蹲 ',
-        'category': '器械',
+        'category': '力量',
         'muscle_group': '腿部',
         'default_reps': 12,
       });
       expect(input.name, '保加利亚分腿蹲');
-      expect(input.category, 'gym');
+      expect(input.category, 'strength');
       expect(input.defaultReps, 12);
       expect(input.defaultDurationSec, isNull);
       expect(input.hasDefaults, isTrue);
@@ -1560,9 +1560,9 @@ void main() {
       final byCategory = await executor.preview(const AiToolCall(
         id: 'call_q3',
         name: AiToolSpecs.queryExercises,
-        argumentsJson: '{"category":"器械"}',
+        argumentsJson: '{"category":"力量"}',
       ));
-      expect(byCategory.detail, '查看动作库（器械）');
+      expect(byCategory.detail, '查看动作库（力量）');
     });
 
     test('query_exercises 执行：名称包含匹配 + 分类过滤 + 最多 8 条', () async {
@@ -1579,7 +1579,7 @@ void main() {
       expect(byName['count'], 1);
       final hit = (byName['results'] as List).first as Map<String, dynamic>;
       expect(hit['name'], '平板支撑');
-      expect(hit['category'], 'bodyweight');
+      expect(hit['category'], 'strength');
       expect(hit['muscle_group'], '核心');
       expect(hit['default_duration_sec'], 45);
 
@@ -1588,7 +1588,7 @@ void main() {
           const AiToolCall(
             id: 'call_q5',
             name: AiToolSpecs.queryExercises,
-            argumentsJson: '{"category":"徒手"}',
+            argumentsJson: '{"category":"力量"}',
           ));
       expect(byCategory['count'], 2);
 
@@ -1596,7 +1596,7 @@ void main() {
       final many = AiToolExecutor(
         repos: _fakeReposWithExercises([
           for (var i = 1; i <= 12; i++)
-            ExerciseEntity(id: i, name: '动作$i', category: 'gym'),
+            ExerciseEntity(id: i, name: '动作$i', category: 'strength'),
         ]),
       );
       final capped = await _executeJson(
@@ -1613,8 +1613,8 @@ void main() {
     test('query_exercises 名称匹配大小写不敏感', () async {
       final latin = AiToolExecutor(
         repos: _fakeReposWithExercises(const [
-          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
-          ExerciseEntity(id: 10, name: 'Pull-Up', category: 'gym'),
+          ExerciseEntity(id: 9, name: 'Plank', category: 'strength'),
+          ExerciseEntity(id: 10, name: 'Pull-Up', category: 'strength'),
         ]),
       );
 
@@ -1646,9 +1646,9 @@ void main() {
           const AiToolCall(
             id: 'call_q9',
             name: AiToolSpecs.queryExercises,
-            argumentsJson: '{"query":"plank","category":"gym"}',
+            argumentsJson: '{"query":"plank","category":"cardio"}',
           ));
-      expect(combined['count'], 0, reason: 'Plank 属徒手，按器械过滤应为空');
+      expect(combined['count'], 0, reason: 'Plank 属力量，按有氧过滤应为空');
     });
 
     test('create_exercise 预览文案与确认要求', () async {
@@ -1661,7 +1661,7 @@ void main() {
             '{"name":"保加利亚分腿蹲","category":"器械","muscle_group":"腿部","default_reps":12}',
       ));
       expect(withDefaults.label, '新增动作');
-      expect(withDefaults.detail, '新增动作：保加利亚分腿蹲（器械 · 腿部 · 默认 12 次）');
+      expect(withDefaults.detail, '新增动作：保加利亚分腿蹲（力量 · 腿部 · 默认 12 次）');
       expect(withDefaults.needsConfirm, isTrue);
       expect(withDefaults.isDestructive, isFalse);
 
@@ -1670,7 +1670,7 @@ void main() {
         name: AiToolSpecs.createExercise,
         argumentsJson: '{"name":"臀桥","category":"徒手"}',
       ));
-      expect(bare.detail, '新增动作：臀桥（徒手）');
+      expect(bare.detail, '新增动作：臀桥（力量）');
       expect(bare.needsConfirm, isTrue);
     });
 
@@ -1701,7 +1701,7 @@ void main() {
 
       final latin = AiToolExecutor(
         repos: _fakeReposWithExercises(const [
-          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
+          ExerciseEntity(id: 9, name: 'Plank', category: 'strength'),
         ]),
       );
       final latinPreview = await latin.preview(const AiToolCall(
@@ -1751,7 +1751,7 @@ void main() {
       // 库内是 "Plank"，请求 "plank" 属于同一个动作
       final executor = AiToolExecutor(
         repos: _fakeReposWithExercises(const [
-          ExerciseEntity(id: 9, name: 'Plank', category: 'bodyweight'),
+          ExerciseEntity(id: 9, name: 'Plank', category: 'strength'),
         ]),
       );
       const call = AiToolCall(
@@ -1805,12 +1805,12 @@ void main() {
         {'exercise_name': '硬拉', 'category': '器械'},
       ]));
       expect(cn.items.map((e) => e.category).toList(),
-          ['cardio', 'stretch', 'bodyweight', 'gym']);
+          ['cardio', 'stretch', 'strength', 'strength']);
 
       final en = AiToolArgs.template(args([
-        {'exercise_name': 'Plank', 'category': 'gym'},
+        {'exercise_name': 'Plank', 'category': 'strength'},
       ]));
-      expect(en.items.first.category, 'gym');
+      expect(en.items.first.category, 'strength');
     });
 
     test('没给分类时保持 null（新建时按兜底值处理）', () {
@@ -1820,7 +1820,7 @@ void main() {
       expect(command.items.first.category, isNull);
       expect(command.items.first.toNewExercise().category,
           AiExerciseCategories.fallback);
-      expect(AiExerciseCategories.fallback, 'bodyweight',
+      expect(AiExerciseCategories.fallback, 'strength',
           reason: '动作库 UI 只认四个值，兜底不能写 other');
     });
 
@@ -1918,7 +1918,7 @@ void main() {
       // 动作库：原本 3 个 + 新建 2 个
       expect(exercise.rows, hasLength(5));
       final created = exercise.rows.skip(3).toList();
-      expect(created.map((e) => e.category).toList(), ['cardio', 'bodyweight']);
+      expect(created.map((e) => e.category).toList(), ['cardio', 'strength']);
       expect(created.last.muscleGroup, '腹部');
 
       // 模板 items 指向新建的 id（新 id 从 100 起）
@@ -2008,7 +2008,7 @@ void main() {
         ],
       });
       expect(inputs, hasLength(1));
-      expect(inputs.single.category, 'bodyweight');
+      expect(inputs.single.category, 'strength');
       expect(inputs.single.muscleGroup, '核心');
     });
 
@@ -2161,7 +2161,7 @@ const _fakeTemplates = <WorkoutTemplateEntity>[
         templateId: 1,
         exerciseId: 1,
         exerciseName: '深蹲',
-        category: 'gym',
+        category: 'strength',
         targetSets: 4,
         targetReps: 12,
       ),
@@ -2170,7 +2170,7 @@ const _fakeTemplates = <WorkoutTemplateEntity>[
         templateId: 1,
         exerciseId: 3,
         exerciseName: '平板支撑',
-        category: 'bodyweight',
+        category: 'strength',
         targetSets: 3,
         targetDurationSec: 45,
       ),
@@ -2181,11 +2181,11 @@ const _fakeTemplates = <WorkoutTemplateEntity>[
 /// 假动作库的固定数据（供 query_exercises / create_template 解析动作名）
 const _fakeExercises = <ExerciseEntity>[
   ExerciseEntity(id: 1, name: '深蹲', category: 'gym', muscleGroup: '腿部'),
-  ExerciseEntity(id: 2, name: '俯卧撑', category: 'bodyweight', muscleGroup: '胸部'),
+  ExerciseEntity(id: 2, name: '俯卧撑', category: 'strength', muscleGroup: '胸部'),
   ExerciseEntity(
     id: 3,
     name: '平板支撑',
-    category: 'bodyweight',
+    category: 'strength',
     muscleGroup: '核心',
     defaultDurationSec: 45,
   ),

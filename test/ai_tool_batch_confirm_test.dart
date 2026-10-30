@@ -25,7 +25,7 @@ import 'package:fittrack/features/workout/domain/repositories/workout_template_r
 /// 1. 确认闸门没有被批量放宽（三个动作 / 模板工具都需确认、都不算危险操作）
 /// 2. `create_missing_exercises` 为 false 时绝不新建动作（只报错、不写库）
 /// 3. 同名动作不会被建第二次（库内大小写 / 空格差异、批内重名、批内与库内混合）
-/// 4. 分类兜底必须是 bodyweight（写 other 会让动作在分类筛选里消失）
+/// 4. 分类兜底必须是 strength（写 other 会让动作在分类筛选里消失）
 ///
 /// 外加 preview 与 execute 之间「库被改动」时的一致性与安全性。
 void main() {
@@ -183,7 +183,7 @@ void main() {
   group('同名动作不会被建第二次', () {
     test('库内已有" Plank "：空格 / 大小写不同也算同名，直接复用不新建', () async {
       final exercise = _MemoryExerciseRepo(const [
-        ExerciseEntity(id: 9, name: ' Plank ', category: 'bodyweight'),
+        ExerciseEntity(id: 9, name: ' Plank ', category: 'strength'),
       ]);
       final template = _MemoryTemplateRepo();
       final executor =
@@ -255,7 +255,7 @@ void main() {
   // ═══════════ 4. 分类兜底 ═══════════
 
   group('新建动作的分类兜底', () {
-    test('没给 category 时落库为 bodyweight，绝不是 other', () async {
+    test('没给 category 时落库为 strength，绝不是 other', () async {
       final exercise = _MemoryExerciseRepo(const []);
       final executor = AiToolExecutor(repos: _repos(exercise: exercise));
 
@@ -267,8 +267,8 @@ void main() {
       );
 
       final created = exercise.rows.single;
-      expect(created.category, 'bodyweight',
-          reason: '动作库 UI 只认 bodyweight/gym/cardio/stretch，兜底写 other '
+      expect(created.category, 'strength',
+          reason: '动作库 UI 只认 strength/cardio/stretch，兜底写 other '
               '会让该动作在分类筛选里消失');
       expect(created.category, isNot('other'),
           reason: 'other 不是合法分类，分类筛选栏遍历 AiExerciseCategories.all 取不到它');
@@ -430,7 +430,7 @@ void main() {
 /// 默认动作库：深蹲 / 平板支撑
 const _seed = <ExerciseEntity>[
   ExerciseEntity(id: 1, name: '深蹲', category: 'gym', muscleGroup: '腿部'),
-  ExerciseEntity(id: 2, name: '平板支撑', category: 'bodyweight', muscleGroup: '核心'),
+  ExerciseEntity(id: 2, name: '平板支撑', category: 'strength', muscleGroup: '核心'),
 ];
 
 /// 构造一条 create_template 调用（[createMissing] 原样塞进 JSON，便于测字符串取值）

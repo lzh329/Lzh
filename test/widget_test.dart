@@ -17,7 +17,7 @@ void main() {
       expect(AppTheme.categoryLabels.keys.toSet(), colorKeys);
       expect(AppTheme.categoryIcons.keys.toSet(), colorKeys);
       expect(
-          colorKeys, containsAll(['bodyweight', 'gym', 'cardio', 'stretch']));
+          colorKeys, containsAll(['strength', 'cardio', 'stretch']));
     });
   });
 
