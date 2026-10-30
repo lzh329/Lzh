@@ -233,7 +233,7 @@ class _ExerciseManagePageState extends ConsumerState<ExerciseManagePage> {
   void _showEditDialog(BuildContext context, {ExerciseEntity? exercise}) {
     final nameCtrl = TextEditingController(text: exercise?.name ?? '');
     final muscleCtrl = TextEditingController(text: exercise?.muscleGroup ?? '');
-    String category = exercise?.category ?? 'bodyweight';
+    String category = exercise?.category ?? 'strength';
 
     showDialog(
       context: context,

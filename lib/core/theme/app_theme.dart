@@ -201,23 +201,21 @@ class AppTheme {
         ),
       );
 
+  /// 动作分类只有三类（v23 迁移把 bodyweight/gym 并成了 strength）
   static const categoryColors = {
-    'bodyweight': AppColors.info,
-    'gym': AppColors.danger,
+    'strength': AppColors.info,
     'cardio': AppColors.warning,
     'stretch': AppColors.primary,
   };
 
   static const categoryLabels = {
-    'bodyweight': '徒手',
-    'gym': '器械',
+    'strength': '力量',
     'cardio': '有氧',
     'stretch': '拉伸',
   };
 
   static const categoryIcons = {
-    'bodyweight': Icons.fitness_center,
-    'gym': Icons.monitor_weight,
+    'strength': Icons.fitness_center,
     'cardio': Icons.directions_run,
     'stretch': Icons.self_improvement,
   };

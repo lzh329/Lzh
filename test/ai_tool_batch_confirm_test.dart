@@ -273,8 +273,8 @@ void main() {
       expect(created.category, isNot('other'),
           reason: 'other 不是合法分类，分类筛选栏遍历 AiExerciseCategories.all 取不到它');
       expect(AiExerciseCategories.all, contains(created.category),
-          reason: '兜底值必须落在 UI 支持的四个分类里');
-      expect(AiExerciseCategories.fallback, AiExerciseCategories.bodyweight);
+          reason: '兜底值必须落在 UI 支持的三类里');
+      expect(AiExerciseCategories.fallback, AiExerciseCategories.strength);
     });
 
     test('给了 category 就用给的（兜底不能盖掉模型的选择）', () async {

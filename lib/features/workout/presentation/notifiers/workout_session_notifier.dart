@@ -238,7 +238,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       return ExerciseSlot(
         exerciseId: d.exerciseId,
         exerciseName: ex?.name ?? '动作 #${d.exerciseId}',
-        category: ex?.category ?? 'bodyweight',
+        category: ex?.category ?? 'strength',
         targetSets: d.targetSets,
         targetReps: d.targetReps,
         targetWeightKg: d.targetWeightKg,

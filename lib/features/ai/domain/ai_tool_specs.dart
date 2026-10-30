@@ -467,7 +467,7 @@ class AiToolSpecs {
             },
             'category': {
               'type': 'string',
-              'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+              'enum': ['strength', 'cardio', 'stretch'],
               'description': '分类筛选：徒手 / 器械 / 有氧 / 拉伸，可省略',
             },
           },
@@ -489,7 +489,7 @@ class AiToolSpecs {
             },
             'category': {
               'type': 'string',
-              'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+              'enum': ['strength', 'cardio', 'stretch'],
               'description': '分类：徒手 / 器械 / 有氧 / 拉伸',
             },
             'muscle_group': {
@@ -530,7 +530,7 @@ class AiToolSpecs {
                   },
                   'category': {
                     'type': 'string',
-                    'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+                    'enum': ['strength', 'cardio', 'stretch'],
                     'description': '分类：徒手 / 器械 / 有氧 / 拉伸',
                   },
                   'muscle_group': {
@@ -615,7 +615,7 @@ class AiToolSpecs {
                   },
                   'category': {
                     'type': 'string',
-                    'enum': ['bodyweight', 'gym', 'cardio', 'stretch'],
+                    'enum': ['strength', 'cardio', 'stretch'],
                     'description': '仅当这个动作库里没有、需要新建时用：分类（徒手 / 器械 / 有氧 / 拉伸）',
                   },
                   'muscle_group': {

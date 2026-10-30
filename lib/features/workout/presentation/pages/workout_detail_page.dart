@@ -132,7 +132,7 @@ class WorkoutDetailPage extends ConsumerWidget {
                   builder: (context, snap) {
                     final exercise = snap.data;
                     final exerciseName = exercise?.name ?? '动作 #${entry.key}';
-                    final category = exercise?.category ?? 'bodyweight';
+                    final category = exercise?.category ?? 'strength';
 
                     // PR tracking
                     final bestWeight = data.prs['${entry.key}_weight'] ?? 0.0;

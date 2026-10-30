@@ -47,7 +47,7 @@ class WorkoutTemplateRepositoryImpl implements WorkoutTemplateRepository {
                   templateId: i.templateId,
                   exerciseId: i.exerciseId,
                   exerciseName: exById[i.exerciseId]?.name ?? '未知动作',
-                  category: exById[i.exerciseId]?.category ?? 'bodyweight',
+                  category: exById[i.exerciseId]?.category ?? 'strength',
                   targetSets: i.targetSets,
                   targetReps: i.targetReps,
                   targetDurationSec: i.targetDurationSec,

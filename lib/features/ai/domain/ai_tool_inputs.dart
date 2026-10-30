@@ -197,40 +197,43 @@ class AiRecordTypes {
       AiToolException('这天没有可删除的${labelOf(type)}记录');
 }
 
-/// 动作库分类（数据库存英文：bodyweight / gym / cardio / stretch）
+/// 动作库分类（数据库存英文：strength / cardio / stretch）
+///
+/// v23 迁移把 bodyweight/gym 合并成 strength —— 三类是唯一真相，
+/// 再出现旧值就会在动作库卡片上 fallback 成英文 key。
 class AiExerciseCategories {
   AiExerciseCategories._();
 
-  static const bodyweight = 'bodyweight';
-  static const gym = 'gym';
+  static const strength = 'strength';
   static const cardio = 'cardio';
   static const stretch = 'stretch';
 
-  static const all = {bodyweight, gym, cardio, stretch};
+  static const all = {strength, cardio, stretch};
 
   /// 缺省分类（AI 没给 category 时新建动作用的兜底值）
   ///
   /// 数据库 `exercises.category` 列本身是无约束的 text，但整个 App 只认上面
   /// 四个值：分类筛选栏遍历 [all]、颜色 / 图标按 [labels] 取值（见 AppTheme）。
   /// 写 'other' 会让这个动作在筛选栏里消失、卡片上显示英文 'other'，
-  /// 因此这里兜底到"徒手"，保持动作库全部可取可用。
-  static const fallback = bodyweight;
+  /// 因此这里兜底到"力量"，保持动作库全部可取可用。
+  static const fallback = strength;
 
   static const labels = {
-    bodyweight: '徒手',
-    gym: '器械',
+    strength: '力量',
     cardio: '有氧',
     stretch: '拉伸',
   };
 
   /// 中文 / 英文别名 → 数据库枚举值
   static const aliases = <String, String>{
-    bodyweight: bodyweight,
-    'body_weight': bodyweight,
-    '徒手': bodyweight,
-    '自重': bodyweight,
-    gym: gym,
-    '器械': gym,
+    strength: strength,
+    // 旧值兼容：老库 / 模型可能仍说 bodyweight / gym / 徒手 / 器械
+    'bodyweight': strength,
+    'body_weight': strength,
+    'gym': strength,
+    '徒手': strength,
+    '自重': strength,
+    '器械': strength,
     cardio: cardio,
     '有氧': cardio,
     stretch: stretch,
