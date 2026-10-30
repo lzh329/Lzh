@@ -295,7 +295,8 @@ class AiToolArgs {
     // 目标体重：单位是**斤**（与用户口语一致），内部转公斤存库
     double? targetWeightKg;
     final rawTarget = args['target_weight_jin'];
-    if (rawTarget != null && !(rawTarget is String && rawTarget.trim().isEmpty)) {
+    if (rawTarget != null &&
+        !(rawTarget is String && rawTarget.trim().isEmpty)) {
       final jin = lenientDoubleOf(rawTarget);
       if (jin == null || jin < 50 || jin > 500) {
         throw const AiToolException('目标体重不合理（应在 50~500 斤之间）');
@@ -338,8 +339,8 @@ class AiToolArgs {
 
   /// 饮食目标：热量 800~5000 千卡，三大宏量 0~500g；至少一项
   static AiDietTargetInput dietTarget(Map<String, dynamic> args) {
-    final calories = _optionalRange(args, 'calories', '每日热量目标',
-        min: 800, max: 5000);
+    final calories =
+        _optionalRange(args, 'calories', '每日热量目标', min: 800, max: 5000);
     final input = AiDietTargetInput(
       calories: calories?.round(),
       proteinG: _optionalRange(args, 'protein_g', '蛋白目标', min: 0, max: 500),
@@ -412,11 +413,19 @@ class AiToolArgs {
   // ───────────── delete_records ─────────────
 
   /// 要删除的记录类型：weight / food / workout / water
+  /// delete_template 的模板 id（必填，缺失/非法抛异常）
+  static int templateId(Map<String, dynamic> args) {
+    final id = lenientIntOf(args['id']);
+    if (id == null || id <= 0) throw const AiToolException('缺少模板 id');
+    return id;
+  }
+
   static String recordType(Map<String, dynamic> args) {
     final raw = args['type'];
     final type = raw is String ? raw.trim().toLowerCase() : '';
     if (!AiRecordTypes.all.contains(type)) {
-      throw const AiToolException('不支持的记录类型（只能是 weight / food / workout / water）');
+      throw const AiToolException(
+          '不支持的记录类型（只能是 weight / food / workout / water）');
     }
     return type;
   }
@@ -512,8 +521,7 @@ class AiToolArgs {
     if (raw is! String || raw.trim().isEmpty) return null;
     final category = AiExerciseCategories.normalize(raw);
     if (category == null) {
-      throw AiToolException(
-          '不支持的分类"${raw.trim()}"（只能是 徒手 / 器械 / 有氧 / 拉伸）');
+      throw AiToolException('不支持的分类"${raw.trim()}"（只能是 徒手 / 器械 / 有氧 / 拉伸）');
     }
     return category;
   }
@@ -553,8 +561,8 @@ class AiToolArgs {
 
   /// 默认时长（可选，秒）：5~600
   static int? optionalDefaultDurationSec(Map<String, dynamic> args) {
-    final v = _optionalRange(args, 'default_duration_sec', '默认时长',
-        min: 5, max: 600);
+    final v =
+        _optionalRange(args, 'default_duration_sec', '默认时长', min: 5, max: 600);
     return v?.round();
   }
 
@@ -723,8 +731,7 @@ class AiToolArgs {
     final v = lenientIntOf(raw);
     if (v == null) throw const AiToolException('搜索条数格式不正确');
     if (v < 1 || v > maxWebSearchCount) {
-      throw const AiToolException(
-          '搜索条数不合理（应在 1~$maxWebSearchCount 条）');
+      throw const AiToolException('搜索条数不合理（应在 1~$maxWebSearchCount 条）');
     }
     return v;
   }
@@ -747,7 +754,9 @@ class AiToolArgs {
     final raw = args['url'];
     final text = raw is String ? raw.trim() : '';
     if (text.isEmpty) throw const AiToolException('缺少网页链接');
-    if (text.length > maxUrlLength) throw const AiToolException(unsafeUrlMessage);
+    if (text.length > maxUrlLength) {
+      throw const AiToolException(unsafeUrlMessage);
+    }
     final uri = Uri.tryParse(text);
     if (uri == null) throw const AiToolException(unsafeUrlMessage);
     final scheme = uri.scheme.toLowerCase();
@@ -778,7 +787,9 @@ class AiToolArgs {
     if (parts.length == 4) {
       final octets = [for (final p in parts) int.tryParse(p)];
       // 不是点分十进制：按域名处理（交给下面的单段判断）
-      if (octets.any((o) => o == null || o < 0 || o > 255)) return h.contains('.');
+      if (octets.any((o) => o == null || o < 0 || o > 255)) {
+        return h.contains('.');
+      }
       final a = octets[0]!;
       final b = octets[1]!;
       if (a == 0 || a == 10 || a == 127) return false; // 0.0.0.0 / 10/8 / 回环
@@ -818,8 +829,7 @@ class AiToolArgs {
     final sec = lenientIntOf(raw);
     if (sec == null) throw const AiToolException('休息时长格式不正确');
     if (sec < minRestSec || sec > maxRestSec) {
-      throw const AiToolException(
-          '休息时长不合理（应在 $minRestSec~$maxRestSec 秒之间）');
+      throw const AiToolException('休息时长不合理（应在 $minRestSec~$maxRestSec 秒之间）');
     }
     return sec;
   }

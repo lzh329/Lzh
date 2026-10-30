@@ -8,8 +8,11 @@ class AiToolAdminWriters extends AiToolHandler {
   const AiToolAdminWriters(super.repos);
 
   @override
-  Set<String> get toolNames =>
-      const {AiToolSpecs.manageGoal, AiToolSpecs.deleteRecords};
+  Set<String> get toolNames => const {
+        AiToolSpecs.manageGoal,
+        AiToolSpecs.deleteRecords,
+        AiToolSpecs.deleteTemplate,
+      };
 
   @override
   Future<AiToolPreview> preview(AiToolCall call) async {
@@ -35,6 +38,18 @@ class AiToolAdminWriters extends AiToolHandler {
           needsConfirm: true,
           // 删除目标是危险操作：确认卡必须走警示样式；create / complete 保持普通样式
           isDestructive: cmd.isDestructive,
+        );
+
+      case AiToolSpecs.deleteTemplate:
+        final id = AiToolArgs.templateId(call.arguments);
+        final t = await repos.template.getById(id);
+        if (t == null) throw AiToolException('找不到模板 #$id');
+        return AiToolPreview(
+          call: call,
+          label: '删除模板',
+          detail: '删除模板「${t.name}」（${t.items.length} 个动作）',
+          needsConfirm: true,
+          isDestructive: true,
         );
 
       case AiToolSpecs.deleteRecords:
@@ -64,6 +79,8 @@ class AiToolAdminWriters extends AiToolHandler {
         return _manageGoal(_command(call.arguments));
       case AiToolSpecs.deleteRecords:
         return _deleteRecords(call.arguments);
+      case AiToolSpecs.deleteTemplate:
+        return _deleteTemplate(call.arguments);
       default:
         unsupported(call);
     }
@@ -102,7 +119,9 @@ class AiToolAdminWriters extends AiToolHandler {
             'id': goal.id,
             'type': goal.type,
             'target_value': goal.targetValue,
-            'unit': cmd.type == 'weight' ? '斤' : (cmd.type == 'frequency' ? '次' : ''),
+            'unit': cmd.type == 'weight'
+                ? '斤'
+                : (cmd.type == 'frequency' ? '次' : ''),
           },
         });
 
@@ -124,6 +143,16 @@ class AiToolAdminWriters extends AiToolHandler {
   Future<void> _requireGoal(int id) async {
     final goal = await repos.goal.getById(id);
     if (goal == null) throw AiToolException('找不到目标 #$id');
+  }
+
+  // ───────────── delete_template ─────────────
+
+  Future<String> _deleteTemplate(Map<String, dynamic> args) async {
+    final id = AiToolArgs.templateId(args);
+    final t = await repos.template.getById(id);
+    if (t == null) throw AiToolException('找不到模板 #$id');
+    await repos.template.delete(id);
+    return jsonEncode({'ok': true, 'template_id': id, 'name': t.name});
   }
 
   // ───────────── delete_records ─────────────
@@ -157,8 +186,7 @@ class AiToolAdminWriters extends AiToolHandler {
       'type': type,
       'date': AiToolFormat.ymd(date),
       'deleted': summary.count,
-      if (type == AiRecordTypes.food)
-        'kcal_deleted': summary.kcal.round(),
+      if (type == AiRecordTypes.food) 'kcal_deleted': summary.kcal.round(),
     });
   }
 
@@ -228,7 +256,8 @@ class _DeletionSummary {
   });
 
   /// 饮水按"有没有喝过水"算 1 条，其余按记录条数
-  int get count => type == AiRecordTypes.water ? (cups > 0 ? 1 : 0) : ids.length;
+  int get count =>
+      type == AiRecordTypes.water ? (cups > 0 ? 1 : 0) : ids.length;
 
   bool get isEmpty => count == 0;
 

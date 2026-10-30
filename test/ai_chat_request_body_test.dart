@@ -71,7 +71,7 @@ void main() {
 
     test('tools 与 tool_choice 仍在（关 thinking 不影响工具能力）', () {
       final tools = decoded['tools'] as List<dynamic>;
-      expect(tools, hasLength(24));
+      expect(tools, hasLength(25));
       expect(decoded['tool_choice'], 'auto');
     });
 

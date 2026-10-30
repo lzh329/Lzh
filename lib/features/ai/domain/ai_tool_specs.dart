@@ -23,6 +23,7 @@ class AiToolSpecs {
   // ── 管理类（写，需确认；delete_records / wipe_all_data 为危险操作） ──
   static const manageGoal = 'manage_goal';
   static const deleteRecords = 'delete_records';
+  static const deleteTemplate = 'delete_template';
   static const wipeAllData = 'wipe_all_data';
 
   // ── 动作库 / 模板类（create_* 写需确认，query_exercises 只读） ──
@@ -45,6 +46,7 @@ class AiToolSpecs {
   /// 危险工具（删除数据）：确认卡必须用警示样式
   static const Set<String> destructiveTools = {
     deleteRecords,
+    deleteTemplate,
     deleteMeasurement,
     wipeAllData,
   };
@@ -77,6 +79,7 @@ class AiToolSpecs {
     setReminder,
     manageGoal,
     deleteRecords,
+    deleteTemplate,
     deleteMeasurement,
     updateMeasurement,
     wipeAllData,
@@ -289,8 +292,7 @@ class AiToolSpecs {
                 'active',
                 'very_active',
               ],
-              'description':
-                  '活动水平：久坐 / 轻度 / 中度 / 高 / 极高（用于算 TDEE）',
+              'description': '活动水平：久坐 / 轻度 / 中度 / 高 / 极高（用于算 TDEE）',
             },
           },
         },
@@ -350,7 +352,8 @@ class AiToolSpecs {
             },
             'goal_id': {
               'type': 'integer',
-              'description': '目标 id（complete / delete 必填，来自 query_stats 的 goals）',
+              'description':
+                  '目标 id（complete / delete 必填，来自 query_stats 的 goals）',
             },
             'type': {
               'type': 'string',
@@ -371,6 +374,23 @@ class AiToolSpecs {
             },
           },
           'required': ['action'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': deleteTemplate,
+        'description': '删除一个训练模板。id 来自 query_stats 的 templates 列表；危险操作，先说清后果。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'id': {
+              'type': 'integer',
+              'description': '模板 id（来自 query_stats 的 templates）',
+            },
+          },
+          'required': ['id'],
         },
       },
     },
@@ -401,9 +421,8 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': queryStats,
-        'description':
-            '查询用户的体重、训练、饮水、饮食统计，以及目标与训练模板列表'
-                '（只读，不修改数据）',
+        'description': '查询用户的体重、训练、饮水、饮食统计，以及目标与训练模板列表'
+            '（只读，不修改数据）',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -460,8 +479,7 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': createExercise,
-        'description':
-            '往动作库里新增一个自定义动作。动作库里没有这个动作、但用户想练 / 想加进模板时调用。',
+        'description': '往动作库里新增一个自定义动作。动作库里没有这个动作、但用户想练 / 想加进模板时调用。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -495,9 +513,8 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': createExercises,
-        'description':
-            '一次往动作库批量新增多个动作（最多 10 个）。用户一次列出好几个库里没有的动作时用这个，'
-                '不要逐个调用 create_exercise。同名动作会自动跳过。',
+        'description': '一次往动作库批量新增多个动作（最多 10 个）。用户一次列出好几个库里没有的动作时用这个，'
+            '不要逐个调用 create_exercise。同名动作会自动跳过。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -541,10 +558,9 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': createTemplate,
-        'description':
-            '新建一个训练模板（一组动作 + 组数次数）。用户一次列出多个动作要建模板时，'
-                '直接一次调用本工具：把 create_missing_exercises 设成 true，'
-                '动作的 category / muscle_group 一并给出，缺失的动作会和模板在同一次确认里一起建好。',
+        'description': '新建一个训练模板（一组动作 + 组数次数）。用户一次列出多个动作要建模板时，'
+            '直接一次调用本工具：把 create_missing_exercises 设成 true，'
+            '动作的 category / muscle_group 一并给出，缺失的动作会和模板在同一次确认里一起建好。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -678,14 +694,13 @@ class AiToolSpecs {
           'required': ['url'],
         },
       },
-    },    // ───────── 身体记录类：围度 / 体脂（body_metrics 表） ─────────
+    }, // ───────── 身体记录类：围度 / 体脂（body_metrics 表） ─────────
     {
       'type': 'function',
       'function': {
         'name': queryMeasurements,
-        'description':
-            '查询围度/体脂记录（腰围、臀围、胸围、体重）与各部位最新值。'
-                '用户问"我腰围多少 / 最近身体记录"时调用。',
+        'description': '查询围度/体脂记录（腰围、臀围、胸围、体重）与各部位最新值。'
+            '用户问"我腰围多少 / 最近身体记录"时调用。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -701,14 +716,19 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': updateMeasurement,
-        'description':
-            '修改一条围度/体脂记录的数值。给出 id，或"日期 + 部位"来定位；'
-                '至少给出一个要改的数值字段。',
+        'description': '修改一条围度/体脂记录的数值。给出 id，或"日期 + 部位"来定位；'
+            '至少给出一个要改的数值字段。',
         'parameters': {
           'type': 'object',
           'properties': {
-            'id': {'type': 'integer', 'description': '记录 id（query_measurements 里能看到）'},
-            'date': {'type': 'string', 'description': '记录日期，如 2025-03-04（与 part 搭配定位）'},
+            'id': {
+              'type': 'integer',
+              'description': '记录 id（query_measurements 里能看到）'
+            },
+            'date': {
+              'type': 'string',
+              'description': '记录日期，如 2025-03-04（与 part 搭配定位）'
+            },
             'part': {
               'type': 'string',
               'enum': ['waist', 'hip', 'chest', 'weight'],
@@ -728,7 +748,10 @@ class AiToolSpecs {
         'parameters': {
           'type': 'object',
           'properties': {
-            'id': {'type': 'integer', 'description': '要删除的记录 id（query_measurements 里能看到）'},
+            'id': {
+              'type': 'integer',
+              'description': '要删除的记录 id（query_measurements 里能看到）'
+            },
           },
         },
       },
@@ -738,10 +761,9 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': wipeAllData,
-        'description':
-            '清空 APP 内的全部数据（训练/体重/饮食/饮水/目标/聊天记录/照片），'
-                '并自动保留一份完整备份。只在用户明确说"清空/删除全部数据"时才可调用，'
-                '调用前必须先告知会自动留备份。不可逆。',
+        'description': '清空 APP 内的全部数据（训练/体重/饮食/饮水/目标/聊天记录/照片），'
+            '并自动保留一份完整备份。只在用户明确说"清空/删除全部数据"时才可调用，'
+            '调用前必须先告知会自动留备份。不可逆。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -753,6 +775,5 @@ class AiToolSpecs {
         },
       },
     },
-
   ];
 }

@@ -647,7 +647,7 @@ void main() {
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.wipeAllData));
       expect(AiToolSpecs.destructiveTools,
           contains(AiToolSpecs.deleteMeasurement));
-      expect(AiToolSpecs.destructiveTools, hasLength(3));
+      expect(AiToolSpecs.destructiveTools, hasLength(4));
       expect(AiToolSpecs.isDestructive(AiToolSpecs.deleteRecords), isTrue);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.logWeight), isFalse);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.manageGoal), isFalse);
@@ -748,12 +748,12 @@ void main() {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(24));
-      expect(names.toSet(), hasLength(24));
+      expect(names, hasLength(25));
+      expect(names.toSet(), hasLength(25));
       expect(names.toSet(),
           {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(24));
+          hasLength(25));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -878,6 +878,7 @@ void main() {
         AiToolSpecs.setReminder,
         AiToolSpecs.manageGoal,
         AiToolSpecs.deleteRecords,
+        AiToolSpecs.deleteTemplate,
         AiToolSpecs.wipeAllData,
         AiToolSpecs.queryMeasurements,
         AiToolSpecs.updateMeasurement,
@@ -917,6 +918,7 @@ void main() {
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.deleteTemplate,
             AiToolSpecs.wipeAllData,
           },
           reason: '危险工具有三个：删记录 / 删身体记录 / 清空全部数据');
@@ -1052,6 +1054,7 @@ void main() {
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.deleteTemplate,
             AiToolSpecs.wipeAllData,
           });
     });
@@ -2093,6 +2096,7 @@ const _validArgs = <String, Map<String, dynamic>>{
   AiToolSpecs.updateMeasurement:
       {'id': 1, 'part': 'waist', 'value': 80},
   AiToolSpecs.deleteMeasurement: {'id': 1},
+  AiToolSpecs.deleteTemplate: {'id': 1},
   AiToolSpecs.logWeight: {'weight_jin': 160},
   AiToolSpecs.logWater: {'cups': 6},
   AiToolSpecs.logFood: {

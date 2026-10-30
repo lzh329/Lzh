@@ -25,14 +25,14 @@ void main() {
   group('AiToolSpecs.defsFor：按开关裁剪工具清单', () {
     test('开启（默认）时与 defs 完全一致：24 个', () {
       final defs = AiToolSpecs.defsFor(webEnabled: true);
-      expect(defs, hasLength(24));
+      expect(defs, hasLength(25));
       expect(namesOf(defs), namesOf(AiToolSpecs.defs));
     });
 
-    test('关闭时 22 个，且不含 web_search / fetch_url', () {
+    test('关闭时 23 个，且不含 web_search / fetch_url', () {
       final defs = AiToolSpecs.defsFor(webEnabled: false);
       final names = namesOf(defs);
-      expect(names, hasLength(22));
+      expect(names, hasLength(23));
       expect(names, isNot(contains(AiToolSpecs.webSearch)));
       expect(names, isNot(contains(AiToolSpecs.fetchUrl)));
       // 其余只读工具与全部写工具都还在（关联网不影响记体重 / 查统计）
@@ -48,7 +48,7 @@ void main() {
     });
 
     test('defs 本身仍是 24 个全集（执行器与老测试依赖它不变）', () {
-      expect(AiToolSpecs.defs, hasLength(24));
+      expect(AiToolSpecs.defs, hasLength(25));
       expect(
           AiToolSpecs.webTools, {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl});
       // 裁剪不修改原表，关闭两次结果一致（无副作用）

@@ -153,7 +153,8 @@ class AiPromptBuilder {
       ..writeln('- 用户说"定个目标 140 斤"→ set_target_weight；说"新建一个目标"→ '
           'manage_goal(action:create)；围度、饮食目标、提醒、身体信息分别用 '
           'log_measurements / set_diet_target / set_reminder / update_profile')
-      ..writeln('- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
+      ..writeln(
+          '- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
       ..writeln('- 建训练模板前先用 query_exercises 确认动作存在，'
           '模板里的动作名必须与动作库完全一致')
       ..writeln('- 用户让你"建一个 XX 模板"时，直接调用 create_template'
@@ -192,6 +193,8 @@ class AiPromptBuilder {
       ..writeln('- 用户问"我腰围多少 / 最近身体记录"→ query_measurements；'
           '要改数值用 update_measurement（给出 id 或日期+部位，确认卡会列改前→改后）；'
           '删记录用 delete_measurement（按 id，需用户确认）')
+      ..writeln('- 用户说"删掉某个模板 / 这个模板不要了"→ delete_template'
+          '（id 来自 query_stats 的 templates 列表，先确认再删）')
       ..writeln('- wipe_all_data 是毁灭性操作：只在用户明确说"清空/删除全部数据"时'
           '才能调用，调用前必须先告诉用户会自动保留一份完整备份')
       ..writeln('- 上一条任务已经回执 ok:true 后就**不要重复执行**；'
@@ -236,7 +239,9 @@ class AiPromptBuilder {
 
     if (settings != null) {
       final s = <String>[];
-      if (settings.heightCm != null) s.add('身高 ${settings.heightCm!.round()}cm');
+      if (settings.heightCm != null) {
+        s.add('身高 ${settings.heightCm!.round()}cm');
+      }
       if (settings.age != null) s.add('${settings.age}岁');
       if (settings.gender != null) {
         s.add(settings.gender == 'male' ? '男' : '女');

@@ -37,6 +37,9 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
     ref.invalidate(aiChatRepoProvider);
     ref.read(reminderEnabledProvider.notifier).state = false;
   }
+  if (call.name == AiToolSpecs.deleteTemplate) {
+    ref.invalidate(workoutTemplatesProvider);
+  }
   if (call.name == AiToolSpecs.createTemplate) {
     // create_template 可能顺手新建了缺失动作（create_missing_exercises），
     // 所以动作库与训练页「模板」分段两个数据源都要刷新

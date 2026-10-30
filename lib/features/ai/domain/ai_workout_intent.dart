@@ -98,7 +98,9 @@ class AiWorkoutIntent {
   /// 整数解析：接受 int / double / 数字字符串，其他一律 null
   static int? _intOf(Object? value) {
     if (value is int) return value;
-    if (value is double) return value == value.roundToDouble() ? value.toInt() : null;
+    if (value is double) {
+      return value == value.roundToDouble() ? value.toInt() : null;
+    }
     if (value is String) return int.tryParse(value.trim());
     return null;
   }

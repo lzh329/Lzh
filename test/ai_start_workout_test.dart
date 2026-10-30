@@ -37,17 +37,17 @@ void main() {
   // ═══════════ 1. 工具集合 ═══════════
 
   group('start_workout 在工具集合里的位置', () {
-    test('24 个工具、唯一、写 18 + 只读 6 正好划分', () {
+    test('25 个工具、唯一、写 19 + 只读 6 正好划分', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(names, hasLength(24), reason: '21 → 24，总数要同步');
-      expect(names.toSet(), hasLength(24), reason: '工具名不能重复');
+      expect(names, hasLength(25), reason: '21 → 24，总数要同步');
+      expect(names.toSet(), hasLength(25), reason: '工具名不能重复');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools},
           names.toSet(),
           reason: '写 / 只读两集合必须正好划分已注册的工具');
-      expect(AiToolSpecs.writeTools, hasLength(18));
+      expect(AiToolSpecs.writeTools, hasLength(19));
       expect(AiToolSpecs.readOnlyTools, hasLength(6));
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -63,6 +63,7 @@ void main() {
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.deleteTemplate,
             AiToolSpecs.wipeAllData,
           });
     });

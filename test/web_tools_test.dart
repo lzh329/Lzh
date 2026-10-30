@@ -314,13 +314,13 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('24 个工具、唯一、写/只读互斥并集全覆盖，危险 = 三个删除类', () {
+    test('25 个工具、唯一、写/只读互斥并集全覆盖，危险 = 四个删除类', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(registered, hasLength(24), reason: '工具总数应为 24');
-      expect(registered.toSet(), hasLength(24), reason: '工具名不能重复');
+      expect(registered, hasLength(25), reason: '工具总数应为 24');
+      expect(registered.toSet(), hasLength(25), reason: '工具名不能重复');
       expect({
         ...AiToolSpecs.writeTools,
         ...AiToolSpecs.readOnlyTools
@@ -333,6 +333,7 @@ void main() {
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
+            AiToolSpecs.deleteTemplate,
             AiToolSpecs.wipeAllData,
           },
           reason: '24 个里有三个危险操作：删记录 / 删身体记录 / 清空全部数据');
