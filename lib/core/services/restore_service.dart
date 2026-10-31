@@ -85,6 +85,17 @@ class RestoreService {
   /// 恢复目标文件名
   static const String dbFileName = 'fittrack.sqlite';
 
+  /// 一份合法的 App 库**至少**要有这几张表。
+  ///
+  /// 用来挡「用户手滑选了一个别的 sqlite 文件」——那种库能通过 integrity_check
+  /// （它本身没问题，只是不是我们的库），一旦覆盖就等于把全部记录清空。
+  static const List<String> requiredTables = [
+    'workouts',
+    'body_metrics',
+    'photos',
+    'exercises',
+  ];
+
   /// 恢复整个备份包。
   ///
   /// [closeDatabase]：在 rename 之前关闭当前连接（调用方提供，通常是
@@ -257,7 +268,7 @@ class RestoreService {
       DatabaseSeal.seal();
 
       // 新库独立打开校验：**不走 provider**（此刻 sealed，走 provider 会被自己挡住）
-      await _verifyReopened(target);
+      await _verifyReopened(target, safetyName);
 
       // 校验通过 → 清标记（下次启动不会再触发消解）
       //
@@ -293,6 +304,168 @@ class RestoreService {
     }
   }
 
+  /// 从**裸 `.sqlite`** 恢复（导出文件 / 每周自动备份 / 恢复前副本都是这种）。
+  ///
+  /// 为什么不另写一套"复制覆盖"：恢复最重要的不变量是「任何校验失败 →
+  /// 用户原库一个字节都不动」，而那条不变量只存在于 [restoreArchive] 里
+  /// （tmp 上校验 → rename → 强制备份骨架）。所以这里**不新建第二条路径**：
+  /// 把裸库打成一个只含「库 + 现算 manifest」的最小 zip，交给同一条链。
+  ///
+  /// 裸库没有 manifest，于是校验只能在**副本**上补齐：
+  /// 文件头可读 → `user_version` 不高于当前 schema → `integrity_check` = ok
+  /// → 关键表都在。任一步不过都是 [RestoreAborted]，原库不动。
+  static Future<RestoreResult> restoreDatabaseFile({
+    required String sourcePath,
+    String? dbPath,
+    Directory? photosDir,
+    Directory? backupDir,
+    DateTime? now,
+    FreeSpaceProbe? freeSpace,
+    Future<void> Function()? closeDatabase,
+    Directory? docsDir,
+  }) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) {
+      throw const RestoreAborted('这份备份文件已经不在了，可能被清理或移动了。');
+    }
+    final docs = docsDir ?? await getApplicationDocumentsDirectory();
+    final tempDir = await Directory.systemTemp.createTemp('fittrack_raw_restore');
+    try {
+      // 先拷一份再检查：预检要打开库，而**原件是用户的备份**，
+      // 不能因为我们要读行数就在它旁边留下 -journal / -wal。
+      final copy = File(p.join(tempDir.path, dbFileName));
+      await source.copy(copy.path);
+
+      final preflight = await _preflightRawDatabase(copy);
+      final zipPath = await _packSqliteToArchive(
+        source: copy,
+        into: tempDir,
+        zipName: 'raw-restore.zip',
+        dbSource: 'rawSqlite',
+        schemaVersion: preflight.userVersion,
+        counts: preflight.counts,
+      );
+
+      return await restoreArchive(
+        archivePath: zipPath,
+        dbPath: dbPath ?? p.join(docs.path, dbFileName),
+        photosDir: photosDir,
+        backupDir: backupDir,
+        now: now,
+        freeSpace: freeSpace,
+        closeDatabase: closeDatabase,
+        docsDir: docs,
+      );
+    } catch (e) {
+      throw _asAbort(e);
+    } finally {
+      try {
+        if (await tempDir.exists()) await tempDir.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
+  /// 裸库预检（全部在副本上做）。
+  ///
+  /// 顺序不是随手排的：
+  /// 1. 先读文件头 —— 不是 sqlite 时 `integrity_check` 的报错对用户毫无意义；
+  /// 2. 再比版本 —— 比 App 新的库一旦被打开、迁移写回，就是把新数据降级；
+  /// 3. 最后才 `integrity_check` + 关键表 + 行数。
+  static Future<_RawPreflight> _preflightRawDatabase(File dbFile) async {
+    final header = await _readHeader(dbFile);
+    final userVersion =
+        DatabaseFileHealth.parseUserVersion(header ?? Uint8List(0));
+    if (userVersion == null) {
+      throw const RestoreAborted(
+        '这个文件不是有效的数据库文件（文件头读不出来），已中止恢复，你现在的数据没动。',
+      );
+    }
+    if (userVersion > kSchemaVersion) {
+      throw RestoreAborted(
+        '这份备份来自更新版本的减肥嘎（数据版本 $userVersion，当前 App 支持 $kSchemaVersion），请先更新 App',
+      );
+    }
+
+    final db = AppDatabase.withExecutor(
+      NativeDatabase(dbFile, enableMigrations: false),
+    );
+    try {
+      final integrity = await db.customSelect('PRAGMA integrity_check').getSingle();
+      final value = integrity.data.values.first;
+      if (value != 'ok') {
+        throw RestoreAborted(
+          '备份里的数据库文件有损坏（integrity_check: $value），已中止恢复，你现在的数据没动。',
+        );
+      }
+
+      final rows = await db
+          .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+          .get();
+      final names = rows.map((r) => r.read<String>('name')).toSet();
+      final counts = <String, int>{};
+      for (final table in requiredTables) {
+        if (!names.contains(table)) {
+          throw RestoreAborted(
+            '这个文件里没有「$table」表，不像减肥嘎的数据库备份，已中止恢复。',
+          );
+        }
+        final row = await db
+            .customSelect('SELECT COUNT(*) AS c FROM "$table"')
+            .getSingle();
+        counts[table] = (row.data['c'] as num).toInt();
+      }
+      return _RawPreflight(userVersion: userVersion, counts: counts);
+    } catch (e) {
+      if (e is RestoreAborted) rethrow;
+      throw const RestoreAborted(
+        '备份里的数据库文件打不开，已中止恢复，你现在的数据没动。',
+      );
+    } finally {
+      try {
+        await db.close();
+      } catch (_) {}
+    }
+  }
+
+  /// 把裸 `.sqlite` 打成「库 + 现算 manifest」的最小 zip。
+  ///
+  /// manifest 里的行数是从这份文件**现算**的，所以 [restoreArchive] 的
+  /// "解压后行数必须对得上"那一关会让"复制过程出错 / 文件被截断"当场暴露，
+  /// 而不是等到用户用起来才发现少了一半记录。
+  static Future<String> _packSqliteToArchive({
+    required File source,
+    required Directory into,
+    required String zipName,
+    required String dbSource,
+    required int? schemaVersion,
+    required Map<String, int> counts,
+  }) async {
+    final zipFile = File(p.join(into.path, zipName));
+    final encoder = ZipFileEncoder();
+    encoder.create(zipFile.path);
+    try {
+      await encoder.addFile(source, dbFileName);
+      final manifestFile = File(p.join(into.path, 'manifest.json'));
+      await manifestFile.writeAsString(
+        jsonEncode(<String, dynamic>{
+          'archiveVersion': BackupService.archiveVersion,
+          'createdAt': DateTime.now().toIso8601String(),
+          'schemaVersion': schemaVersion,
+          'dbSource': dbSource,
+          'dbFiles': [dbFileName],
+          // 裸库/单独库文件里没有照片：恢复侧据此**不动**现有 photos 目录
+          'photoCount': 0,
+          if (counts.isNotEmpty) 'tableCounts': counts,
+        }),
+        flush: true,
+      );
+      await encoder.addFile(manifestFile, 'manifest.json');
+    } finally {
+      encoder.close();
+    }
+    return zipFile.path;
+  }
+
   /// 从 `pre-restore-*.sqlite` 退回。
   ///
   /// **不走第二套逻辑**：先把它打成一个最小 zip（只含库 + 现算的 manifest），
@@ -316,38 +489,27 @@ class RestoreService {
     final docs = docsDir ?? await getApplicationDocumentsDirectory();
     final tempDir =
         await Directory.systemTemp.createTemp('fittrack_pre_restore');
-    final tempZip = File(p.join(tempDir.path, 'pre-restore.zip'));
     try {
-      // 现算 manifest：版本从文件头读，行数从库里数（都走"不打开迁移"的路径）
+      // 现算 manifest：版本从文件头读，行数从库里数（都走"不打开迁移"的路径）。
+      // 读不出（文件头坏）→ schemaVersion 为 null，恢复侧按"无法判断版本"
+      // 警告放行，真的不兼容会在 integrity_check / 打开时暴露再中止。
       final header = await _readHeader(source);
       final schemaVersion =
           DatabaseFileHealth.parseUserVersion(header ?? Uint8List(0));
       final counts = await _tableCountsForManifest(source);
 
-      final encoder = ZipFileEncoder();
-      encoder.create(tempZip.path);
-      try {
-        await encoder.addFile(source, dbFileName);
-        final manifest = File(p.join(tempDir.path, 'manifest.json'));
-        await manifest.writeAsString(
-          jsonEncode(<String, dynamic>{
-            'archiveVersion': BackupService.archiveVersion,
-            'createdAt': DateTime.now().toIso8601String(),
-            'schemaVersion': schemaVersion,
-            'dbSource': 'preRestore',
-            'dbFiles': [dbFileName],
-            'photoCount': 0,
-            if (counts.isNotEmpty) 'tableCounts': counts,
-          }),
-          flush: true,
-        );
-        await encoder.addFile(manifest, 'manifest.json');
-      } finally {
-        encoder.close();
-      }
+      // 打包与恢复共用同一条链，避免"退回"和"恢复"两套行为分叉
+      final zipPath = await _packSqliteToArchive(
+        source: source,
+        into: tempDir,
+        zipName: 'pre-restore.zip',
+        dbSource: 'preRestore',
+        schemaVersion: schemaVersion,
+        counts: counts,
+      );
 
       return await restoreArchive(
-        archivePath: tempZip.path,
+        archivePath: zipPath,
         dbPath: dbPath ?? p.join(docs.path, dbFileName),
         photosDir: photosDir,
         backupDir: backupDir,
@@ -407,14 +569,22 @@ class RestoreService {
   /// 替换后独立打开一次新库，确认它能用（不是"rename 成了"就算完成）。
   ///
   /// 用独立连接，不走 `databaseProvider` —— 此刻已 sealed。
-  static Future<void> _verifyReopened(File dbFile) async {
+  ///
+  /// [preRestorePath] 必须传真实路径：这是最坏情况下用户唯一的路标，
+  /// 写错文件名等于把他指向一个不存在的文件（旧实现写的是
+  /// `fittrack.sqlite.backup`，那个文件从来没被创建过）。
+  static Future<void> _verifyReopened(
+    File dbFile,
+    String preRestorePath,
+  ) async {
     try {
       await _integrityCheck(dbFile);
     } catch (e) {
       // 新库打不开是**严重**情况（真库已被 rename 掉），但标记仍在，
       // 下次启动会重试消解；这里不能假装成功。
       throw RestoreAborted(
-        '数据已经替换，但新库打不开。原来的数据已另存为 ${p.basename(dbFile.path)}.backup，'
+        '数据已经替换，但新库打不开。原来的数据已另存为 '
+        '${p.basename(preRestorePath)}（在备份目录里），'
         '重新打开 App 会再试一次。',
       );
     }
@@ -655,4 +825,12 @@ class RestoreService {
     final message = '${error.osError?.message ?? ''} ${error.message}';
     return message.toLowerCase().contains('no space');
   }
+}
+
+/// 裸库预检结果（`counts` 是 manifest 里的行数来源）
+class _RawPreflight {
+  final int? userVersion;
+  final Map<String, int> counts;
+
+  const _RawPreflight({required this.userVersion, required this.counts});
 }

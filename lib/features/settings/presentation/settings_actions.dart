@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/database_recovery_service.dart';
 import 'package:fittrack/core/services/reminder_scheduler.dart';
 
 /// 设置页的操作逻辑集合（从原 settings_page.dart 抽出，保持行为不变）
@@ -209,39 +208,6 @@ Future<void> backupDatabase(BuildContext context) async {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('备份失败: $e')),
-      );
-    }
-  }
-}
-
-Future<void> restoreDatabase(BuildContext context) async {
-  try {
-    // 统一走 DatabaseRecoveryService：恢复前强制备份 + 清 WAL 残留，
-    // 避免设置页与降级页两套行为分叉。
-    final backupPath = await DatabaseRecoveryService.findRestorableBackup();
-    if (backupPath == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('未找到备份文件，请先在上方"立即备份"或导出数据库'),
-          ),
-        );
-      }
-      return;
-    }
-
-    final safetyCopy =
-        await DatabaseRecoveryService.restoreFromBackup(backupPath: backupPath);
-    final name = safetyCopy.split(Platform.pathSeparator).last;
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('数据库已恢复，请重启应用（旧数据已另存为 $name）')),
-      );
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('恢复失败，你的原数据没有被改动')),
       );
     }
   }

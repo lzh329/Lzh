@@ -23,8 +23,13 @@ class AiToolWipeWriter extends AiToolHandler {
     final db = repos.database;
     final stats = <String>[];
     for (final table in DataWipeService.tableNames) {
-      final row =
-          await db.customSelect('SELECT COUNT(*) AS c FROM "$table"').getSingle();
+      // 数"实际会被删的行"：内置食物 / 内置模板不删，报 31 条只会吓人且不实
+      final row = await db
+          .customSelect(
+            'SELECT COUNT(*) AS c FROM "$table"'
+            '${DataWipeService.deleteScopeOf(table)}',
+          )
+          .getSingle();
       final count = (row.data['c'] as num).toInt();
       if (count > 0) stats.add('$table $count 条');
     }

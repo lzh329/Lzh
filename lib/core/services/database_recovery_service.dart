@@ -6,11 +6,16 @@ import 'package:path_provider/path_provider.dart';
 
 import 'auto_backup_service.dart';
 
-/// 数据库救援服务：备份当前库 / 导出坏库 / 从备份恢复。
+/// 数据库救援服务：备份当前库 / 导出坏库 / 清理日志残留。
 ///
-/// 三件事都**只做文件 IO**，不打开数据库 —— 因为它的使用场景恰恰是
-/// 「数据库打不开」的降级态。任何走 Repository 的实现（例如现有 CSV 导出）
+/// 这些操作**只做文件 IO**，不打开数据库 —— 因为使用场景恰恰是
+/// 「数据库打不开」的降级态。任何走 Repository 的实现（例如 CSV 导出）
 /// 在降级态都必然失败。
+///
+/// ⚠️ 这里**不再提供**「从备份恢复」：旧实现是 `findRestorableBackup()` 盲挑
+/// `backups/` 里最新的一份直接 copy 覆盖，既用不上用户刚导出的文件、也不做任何
+/// 校验，正是「恢复后得到空库」事故的原形态。恢复统一走
+/// `RestoreService`（候选 → 校验链 → 原子替换）。
 ///
 /// 行数控制：这里只放可复用的纯逻辑 + 文件操作，UI 文案留在降级页里。
 class DatabaseRecoveryService {
@@ -115,61 +120,5 @@ class DatabaseRecoveryService {
         File(p.join(dir.path, brokenFileName(now ?? DateTime.now())));
     await source.copy(target.path);
     return target.path;
-  }
-
-  /// 从 [backupPath] 恢复到 [dbPath]。
-  ///
-  /// 步骤（顺序不能换）：
-  /// 1. 先把当前库备份成 `pre-restore-<stamp>.sqlite`；**失败则抛异常中止**，
-  ///    绝不进入「没备份就覆盖」的状态；
-  /// 2. 备份文件覆盖主库；
-  /// 3. 清理 `-wal` / `-shm`，避免旧页混入新库。
-  ///
-  /// 返回恢复前备份的路径（用于提示用户「旧数据已另存」）。
-  static Future<String> restoreFromBackup({
-    required String backupPath,
-    String? dbPath,
-    DateTime? now,
-    Directory? backupDir,
-  }) async {
-    final targetPath = dbPath ?? await databasePath();
-    final backup = File(backupPath);
-    if (!await backup.exists()) {
-      throw StateError('备份文件不存在');
-    }
-
-    // 1) 强制先备份当前库（失败即中止）
-    final safetyCopy = await backupBeforeRestore(
-      dbPath: targetPath,
-      now: now,
-      backupDir: backupDir,
-    );
-
-    // 2) 覆盖
-    await backup.copy(targetPath);
-
-    // 3) 清 WAL 残留
-    await cleanupJournalFiles(targetPath);
-
-    return safetyCopy;
-  }
-
-  /// 找到最近一份可用于恢复的备份（降级页「从备份恢复」用）。
-  ///
-  /// 优先级：`backups/fittrack_backup_latest.sqlite` → 备份目录里最新的一份
-  /// → 旧位置（应用文档根目录）。全程只做文件 IO。
-  static Future<String?> findRestorableBackup() async {
-    final docs = await getApplicationDocumentsDirectory();
-    final candidates = <File>[
-      File(p.join(docs.path, 'backups', 'fittrack_backup_latest.sqlite')),
-      File(p.join(docs.path, 'fittrack_backup_latest.sqlite')),
-    ];
-    for (final file in candidates) {
-      if (await file.exists()) return file.path;
-    }
-
-    final backups = await AutoBackupService.listBackups();
-    if (backups.isNotEmpty) return backups.first.path;
-    return null;
   }
 }

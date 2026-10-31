@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/features/settings/presentation/settings_actions.dart';
+import 'package:fittrack/features/settings/presentation/widgets/data_management_danger_section.dart';
+import 'package:fittrack/features/settings/presentation/widgets/database_restore_sheet.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 
 import 'package:fittrack/core/providers.dart';
@@ -148,11 +150,16 @@ class _DataManagementPageState extends ConsumerState<DataManagementPage> {
                 icon: Icons.restore,
                 color: _grey,
                 title: '恢复数据库',
-                subtitle: '从最近一次备份恢复（需重启）',
-                onTap: () => restoreDatabase(context),
+                subtitle: '从你选的备份恢复（需重启）',
+                onTap: () => showDatabaseRestoreSheet(context),
               ),
             ],
           ),
+          const SizedBox(height: 18),
+
+          // ── 危险操作 ──
+          // 放最底部：它是唯一不可撤销的操作，不该顺手就被点到
+          const DataManagementDangerSection(),
         ],
       ),
     );

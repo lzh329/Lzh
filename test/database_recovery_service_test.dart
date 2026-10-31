@@ -115,44 +115,5 @@ void main() {
         isEmpty,
       );
     });
-
-    test('restoreFromBackup：先备份当前库 → 覆盖 → 清 WAL', () async {
-      await seedDb('OLD-OUT-OF-DATE');
-      final source =
-          File(p.join(backups.path, 'fittrack_backup_latest.sqlite'));
-      await source.writeAsString('FROM-BACKUP');
-      // 残留日志必须被清掉，否则恢复后会把旧页回放进新库
-      final wal = File('${dbFile().path}-wal');
-      await wal.writeAsString('stale');
-
-      final safetyCopy = await DatabaseRecoveryService.restoreFromBackup(
-        backupPath: source.path,
-        dbPath: dbFile().path,
-        now: DateTime(2025, 3, 4, 5, 6, 7),
-        backupDir: backups,
-      );
-
-      expect(await dbFile().readAsString(), 'FROM-BACKUP');
-      expect(wal.existsSync(), isFalse);
-      expect(
-        p.basename(safetyCopy),
-        'pre-restore-20250304-050607.sqlite',
-        reason: '恢复前的当前库必须另存',
-      );
-      expect(await File(safetyCopy).readAsString(), 'OLD-OUT-OF-DATE');
-    });
-
-    test('restoreFromBackup：备份文件不存在时抛异常且不动当前库', () async {
-      await seedDb('CURRENT');
-      await expectLater(
-        DatabaseRecoveryService.restoreFromBackup(
-          backupPath: p.join(backups.path, 'missing.sqlite'),
-          dbPath: dbFile().path,
-          backupDir: backups,
-        ),
-        throwsA(isA<StateError>()),
-      );
-      expect(await dbFile().readAsString(), 'CURRENT');
-    });
   });
 }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,8 +5,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/database/database_health.dart';
 import 'package:fittrack/core/database/migration_failure_marker.dart';
 import 'package:fittrack/core/services/backup_service.dart';
-import 'package:fittrack/core/services/restore_service.dart';
 import 'package:fittrack/core/services/database_recovery_service.dart';
+import 'package:fittrack/core/services/restore_service.dart';
+import 'package:fittrack/features/settings/presentation/widgets/database_restore_sheet.dart';
 import 'package:fittrack/core/theme/app_theme.dart';
 
 /// 数据库打不开 / 迁移未完成时的降级 App。
@@ -100,25 +99,17 @@ class _DatabaseFailurePageState extends State<DatabaseFailurePage> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// 从备份恢复：**先强制备份当前库（失败即中止）** → 覆盖 → 清 WAL → 重启。
+  /// 从备份恢复：**先让用户选来源**，再走校验链 + 原子替换。
+  ///
+  /// 旧实现是 `findRestorableBackup()` 盲挑 `backups/` 里最新的一份直接 copy
+  /// 覆盖 —— 那正是「恢复后得到空库」事故的原形态，只是从设置页搬到了救援页。
+  /// 现在与设置页共用同一个来源面板（候选 + 行数摘要 + 二次确认），
+  /// 恢复成功后的「退出应用」出口也由面板统一负责，这里不再重复提示。
   Future<void> _restoreFromBackup() async {
     setState(() => _busy = true);
     try {
-      final backupPath = await DatabaseRecoveryService.findRestorableBackup();
-      if (backupPath == null) {
-        _toast('没找到可用的备份文件');
-        return;
-      }
-      final safetyCopy = await DatabaseRecoveryService.restoreFromBackup(
-          backupPath: backupPath);
-      final name = safetyCopy.split(Platform.pathSeparator).last;
-      _toast('恢复完成，正在重启（旧数据已另存为 $name）');
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-      if (!mounted) return;
-      _restart();
-    } catch (_) {
-      // 恢复流程的任何异常都不许冒泡成白屏
-      _toast('恢复失败，你的原数据没有被改动');
+      // degraded: 此刻库就是打不开的那个东西，面板不能去读 databaseProvider
+      await showDatabaseRestoreSheet(context, degraded: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

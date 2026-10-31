@@ -424,7 +424,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedExercises(this);
           await _seedFoodLibrary(this);
-          await _seedWorkoutTemplates(this);
+          await seedBuiltInTemplates(this);
         },
         // ⚠️ drift 的 onUpgrade **不在事务里**（全包唯一事务在 alterTable() 内部）。
         // 因此下面每个迁移块里的建表 / 加列一律走 migration_helpers.dart 的
@@ -515,7 +515,7 @@ class AppDatabase extends _$AppDatabase {
             if (from < 12) {
               await createTableIfNotExists(m, workoutTemplates);
               await createTableIfNotExists(m, workoutTemplateExercises);
-              await _seedWorkoutTemplates(this);
+              await seedBuiltInTemplates(this);
             }
             // v13: 平板支撑等静力动作默认计时（已有数据补默认时长）
             if (from < 13) {
@@ -881,11 +881,20 @@ const _templateSeeds = [
   ),
 ];
 
-/// 写入推荐训练模板（动作按名称匹配动作库）
-Future<void> _seedWorkoutTemplates(AppDatabase db) async {
-  // 幂等：v12 迁移块重跑时表已建好，模板已灌过就不再重复插入
-  final existingTemplates = await db.select(db.workoutTemplates).get();
-  if (existingTemplates.isNotEmpty) return;
+/// 写入内置训练模板（动作按名称匹配动作库）。
+///
+/// **幂等**：只在「一条内置模板都没有」时补种。
+///
+/// 为什么不按名字逐条补：用户可能改过内置模板的名字，逐条补会凭空多出一份
+/// 默认模板（5 个变 6 个）。而"一条内置模板都不剩"只可能是被整体删掉了
+/// （例如清空数据的旧实现），这时整组补回来才是对的。
+///
+/// 调用点三处：onCreate、v12 迁移块、`DataWipeService` 清空后的兜底补种。
+Future<void> seedBuiltInTemplates(AppDatabase db) async {
+  final builtIn = await (db.select(db.workoutTemplates)
+        ..where((t) => t.isRecommended.equals(true)))
+      .get();
+  if (builtIn.isNotEmpty) return;
 
   final exercises = await db.select(db.exercises).get();
   final idByName = {for (final e in exercises) e.name: e.id};

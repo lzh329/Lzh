@@ -27,7 +27,7 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
   }
   if (call.name == AiToolSpecs.wipeAllData) {
     // 清空全部数据：核心 provider 全量 invalidate（不是只刷几个页面，
-    // 否则会留旧数据），内存态归位。
+    // 否则会留旧数据），内存态归位。清单与「设置 → 清除所有数据」保持逐项一致。
     ref.invalidate(dashboardDataProvider);
     ref.invalidate(trendsDataProvider);
     ref.invalidate(goalListProvider);
@@ -35,6 +35,8 @@ void applyAiToolSideEffects(Ref ref, AiToolCall call) {
     ref.invalidate(exerciseRepoProvider);
     ref.invalidate(workoutTemplatesProvider);
     ref.invalidate(aiChatRepoProvider);
+    // 训练历史是页面级缓存（非 autoDispose），不失效的话清完还能看到已删的训练
+    ref.invalidate(workoutHistoryProvider);
     ref.read(reminderEnabledProvider.notifier).state = false;
   }
   if (call.name == AiToolSpecs.deleteTemplate) {
