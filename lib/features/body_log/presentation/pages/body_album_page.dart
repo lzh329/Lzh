@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/features/body_log/presentation/body_log_refresh.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_page.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_preview_dialog.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_tile.dart';
@@ -75,6 +76,8 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
           .read(photoRepoProvider)
           .addPhoto(date: DateTime.now(), imageFile: File(file.path));
       await _load();
+      // 首页「今日图片」打卡块与趋势页照片数都缓存了聚合数据，必须一起刷
+      refreshBodyDependents(ref);
       if (mounted) _snack('已添加到相册');
     } catch (_) {
       if (mounted) {
@@ -296,5 +299,6 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     }
     await _load();
     if (mounted) _snack('已删除');
+    refreshBodyDependents(ref);
   }
 }

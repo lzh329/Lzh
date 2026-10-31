@@ -5,6 +5,7 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 import 'package:fittrack/features/body_log/domain/weight_bucket.dart';
+import 'package:fittrack/features/body_log/presentation/body_log_refresh.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/add_metric_form.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/body_history_list.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/weight_bar_chart.dart';
@@ -131,8 +132,11 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                     bodyRepo: ref.read(bodyMetricRepoProvider),
                     photoRepo: ref.read(photoRepoProvider),
                     goalRepo: ref.read(goalRepoProvider),
-                    onSaved: () =>
-                        ref.invalidate(bodyPageDataProvider(_timeRange)),
+                    onSaved: () {
+                      ref.invalidate(bodyPageDataProvider(_timeRange));
+                      // 首页打卡 / 趋势 / 目标也要跟着变，只刷本页会留旧数据
+                      refreshBodyDependents(ref);
+                    },
                   ),
                 ),
               ),
@@ -148,6 +152,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                         onDelete: () async {
                           await ref.read(bodyMetricRepoProvider).delete(m.id);
                           ref.invalidate(bodyPageDataProvider(_timeRange));
+                          refreshBodyDependents(ref);
                         },
                       ),
                     ),

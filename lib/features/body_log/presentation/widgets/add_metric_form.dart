@@ -82,12 +82,18 @@ class AddMetricFormState extends State<AddMetricForm> {
       totalLossJin = first.weightKg * 2 - currentJin;
     }
 
-    await NotificationService().showWeightFeedback(
-      currentWeightJin: currentJin,
-      changeJin: changeJin,
-      totalLossJin:
-          totalLossJin != null && totalLossJin > 0 ? totalLossJin : null,
-    );
+    // 通知是锦上添花：插件不可用（无权限 / 单测环境无平台实现）时
+    // 只记日志，不能把已经落库的录入和首页刷新拖挂。
+    try {
+      await NotificationService().showWeightFeedback(
+        currentWeightJin: currentJin,
+        changeJin: changeJin,
+        totalLossJin:
+            totalLossJin != null && totalLossJin > 0 ? totalLossJin : null,
+      );
+    } catch (e) {
+      debugPrint('[AddMetricForm] 体重反馈通知失败：$e');
+    }
   }
 
   /// 计算累计减重的 5 斤档位（0, 1, 2, ... 代表 0斤, 5斤, 10斤...）
