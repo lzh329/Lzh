@@ -16,7 +16,6 @@ import 'package:fittrack/features/plan/presentation/pages/plan_create_page.dart'
 import 'package:fittrack/features/plan/presentation/pages/plan_detail_page.dart';
 
 import 'package:fittrack/features/settings/presentation/pages/profile_page.dart';
-import 'package:fittrack/features/goal/presentation/pages/goals_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/data_management_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/voice_settings_page.dart';
 import 'package:fittrack/features/ai/presentation/pages/ai_chat_page.dart';
@@ -171,10 +170,11 @@ final appRouter = GoRouter(
       path: '/settings/body-info',
       redirect: (_, __) => '/settings/profile',
     ),
+    // 「目标管理」入口已下线（体重目标并入个人档案的「身体信息」）。
+    // 保留老路径重定向，避免旧通知 / 历史深链点进来白屏。
     GoRoute(
       path: '/goals',
-      pageBuilder: (context, state) =>
-          _subPageTransition(const GoalsPage(), state),
+      redirect: (_, __) => '/settings/profile',
     ),
 
     GoRoute(

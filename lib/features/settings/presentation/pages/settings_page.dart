@@ -60,13 +60,6 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push('/settings/profile'),
               ),
               SettingsTile(
-                icon: Icons.flag_outlined,
-                color: _purple,
-                title: '目标管理',
-                subtitle: '设定体重目标与打卡频率',
-                onTap: () => context.push('/goals'),
-              ),
-              SettingsTile(
                 icon: Icons.fitness_center,
                 color: _blue,
                 title: '动作库',
