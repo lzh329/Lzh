@@ -11,6 +11,7 @@ import 'package:fittrack/features/dashboard/presentation/widgets/guga_puppet.dar
 import 'package:fittrack/features/dashboard/presentation/widgets/photo_compare_card.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/sick_day_banner.dart';
 import 'package:fittrack/features/dashboard/presentation/widgets/today_tasks_card.dart';
+import 'package:fittrack/features/ai/presentation/widgets/coach_weekly_bubble.dart';
 
 /// 主控页 —— v6「任务 + 对比」极简版
 ///
@@ -131,6 +132,8 @@ class _DashboardBody extends ConsumerWidget {
               ),
             ),
           ),
+          // 教练主动消息气泡（有未读才出现；一天最多 2 条）
+          const CoachWeeklyBubble(),
           const SizedBox(height: 14),
 
           // 3) 今日任务（打卡方块，下移到首屏之下）

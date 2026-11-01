@@ -6,6 +6,7 @@ import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
+import 'package:fittrack/features/ai/presentation/coach_memory_providers.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
@@ -123,6 +124,11 @@ class _AiPersonaPageState extends ConsumerState<AiPersonaPage> {
     if (_previewing) return;
     setState(() => _previewing = true);
     final persona = _ctrl.text.trim();
+    // 预览必须与真实请求同构：少了记忆段，用户会以为「教练记得的事」没进 prompt。
+    // 用**只读**方法（readOnlyLines）：预览绝不能写 last_used_at，否则点两次预览
+    // 就能把某条记忆刷成"最新用过"，从此永远逃过淘汰。
+    final memoryLines =
+        await ref.read(coachMemoryServiceProvider).readOnlyLines();
     String prompt;
     try {
       // 预览要用真实数据，否则用户只会看到「暂无体重记录」的空提示词
@@ -130,11 +136,13 @@ class _AiPersonaPageState extends ConsumerState<AiPersonaPage> {
       prompt = AiPromptBuilder.build(
         trends: trends,
         settings: _previewSettings(persona),
+        memoryLines: memoryLines,
       );
     } catch (_) {
       prompt = AiPromptBuilder.build(
         trends: const TrendsData(),
         settings: _previewSettings(persona),
+        memoryLines: memoryLines,
       );
     }
     if (!mounted) return;
@@ -262,9 +270,7 @@ class _AiPersonaPageState extends ConsumerState<AiPersonaPage> {
                   '（不编造数据、不做医疗诊断、不承诺减重速度、劝阻极端节食）'
                   '不受人设影响，也不会被自定义文案覆盖。',
                   style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textTertiary,
-                      height: 1.6),
+                      fontSize: 11, color: AppColors.textTertiary, height: 1.6),
                 ),
               ],
             ),

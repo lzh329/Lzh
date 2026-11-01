@@ -169,6 +169,17 @@ class UserSettings extends Table {
 
   /// 头像文件路径（应用私有目录下的副本，不是系统相册路径）
   TextColumn get avatarPath => text().nullable()();
+
+  /// v24：教练记忆开关（默认开）。关掉 = 不写、不注入、不留痕，**数据保留**。
+  ///
+  /// ⚠️ 必须 `withDefault(Constant(true))`：`ALTER TABLE ADD COLUMN` 加 NOT NULL
+  /// 列时 SQLite 要求有默认值，缺了在老库升级时直接抛错 —— 本地无云，等于数据全丢。
+  BoolColumn get coachMemoryEnabled =>
+      boolean().withDefault(const Constant(true))();
+
+  /// v24：主动消息总开关（默认开）。关掉 = 不生成、不排通知、气泡不出现。
+  BoolColumn get coachProactiveEnabled =>
+      boolean().withDefault(const Constant(true))();
 }
 
 class FoodLibrary extends Table {
@@ -210,6 +221,13 @@ class AiChatMessages extends Table {
   TextColumn get role => text()(); // user / assistant
   TextColumn get content => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// v24：动作芯片（JSON 数组字符串，如 `[{"k":"log_weight"}]`）。
+  ///
+  /// null = 这条消息没有芯片（老库全部是 null，天然兼容，无需 backfill）。
+  /// **不给默认空串 `''`**：`''` 与 `null` 会被解析成同一种"没有"却写了两套
+  /// 口径，将来统计"多少条消息带芯片"时会算错。
+  TextColumn get chips => text().nullable()();
 }
 
 // ─────────── v12: 训练模板 ───────────
@@ -321,6 +339,97 @@ class WeeklyReportCache extends Table {
       ];
 }
 
+// ─────────── v24: 教练主动消息 + 结构化记忆 ───────────
+
+/// v24：主动消息的投递记录（周消息 / 训练后点评）。
+///
+/// `dedupe_key` 的唯一性用 `uniqueKeys` 表达，**不额外建命名唯一索引**：
+/// drift 会把它写进 `CREATE TABLE ... UNIQUE(dedupe_key)`，而
+/// `createTableIfNotExists` 在新装（`onCreate → createAll`）与老库升级
+/// （`onUpgrade`）两条路径上都会执行 —— 约束天然"两处生效"。
+/// 再手写一条 `CREATE UNIQUE INDEX` 会让 SQLite 同时维护
+/// `sqlite_autoindex_*` 与那条命名索引，纯写放大。
+/// 先例见 [DailyOverrides] 的注释。
+///
+/// `workout_id` 刻意**不建外键**：`DataWipeService` 是 `DELETE FROM workouts`
+/// （不是级联删），挂了外键在 `PRAGMA foreign_keys=ON` 时会整段回滚。而投递
+/// 记录是"已经发出去的历史"，训练被删了这条文案依然成立 —— 弱引用才是正确语义。
+@TableIndex(name: 'idx_coach_proactive_created_at', columns: {#createdAt})
+@DataClassName('CoachProactiveRow')
+class CoachProactiveMessages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// `weekly`（周消息）/ `workout_recap`（训练后点评）
+  TextColumn get kind => text()();
+
+  /// `weekly:{yyyy-MM-dd}` / `recap:{workoutId}` —— 只由常量拼装，不手工拼串
+  TextColumn get dedupeKey => text()();
+
+  TextColumn get content => text()();
+
+  /// `ai` / `template`（点评恒为 `template`）
+  TextColumn get source => text()();
+
+  /// 该周周一 00:00（本地）；点评为空
+  DateTimeColumn get weekStart => dateTime().nullable()();
+
+  /// 点评对应的训练 id（弱引用，见类注释）
+  IntColumn get workoutId => integer().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 被渲染时写入；null = 未读
+  DateTimeColumn get seenAt => dateTime().nullable()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {dedupeKey},
+      ];
+}
+
+/// v24：教练记住的事 —— 「用户亲口说过的长期情况」。
+///
+/// 唯一键 `(category, topic)` 用 `uniqueKeys` 表达：同键即覆盖，不新增行。
+/// 这张表的天花板是 20 行，**不建 category 索引**（收益 0、写放大为正）。
+///
+/// `quote` NOT NULL 是"防腐层"的物理落点：它把「AI 的推断」挡在门外，只允许
+/// 「用户真说过的话」进来。没有它，模型会把"你说你膝盖不舒服"二次加工成
+/// "用户有慢性膝伤"，几轮之后记忆里全是幻觉。
+@DataClassName('CoachMemoryRow')
+class CoachMemories extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 5 值白名单：injury / diet / schedule / agreement / preference
+  /// （白名单写在 repository / policy 里做写侧校验，不在 SQL 上做 CHECK ——
+  /// 改白名单不该要求一次迁移）
+  TextColumn get category => text()();
+
+  /// 归一化后的短标签（≤20 字），与 category 一起构成唯一键
+  TextColumn get topic => text()();
+
+  /// 给用户看的一句话（≤60 字）
+  TextColumn get content => text()();
+
+  /// 用户原话片段（≤60 字），本地校验必须是原话的子串
+  TextColumn get quote => text()();
+
+  /// 来源 user 消息 id；**不建外键**（清聊天记录不清记忆，见 P-1）
+  IntColumn get sourceMessageId => integer().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 覆盖时更新
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 被注入进 prompt 时更新 —— 超限淘汰的依据
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {category, topic},
+      ];
+}
+
 // ───────────────────── 数据库 ─────────────────────
 
 /// 当前 schema 版本（唯一事实来源）。
@@ -328,7 +437,7 @@ class WeeklyReportCache extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 23;
+const int kSchemaVersion = 24;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -351,6 +460,16 @@ const List<String> kV21Indexes = [
   'CREATE INDEX IF NOT EXISTS idx_plan_days_plan_id ON plan_days (plan_id)',
   'CREATE INDEX IF NOT EXISTS idx_workout_template_exercises_template_id '
       'ON workout_template_exercises (template_id)',
+];
+
+/// v24 新增的普通索引（迁移侧定义）。
+///
+/// 名字必须与 `CoachProactiveMessages` 上的 `@TableIndex` 逐字一致，否则
+/// 老库升级后少一条索引、而新装用户有 —— 两边查询计划会不同，且**不会有任何
+/// 测试变红**。
+const List<String> kV24Indexes = [
+  'CREATE INDEX IF NOT EXISTS idx_coach_proactive_created_at '
+      'ON coach_proactive_messages (created_at)',
 ];
 
 /// 迁移中判断表是否存在（半迁移现场 / 极老库可能还没建）
@@ -401,6 +520,8 @@ class AiStyleMigration {
     AiChatMessages,
     DailyOverrides,
     WeeklyReportCache,
+    CoachMemories,
+    CoachProactiveMessages,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -625,6 +746,45 @@ class AppDatabase extends _$AppDatabase {
                 'JOIN exercises e ON e.id = i.exercise_id '
                   "WHERE e.category = 'cardio')",
                 );
+              }
+            }
+
+            // v24: 教练主动消息 + 结构化记忆 + 两个开关列 + 芯片列
+            //
+            // 纯 DDL + 加列，**没有任何数据变换** → 按 playbook 7.4 不包事务，
+            // 靠 migration_helpers 的幂等助手收敛（半迁移现场重跑不会崩）。
+            if (from < 24) {
+              step = 'createTable:coach_memories';
+              await createTableIfNotExists(m, coachMemories);
+              step = 'createTable:coach_proactive_messages';
+              await createTableIfNotExists(m, coachProactiveMessages);
+
+              // 两个布尔列必须带 withDefault(true)：ALTER TABLE 加 NOT NULL 列
+              // 时没有默认值会直接抛，老库升级即死。
+              //
+              // ⚠️ 先确认 user_settings 真的在：`addColumnIfNotExists` 靠
+              // `PRAGMA table_info` 判存在，表**不存在**时它拿到的列清单是空的，
+              // 于是会去执行 `ALTER TABLE user_settings ...` 直接报
+              // "no such table"。半迁移现场 / 极老库里确实会出现这种库。
+              if (await _tableExists(this, 'user_settings')) {
+                step = 'addColumn:coach_memory_enabled';
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.coachMemoryEnabled);
+                step = 'addColumn:coach_proactive_enabled';
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.coachProactiveEnabled);
+              }
+
+              // 半迁移现场 / 极老库兜底：表不在就跳过（v16 块本应已建过）
+              step = 'addColumn:ai_chat_messages.chips';
+              if (await _tableExists(this, 'ai_chat_messages')) {
+                await addColumnIfNotExists(
+                    m, aiChatMessages, aiChatMessages.chips);
+              }
+
+              for (final sql in kV24Indexes) {
+                step = 'index:${_indexNameOf(sql)}';
+                await customStatement(sql);
               }
             }
 

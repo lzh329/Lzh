@@ -73,6 +73,12 @@ class UserSettingsEntity {
   /// 读不到（还没有设置行）时按 0 处理 —— 「没记过」就是 0 次。
   final int aiHealthOverrideCount;
 
+  /// v24：教练记忆开关（默认开）。关掉 = 不写、不注入、不留痕；**数据保留**。
+  final bool coachMemoryEnabled;
+
+  /// v24：主动消息总开关（默认开）。关掉 = 不生成、不排通知、气泡不出现。
+  final bool coachProactiveEnabled;
+
   const UserSettingsEntity({
     required this.id,
     this.heightCm,
@@ -108,6 +114,8 @@ class UserSettingsEntity {
     this.carbsTargetG,
     this.fatTargetG,
     this.aiHealthOverrideCount = 0,
+    this.coachMemoryEnabled = true,
+    this.coachProactiveEnabled = true,
   });
 
   int? get age {

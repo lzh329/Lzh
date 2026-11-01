@@ -13,6 +13,7 @@ import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/database/db_replaced_marker.dart';
 import 'core/services/database_resolver.dart';
 import 'core/services/reminder_scheduler.dart';
+import 'core/services/coach_proactive_providers.dart';
 import 'core/services/auto_backup_service.dart';
 
 class FitTrackApp extends ConsumerStatefulWidget {
@@ -56,6 +57,8 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
     if (state == AppLifecycleState.resumed) {
       _resolveIfReplaced();
       _rescheduleIfDayChanged();
+      // 主动消息：回前台时补齐（不 await，最长会等一次模型调用）
+      runCoachProactiveStartup(ref);
     }
   }
 
@@ -110,6 +113,7 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
     }
     // 每周自动备份数据库（开关在「数据管理」页，默认开）
     _runAutoBackup();
+    runCoachProactiveStartup(ref); // 教练主动消息（生成 + 排期），不 await
   }
 
   Future<void> _runAutoBackup() async {
@@ -137,6 +141,9 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
           workoutSlots: buildWorkoutSlots(plans),
           weighInId: kWeighInReminderId,
         );
+    // ⚠️ reschedule() 第一步是 cancelAll()，会把 id=200 的周消息一起清掉。
+    // 不在这里补回来，周消息就永远收不到、且没有任何报错（最难查的一类）。
+    await ref.read(coachProactiveSchedulerProvider).syncPush();
     _scheduledDay = _dayOf(DateTime.now());
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fittrack/core/router/route_query.dart';
 import 'package:intl/intl.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -24,6 +25,22 @@ class DietPage extends ConsumerStatefulWidget {
 class _DietPageState extends ConsumerState<DietPage> {
   DateTime _selectedDate = DateTime.now();
   String _mealFilter = 'all';
+
+  /// `?add=1`：来自动作芯片「记饮食」，进页面直接弹录入框
+  bool _autoAddHandled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_autoAddHandled) return;
+    _autoAddHandled = true;
+    final add = routeQueryParam(context, 'add') == '1';
+    if (!add) return;
+    // 不能在 didChangeDependencies 里直接开弹窗：此刻首帧还没画出来
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showAddFoodDialog(context, ref);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

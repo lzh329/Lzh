@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/ai/domain/coach_chip.dart';
 
 /// 聊天消息（OpenAI 兼容格式，支持工具调用与多模态内容）
 ///
@@ -25,12 +26,20 @@ class AiMessage {
   /// tool 消息回传时的工具名（DeepSeek 要求 tool 消息带 name）
   final String? toolName;
 
+  /// 动作芯片（**只给 UI 用**）。
+  ///
+  /// ⚠️ 绝不能进 [toJson]：发给模型会污染 prompt，DeepSeek 对未知字段还可能直接
+  /// 400。这条由单测 `toJson()` 不含 `chips` 守住 —— 一旦泄漏，「点芯片」与
+  /// 「发消息」的边界就没了，芯片会变成一次对话轮次。
+  final List<CoachChip> chips;
+
   const AiMessage({
     required this.role,
     required this.content,
     this.toolCalls,
     this.toolCallId,
     this.toolName,
+    this.chips = const [],
   });
 
   /// 是否携带工具调用

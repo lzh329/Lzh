@@ -1,0 +1,23 @@
+%% 嘎教练 P0 增量 — S2 首屏渲染 → 写 seen_at → 取消推送（W5 / W11）
+%% 来源：docs/design/COACH-P0-ARCH.md §1.3
+
+sequenceDiagram
+  autonumber
+  participant Page as DashboardPage / AiChatPage
+  participant Bubble as CoachWeeklyBubble / CoachWeeklyCard
+  participant Pro as coachUnreadWeeklyProvider
+  participant Notifier as CoachWeeklyNotifier
+  participant Repo as CoachProactiveRepository
+  participant Push as CoachPushSink
+
+  Page->>Pro: watch()
+  Pro->>Repo: getWeekly(mondayOf(now))
+  Repo-->>Pro: record?
+  Pro-->>Page: record（null → 气泡整块不渲染）
+
+  Page->>Bubble: 渲染正文
+  Bubble->>Notifier: initState → markSeen(id)  %% 绝不在 build 里写库
+  Notifier->>Repo: markSeen(id)  %% UPDATE ... WHERE seen_at IS NULL（幂等）
+  Notifier->>Push: cancel(200)
+  Notifier->>Pro: invalidate()
+  Pro-->>Page: null → 气泡消失（教练页卡片改读 coachLatestWeeklyProvider，仍显示）

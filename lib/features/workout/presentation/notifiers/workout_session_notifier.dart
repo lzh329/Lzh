@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/countdown_controller.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
+import 'package:fittrack/core/services/coach_proactive_providers.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/core/services/sick_day_gate.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
@@ -928,13 +929,16 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final durationSec = state.startTime != null
         ? DateTime.now().difference(state.startTime!).inSeconds
         : null;
-    await repo.createWorkout(
+    final workout = await repo.createWorkout(
       date: DateTime.now(),
       type: state.sessionType,
       planId: state.planId,
       durationSec: durationSec,
       sets: state.completedSets,
     );
+    // 训练后点评：**已落库**的训练才点评（`recap:{workoutId}` 需要 id）。
+    // 本地模板、不调模型、不推送，只在首页咕嘎气泡露出。
+    await _generateRecap(workout.id, durationSec);
     // 自动更新训练频率目标
     final goals = await _ref.read(goalRepoProvider).getAll();
     for (final g
@@ -949,6 +953,23 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _ref.invalidate(dashboardDataProvider);
     _ref.invalidate(trendsDataProvider);
     _ref.invalidate(goalListProvider);
+  }
+
+  /// 生成训练后点评（失败静默：点评绝不能把"已经保存成功的训练"拖成失败）
+  ///
+  /// 形态取自本轮槽位的动作分类（`workouts.type` 只有 free / plan，
+  /// 分辨不出力量还是有氧），时长取真实计时。
+  Future<void> _generateRecap(int workoutId, int? durationSec) async {
+    try {
+      await _ref.read(coachWorkoutRecapServiceProvider).generateFor(
+            workoutId: workoutId,
+            exerciseCategories: state.slots.map((s) => s.category).toSet(),
+            durationSec: durationSec,
+          );
+      _ref.invalidate(coachUnreadRecapProvider);
+    } catch (e) {
+      debugPrint('训练后点评生成失败（不影响训练保存）: $e');
+    }
   }
 
   // ── 上一组回退 ──

@@ -111,6 +111,13 @@ abstract class ReminderSink {
 
   Future<void> cancelById(int id);
 
+  /// 全量取消。
+  ///
+  /// ⚠️ 这不是死方法：生产实现 `NotificationServiceSink.cancelAll()` 紧跟在
+  /// 本类下方，而 `ReminderScheduler.reschedule()` 的第一步（本文件 `:191`）
+  /// 正是通过本接口调它 —— 删掉会让 `reschedule()` 直接坏掉。
+  /// 另：它会**连带清掉教练周消息的通知 200**，所以任何调用过它的路径之后
+  /// 都必须补一次 `CoachProactiveScheduler.syncPush()`。
   Future<void> cancelAll();
 }
 

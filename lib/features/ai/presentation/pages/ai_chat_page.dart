@@ -11,6 +11,8 @@ import 'package:fittrack/features/body_log/presentation/widgets/compare_review_l
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_bubbles.dart';
+import 'package:fittrack/features/ai/presentation/widgets/ai_chip_bar.dart';
+import 'package:fittrack/features/ai/presentation/widgets/coach_weekly_bubble.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_input_bar.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_panels.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_tool_confirm_card.dart';
@@ -193,6 +195,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
       body: Column(
         children: [
+          // 本周那条周消息（已读也保留到下次周消息，PRD 6.1）
+          const CoachWeeklyCard(),
           if (!chat.hasKey) const ApiKeyCard(),
           Expanded(
             child: chat.messages.isEmpty &&
@@ -205,6 +209,12 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     streamingText: chat.streamingText,
                     isStreaming: chat.isStreaming,
                     headAsset: headAsset,
+                    usedChipKeys: chat.usedChipKeys,
+                    onChipTap: (chip) {
+                      // 点过即置灰（C9）；跳页但不调模型、不写历史（C8）
+                      ref.read(aiChatProvider.notifier).markChipUsed(chip.key);
+                      openCoachChip(context, ref, chip);
+                    },
                   ),
           ),
           if (chat.pendingTool != null)

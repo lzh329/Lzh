@@ -32,6 +32,8 @@ import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
+import 'package:fittrack/features/ai/data/coach_memory_repository.dart';
+import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/core/services/sick_day_gate.dart';
 import 'package:fittrack/core/services/reminder_scheduler.dart';
@@ -52,6 +54,19 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 /// AI 教练聊天记录仓库
 final aiChatRepoProvider = Provider<AiChatRepository>((ref) {
   return AiChatRepository(ref.watch(databaseProvider));
+});
+
+/// 教练主动消息的投递记录仓库（v24）
+///
+/// 与 `aiChatRepoProvider` 并列放在 core：周消息横跨「首页 / 教练页 / 通知」，
+/// 不属于任何单一 feature，和 `dailyOverrideRepoProvider` 是同一个理由。
+final coachProactiveRepoProvider = Provider<CoachProactiveRepository>((ref) {
+  return CoachProactiveRepository(ref.watch(databaseProvider));
+});
+
+/// 教练记忆仓库（v24）
+final coachMemoryRepoProvider = Provider<CoachMemoryRepository>((ref) {
+  return CoachMemoryRepository(ref.watch(databaseProvider));
 });
 
 // ── 仓储 ──

@@ -193,6 +193,49 @@ class NotificationService {
     } catch (_) {}
   }
 
+  /// 每周一条「上周总结」（一次性通知，不重复）
+  ///
+  /// [id] 必须传 `kCoachWeeklyNotificationId`（200 段）。这里是**一次性**
+  /// 排期：不设 `matchDateTimeComponents`（那是重复提醒用的，设了会每周同刻复活，
+  /// 而周消息每周都要重新生成正文）。
+  ///
+  /// 重要性用 default 而不是 high：这是"看的机会"，不是闹钟。
+  Future<void> scheduleCoachWeekly({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime when,
+  }) async {
+    await _plugin.cancel(id);
+    final scheduled = tz.TZDateTime(
+      tz.local,
+      when.year,
+      when.month,
+      when.day,
+      when.hour,
+      when.minute,
+    );
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduled,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'coach_weekly',
+          '教练周消息',
+          channelDescription: '每周一条上周总结',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+
   /// 取消单个通知（AI 教练关闭某类提醒时用，不影响其他排期）
   Future<void> cancelById(int id) async {
     await _plugin.cancel(id);

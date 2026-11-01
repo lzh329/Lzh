@@ -1,0 +1,36 @@
+%% 嘎教练 P0 增量 — S4 芯片：生成 → 持久化 → 渲染 → 点击（C1~C9）
+%% 来源：docs/design/COACH-P0-ARCH.md §1.3
+
+sequenceDiagram
+  autonumber
+  participant N as AiChatNotifier
+  participant CS as CoachChipService
+  participant Rules as CoachChipRules
+  participant Repo as AiChatRepository
+  participant UI as AiChipBar
+  participant R as openCoachChip (路由解析)
+
+  N->>CS: buildFor(assistantText, toolReceipts)
+  CS->>CS: 今日有体重？今日有饮食？（bodyRepo / dietRepo）
+  CS->>Rules: build(text, receipts, hasWeightToday, hasFoodToday)
+  Rules-->>CS: ≤3 个 CoachChip（0 个 → 空列表，不给兜底）
+  CS-->>N: chips（IO 异常 → []）
+  N->>Repo: add('assistant', content, chips: chips)  %% 同一次 insert 落 chips JSON
+  Note over N,Repo: 工具留痕 / 工具回执分支 / 流式中 一律不带 chips（C6）
+
+  Repo-->>UI: getHistory() → AiMessage(chips: [...])  %% 老行 chips=null → []
+  UI->>UI: decode 时丢弃白名单外 key（C1）
+  UI->>N: markChipUsed(key)  %% 本次会话内置灰（C9，不落库）
+  UI->>R: onTap（不调模型、不写历史，C8）
+  R->>R: 按当前活跃计划解析 route
+  alt open_workout
+    R-->>UI: /plan/{id}/execute 或 /workout/quick-start
+  else log_weight
+    R-->>UI: /body?focus=weight
+  else log_food
+    R-->>UI: /diet?add=1
+  else set_reminder
+    R-->>UI: /profile + SnackBar 提示
+  else open_trends
+    R-->>UI: /trends
+  end

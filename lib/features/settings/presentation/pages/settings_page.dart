@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/coach_proactive_providers.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/settings/presentation/settings_actions.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_header_card.dart';
@@ -99,6 +100,13 @@ class SettingsPage extends ConsumerWidget {
                       await scheduleReminders(ref);
                     } else {
                       await NotificationService().cancelAll();
+                      // ⚠️ cancelAll() 会把教练周消息的 id=200 一起清掉。
+                      // 用户在周一 08:30 关提醒，到 09:00 之间没有任何路径会补排，
+                      // 周消息就静默丢失 —— 而这正是本期要解决的"教练不出现"。
+                      // syncPush() 只做排期决策（不生成、不调模型），成本为零。
+                      await ref
+                          .read(coachProactiveSchedulerProvider)
+                          .syncPush();
                     }
                   },
                 ),

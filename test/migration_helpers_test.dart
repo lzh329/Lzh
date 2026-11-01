@@ -94,9 +94,10 @@ void main() {
       // v1(userSettings) + v4(foodLibrary, foodLog) + v5(waterLog)
       // + v12(workoutTemplates, workoutTemplateExercises) + v16(aiChatMessages)
       // + v21(dailyOverrides, weeklyReportCache)
-      expect(createCount, 9, reason: 'onUpgrade 中的建表点数为 9');
-      expect(addCount, greaterThanOrEqualTo(34),
-          reason: '所有 addColumn 调用点都应改走 addColumnIfNotExists（当前 34 处）');
+      // + v24(coachMemories, coachProactiveMessages)
+      expect(createCount, 11, reason: 'onUpgrade 中的建表点数为 11');
+      expect(addCount, greaterThanOrEqualTo(36),
+          reason: '所有 addColumn 调用点都应改走 addColumnIfNotExists（当前 36 处）');
     });
 
     test('onUpgrade 各版本分支仍按 from 递增顺序存在（改造时不许漏分支）', () {
@@ -132,7 +133,7 @@ void main() {
     // 一条 `expect(db.schemaVersion, kSchemaVersion)` 是恒真的，等于占着
     // "有测试保护"的位置却没有保护，比没有断言更糟。
     test('kSchemaVersion 字面量守卫：改 schema 必须同步此断言并补迁移用例', () {
-      expect(kSchemaVersion, 23, reason: '改 schema 必须同步此断言，并补迁移用例');
+      expect(kSchemaVersion, 24, reason: '改 schema 必须同步此断言，并补迁移用例');
     });
 
     test(

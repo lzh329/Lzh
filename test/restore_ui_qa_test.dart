@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fittrack/core/database/database.dart' show kSchemaVersion;
 import 'package:fittrack/core/services/backup_candidate.dart';
 import 'package:fittrack/features/settings/presentation/widgets/restore_candidate_card.dart';
 import 'package:fittrack/features/settings/presentation/widgets/restore_confirm_dialog.dart';
@@ -86,7 +87,8 @@ void main() {
 
     testWidgets('备份来自更新版本时弹窗里就告知会被拒绝', (tester) async {
       final preview = RestorePreview.of(
-        candidate: candidate(userVersion: 24),
+        // 比当前 schema（24）更大的版本才叫"更新版本"
+        candidate: candidate(userVersion: kSchemaVersion + 1),
         current: const BackupCounts(bodyMetrics: 1),
       );
       await pumpDialog(tester, RestoreConfirmDialog(preview: preview));

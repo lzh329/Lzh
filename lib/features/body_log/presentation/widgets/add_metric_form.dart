@@ -23,12 +23,16 @@ class AddMetricForm extends StatefulWidget {
   final GoalRepository goalRepo;
   final VoidCallback onSaved;
 
+  /// 进来就聚焦体重输入框（动作芯片「记体重」用）
+  final bool focusWeight;
+
   const AddMetricForm({
     super.key,
     required this.bodyRepo,
     required this.photoRepo,
     required this.goalRepo,
     required this.onSaved,
+    this.focusWeight = false,
   });
 
   @override
@@ -231,6 +235,7 @@ class AddMetricFormState extends State<AddMetricForm> {
         // ── 体重（必填） ──
         TextField(
           controller: _weightCtrl,
+          autofocus: widget.focusWeight,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
               labelText: '体重', suffixText: '斤', isDense: true),

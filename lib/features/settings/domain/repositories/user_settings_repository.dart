@@ -54,4 +54,14 @@ abstract class UserSettingsRepository {
 
   /// 误报计数清零（设置页「重置 AI 健康建议」手动兜底；本期不自动衰减）。
   Future<void> resetAiHealthOverrideCount();
+
+  /// v24：教练主动性两开关（记忆 / 主动消息）。
+  ///
+  /// 不并进 [save]：那是"改身体信息 / 提醒"那条路径，一次传 30 多个可选参数；
+  /// 再塞两个进去要在 update / insert 两处各写一遍 `Value(...)`，容易漏。
+  /// 这里**没传 = 不改**，不会把另一个开关冲掉。
+  Future<void> saveCoachEngagement({
+    bool? memoryEnabled,
+    bool? proactiveEnabled,
+  });
 }

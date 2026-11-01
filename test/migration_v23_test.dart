@@ -11,8 +11,8 @@ import 'package:fittrack/core/database/database.dart';
 ///
 /// 用原生 sqlite3 造 v22 老库（drift 一打开就 onCreate，造不出旧库）。
 void main() {
-  test('kSchemaVersion 已推进到 23', () {
-    expect(kSchemaVersion, 23);
+  test('kSchemaVersion 已推进到 24（v23 是历史块，v24 在其之后）', () {
+    expect(kSchemaVersion, 24);
   });
 
   test('老库 v22 → v23：动作只剩三类、含 cardio 的模板变 cardio、纯力量仍 strength、行数不变', () async {
@@ -78,7 +78,8 @@ void main() {
     await db.customSelect('SELECT 1').get();
 
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 23);
+    // v22 老库打开即一路升到最新
+    expect(version.data.values.first, kSchemaVersion);
 
     // 动作只剩三类
     final cats = await db

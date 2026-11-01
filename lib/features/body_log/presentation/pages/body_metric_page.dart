@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fittrack/core/router/route_query.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
@@ -42,12 +43,22 @@ class BodyMetricPage extends ConsumerStatefulWidget {
 class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
   String _timeRange = 'month';
 
+  /// `?focus=weight`：来自动作芯片「记体重」，进页面就把焦点落到体重输入框
+  bool _focusWeight = false;
+
   static const _metricLabels = {
     'weight': '体重',
     'waist': '腰围',
     'hip': '臀围',
     'chest': '胸围',
   };
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // GoRouterState 只能在依赖上下文的时点读，且只需读一次
+    _focusWeight = routeQueryParam(context, 'focus') == 'weight';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +143,7 @@ class _BodyMetricPageState extends ConsumerState<BodyMetricPage> {
                     bodyRepo: ref.read(bodyMetricRepoProvider),
                     photoRepo: ref.read(photoRepoProvider),
                     goalRepo: ref.read(goalRepoProvider),
+                    focusWeight: _focusWeight,
                     onSaved: () {
                       ref.invalidate(bodyPageDataProvider(_timeRange));
                       // 首页打卡 / 趋势 / 目标也要跟着变，只刷本页会留旧数据

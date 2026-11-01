@@ -37,6 +37,11 @@ class DataWipeService {
     'water_log',
     'ai_chat_messages',
     'daily_overrides',
+    // 记忆是用户最私密的一段对话内容：清了聊天记录却留着"教练记住的事"，
+    // 等于数据没清干净（与 weekly_report_cache 同一条道理）。
+    'coach_memories',
+    // 投递记录清了正文却留着，用户下次进 App 会看到一条指向已删数据的旧消息
+    'coach_proactive_messages',
     // 周报是 AI 按当时的记录生成的文本，记录清了它还留着就是"数据没清干净"：
     // 下次生成前用户会在缓存里看到已经删掉的体重/训练。
     'weekly_report_cache',

@@ -81,9 +81,14 @@ class AiPromptBuilder {
   /// 「角色」段优先用用户自定义文案（`aiPersonaCustom`，trim 后为空视为未设置），
   /// 其余段落（必须遵守 / 输出格式 / 工具使用 / 示例 / 用户数据 / 额外约束）
   /// 一律走原逻辑，**自定义人设不得覆盖安全边界**。
+  ///
+  /// [memoryLines] 是「教练记得的事」已格式化的行（`伤病·右膝半月板有旧伤`）。
+  /// 这里刻意只收 `List<String>` 而不 import `CoachMemory`：
+  /// ① builder 不必把 feature 实体倒灌进 core；② 291 行的文件只多 8 行。
   static String build({
     required TrendsData trends,
     UserSettingsEntity? settings,
+    List<String> memoryLines = const [],
   }) {
     final style = AiCoachOptions.styleOf(settings?.aiStyle);
     final length = AiCoachOptions.lengthOf(settings?.aiReplyLength);
@@ -218,6 +223,18 @@ class AiPromptBuilder {
       buf
         ..writeln('（用户刚开始使用，暂无体重与训练记录）')
         ..writeln('引导用户：先设置目标体重，记录第一次体重，再开始第一次训练。');
+    }
+
+    // 教练记得的事：位置固定在这里 —— 【用户数据】之后、【用户额外约束】之前。
+    // 用户手写约束优先级最高（放最后），记忆是被动事实，放它前面。
+    // 一条都没有时**整段不出现**（不留空标题）。
+    if (memoryLines.isNotEmpty) {
+      buf
+        ..writeln()
+        ..writeln('# 你记得的事（用户以前亲口说过的长期情况，直接用，不要复述给他听）');
+      for (final line in memoryLines) {
+        buf.writeln('- $line');
+      }
     }
 
     // 用户自定义约束：优先级最高（放最后，模型更容易遵守）

@@ -668,6 +668,13 @@ class _StubSettingsRepo implements UserSettingsRepository {
   @override
   Future<void> clearLock() async =>
       throw UnimplementedError('联网工具不该动隐私锁');
+
+  @override
+  Future<void> saveCoachEngagement({
+    bool? memoryEnabled,
+    bool? proactiveEnabled,
+  }) async =>
+      throw UnimplementedError('联网工具不该改教练主动性开关');
 }
 
 // ═══════════ 不该被碰到的仓储 ═══════════

@@ -5,6 +5,7 @@ import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
+import 'package:fittrack/features/ai/domain/coach_chip.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
@@ -137,9 +138,13 @@ class _FakeChatRepository extends AiChatRepository {
   Future<List<AiMessage>> getHistory() async => List<AiMessage>.from(stored);
 
   @override
-  Future<void> add(String role, String content) async {
+  Future<void> add(
+    String role,
+    String content, {
+    List<CoachChip> chips = const [],
+  }) async {
     addCalls.add(role);
-    stored.add(AiMessage(role: role, content: content));
+    stored.add(AiMessage(role: role, content: content, chips: chips));
   }
 
   @override

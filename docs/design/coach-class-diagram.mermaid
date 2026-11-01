@@ -1,0 +1,240 @@
+%% 嘎教练 P0 增量 — 类图（schema v24）
+%% 来源：docs/design/COACH-P0-ARCH.md §1.2
+classDiagram
+  class CoachProactiveScheduler {
+    -CoachProactiveRepository repo
+    -WeeklyFactLoader facts
+    -CoachWeeklyGenerator generator
+    -CoachPushSink push
+    -UserSettingsRepository settings
+    -DailyOverrideRepository overrides
+    -Future~void~? _inFlight
+    +runStartup() Future~void~
+    +ensureWeeklyGenerated() Future~void~
+    +syncPush() Future~void~
+    +markSeen(int id) Future~void~
+  }
+
+  class WeeklyFacts {
+    +DateTime weekStart
+    +int workoutCount
+    +int workoutMinutes
+    +double? weightStartJin
+    +double? weightEndJin
+    +int weighInDays
+    +double? totalLossJin
+    +double? remainingJin
+    +String? nickname
+    +bool get weightChangeKnown
+    +DateTime weeklyPushAt(int? reminderHour)
+  }
+
+  class WeeklyFactLoader {
+    +load(DateTime weekStart) Future~WeeklyFacts~
+  }
+
+  class CoachWeeklyGenerator {
+    +build(WeeklyFacts, UserSettingsEntity?, String? apiKey, DateTime now) Future~WeeklyDraft~
+  }
+
+  class WeeklyDraft {
+    +String content
+    +String source
+  }
+
+  class CoachWeeklyTemplate {
+    <<static>>
+    +render(WeeklyFacts) String
+    +goalLine(int workoutCount) String
+    +isAcceptable(String) bool
+    +kBannedWords
+  }
+
+  class CoachWeeklyPrompt {
+    <<static>>
+    +messages(WeeklyFacts, UserSettingsEntity?) List~AiMessage~
+  }
+
+  class CoachPushDecision {
+    <<enumeration>>
+    schedule
+    suppressDisabled
+    suppressSeen
+    suppressLate
+    suppressPaused
+    suppressFatigue
+  }
+
+  class CoachPushSink {
+    <<interface>>
+    +schedule(int id, String title, String body, DateTime when) Future
+    +cancel(int id) Future
+  }
+
+  class CoachProactiveRepository {
+    +getByDedupeKey(String key) Future~CoachProactiveMessage?~
+    +getWeekly(DateTime weekStart) Future~CoachProactiveMessage?~
+    +recentWeekly(int limit) Future~List~CoachProactiveMessage~~
+    +insertIfAbsent(Companion c) Future~CoachProactiveMessage?~
+    +markSeen(int id, DateTime at) Future~bool~
+    +deleteAll() Future~int~
+  }
+
+  class CoachProactiveMessage {
+    +int id
+    +String kind
+    +String dedupeKey
+    +String content
+    +String source
+    +DateTime? weekStart
+    +int? workoutId
+    +DateTime createdAt
+    +DateTime? seenAt
+  }
+
+  class CoachMemoryService {
+    -CoachMemoryRepository repo
+    -CoachMemoryExtractor extractor
+    -UserSettingsRepository settings
+    +promptLines(int limit) Future~List~String~~
+    +extractAndApply(List~String~ userTurns, String currentUserText, int? sourceMessageId) Future~CoachMemoryWriteReport?~
+    +listAll() Future~List~CoachMemory~~
+    +deleteById(int id) Future~CoachMemory?~
+    +restore(CoachMemory m) Future~void~
+    +clearAll() Future~int~
+    +count() Future~int~
+  }
+
+  class CoachMemoryExtractor {
+    -UserSettingsRepository settings
+    +extract(List~String~ userTurns, String currentUserText, List~CoachMemory~ existing, String? apiKey) Future~List~CoachMemoryCandidate~~
+  }
+
+  class CoachMemoryCandidate {
+    +String category
+    +String topic
+    +String content
+    +String quote
+    +String action
+    +double confidence
+  }
+
+  class CoachMemoryWriteReport {
+    +List~CoachMemory~ added
+    +List~CoachMemory~ updated
+    +List~String~ forgotten
+    +int evicted
+    +bool get isEmpty
+    +String get summary
+  }
+
+  class CoachMemory {
+    +int id
+    +String category
+    +String topic
+    +String content
+    +String quote
+    +int? sourceMessageId
+    +DateTime createdAt
+    +DateTime updatedAt
+    +DateTime? lastUsedAt
+  }
+
+  class CoachMemoryPolicy {
+    <<static>>
+    +kMemoryCategories
+    +perCategoryCap
+    +injectionOrder
+    +normalizeTopic(String) String?
+    +validate(CoachMemoryCandidate, String haystack) String?
+    +looksLikeForbidden(String) bool
+    +evictionsNeeded(List~CoachMemory~ all, String incomingCategory) List~int~
+    +selectForPrompt(List~CoachMemory~ all, int limit) List~CoachMemory~
+  }
+
+  class CoachMemoryRepository {
+    +listAll() Future~List~CoachMemory~~
+    +count() Future~int~
+    +upsert(Companion c) Future~CoachMemory?~
+    +deleteByKey(String category, String topic) Future~bool~
+    +deleteById(int id) Future~CoachMemory?~
+    +reinsert(CoachMemory m) Future~void~
+    +touch(List~int~ ids, DateTime at) Future~void~
+    +deleteAll() Future~int~
+  }
+
+  class CoachChip {
+    +String key
+    +String get label
+    +decode(String? raw) List~CoachChip~
+    +encode(List~CoachChip~) String?
+  }
+
+  class CoachChipRules {
+    <<static>>
+    +kCoachChipMax
+    +build(String assistantText, List~String~ toolReceipts, bool hasWeightToday, bool hasFoodToday) List~CoachChip~
+  }
+
+  class CoachChipService {
+    -BodyMetricRepository body
+    -DietRepository diet
+    +buildFor(String assistantText, List~String~ toolReceipts) Future~List~CoachChip~~
+  }
+
+  class AiPromptBuilder {
+    <<static>>
+    +build(TrendsData trends, UserSettingsEntity? settings, List~String~ memoryLines) String
+  }
+
+  class AiOneShotService {
+    <<static>>
+    +complete(String apiKey, List~AiMessage~ messages, int maxTokens, double temperature, Duration timeout) Future~String~
+  }
+
+  class AiMessage {
+    +String role
+    +Object content
+    +List~AiToolCall~? toolCalls
+    +String? toolCallId
+    +String? toolName
+    +List~CoachChip~ chips
+    +toJson() Map
+  }
+
+  class AiChatState {
+    +List~AiMessage~ messages
+    +Set~String~ usedChipKeys
+    +markChipUsed(String key)
+  }
+
+  CoachProactiveScheduler --> CoachProactiveRepository
+  CoachProactiveScheduler --> WeeklyFactLoader
+  CoachProactiveScheduler --> CoachWeeklyGenerator
+  CoachProactiveScheduler --> CoachPushSink
+  CoachProactiveScheduler --> CoachPushDecision
+  CoachProactiveScheduler --> DailyOverrideRepository
+  WeeklyFactLoader --> WeeklyFacts
+  CoachWeeklyGenerator --> CoachWeeklyTemplate
+  CoachWeeklyGenerator --> CoachWeeklyPrompt
+  CoachWeeklyGenerator --> AiOneShotService
+  CoachWeeklyGenerator --> WeeklyDraft
+  CoachProactiveRepository --> CoachProactiveMessage
+
+  CoachMemoryService --> CoachMemoryRepository
+  CoachMemoryService --> CoachMemoryExtractor
+  CoachMemoryService --> CoachMemoryPolicy
+  CoachMemoryService --> CoachMemoryWriteReport
+  CoachMemoryExtractor --> AiOneShotService
+  CoachMemoryExtractor --> CoachMemoryPolicy
+  CoachMemoryExtractor --> CoachMemoryCandidate
+  CoachMemoryRepository --> CoachMemory
+  CoachMemoryPolicy --> CoachMemory
+
+  CoachChipService --> CoachChipRules
+  CoachChipRules --> CoachChip
+  AiChatState --> AiMessage
+  AiMessage --> CoachChip
+  CoachChip ..> CoachChipRules : 仅白名单 key
+
+  AiPromptBuilder ..> CoachMemory : memoryLines 纯字符串（不耦合实体）

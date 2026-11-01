@@ -214,11 +214,13 @@ expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
       await db.customSelect('SELECT 1').get();
       // schema 已到 22：打开即一路升到最新，断言最新版本
 expect(await DatabaseFileHealth.readUserVersion(file), kSchemaVersion);
-      // 重置版本的迁移块重跑后，索引不会变成两倍
+      // 重置版本的迁移块重跑后，索引不会变成两倍。
+      // v24 起多了一条 idx_coach_proactive_created_at（它的"两条路径都在"
+      // 由 test/migration_v24_test.dart 单独守），所以是 9 + 1。
       final indexes = await _indexNames(db);
       expect(
         indexes.where((n) => n.startsWith('idx_')).length,
-        _expectedIndexes.length,
+        _expectedIndexes.length + 1,
       );
       await db.close();
     });

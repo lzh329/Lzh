@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
 import 'package:fittrack/core/theme/app_colors.dart';
+import 'package:fittrack/features/ai/domain/coach_chip.dart';
+import 'package:fittrack/features/ai/presentation/widgets/ai_chip_bar.dart';
 
 /// 咕嘎圆形头像（对话里代表"咕嘎在说话"）
 class GugaAvatar extends StatelessWidget {
@@ -45,11 +47,21 @@ class AiChatBubble extends StatelessWidget {
   final bool canCopy;
   final String? headAsset;
 
+  /// 动作芯片（只挂 assistant，且不挂工具留痕 / 流式中，见 C6）
+  final List<CoachChip> chips;
+
+  /// 本次会话内已点过的芯片 key（置灰）
+  final Set<String> usedChipKeys;
+  final void Function(CoachChip chip)? onChipTap;
+
   const AiChatBubble.user({super.key, required this.text})
       : isUser = true,
         pending = false,
         canCopy = true,
-        headAsset = null;
+        headAsset = null,
+        chips = const [],
+        usedChipKeys = const {},
+        onChipTap = null;
 
   const AiChatBubble.assistant({
     super.key,
@@ -57,6 +69,9 @@ class AiChatBubble extends StatelessWidget {
     this.headAsset,
     this.pending = false,
     this.canCopy = true,
+    this.chips = const [],
+    this.usedChipKeys = const {},
+    this.onChipTap,
   }) : isUser = false;
 
   /// 复制文本并在页面底部提示（图片消息由调用方传入文字部分）
@@ -84,6 +99,10 @@ class AiChatBubble extends StatelessWidget {
     );
 
     final showCopy = !isUser && canCopy && !pending && text.trim().isNotEmpty;
+    // C6：流式中 / 留痕消息（✅ 🚫 🧠 开头）都不挂芯片
+    final showChips = showCopy &&
+        chips.isNotEmpty &&
+        !AiChipBar.isTraceText(text);
     final inner = pending
         ? const SizedBox(
             width: 18,
@@ -97,6 +116,12 @@ class AiChatBubble extends StatelessWidget {
             children: [
               Text(text,
                   style: TextStyle(color: fg, fontSize: 15, height: 1.5)),
+              if (showChips)
+                AiChipBar(
+                  chips: chips,
+                  usedKeys: usedChipKeys,
+                  onTap: onChipTap,
+                ),
               if (showCopy) _CopyButton(onTap: () => _copy(context)),
             ],
           );
@@ -180,12 +205,18 @@ class AiMessageList extends StatelessWidget {
   final bool isStreaming;
   final String headAsset;
 
+  /// 本次会话内已点过的芯片 key
+  final Set<String> usedChipKeys;
+  final void Function(CoachChip chip)? onChipTap;
+
   const AiMessageList({
     super.key,
     required this.messages,
     required this.streamingText,
     required this.isStreaming,
     required this.headAsset,
+    this.usedChipKeys = const {},
+    this.onChipTap,
   });
 
   @override
@@ -202,7 +233,13 @@ class AiMessageList extends StatelessWidget {
         (m) => m.role == 'user'
             // 图片消息只展示文字部分（历史里本来也只存了文字）
             ? AiChatBubble.user(text: m.textOnly)
-            : AiChatBubble.assistant(text: m.textOnly, headAsset: headAsset),
+            : AiChatBubble.assistant(
+                text: m.textOnly,
+                headAsset: headAsset,
+                chips: m.chips,
+                usedChipKeys: usedChipKeys,
+                onChipTap: onChipTap,
+              ),
       ),
     ];
     return ListView(

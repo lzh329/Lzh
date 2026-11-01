@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_service.dart';
@@ -10,7 +9,7 @@ import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_presets.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_model_config_card.dart';
-import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
+import 'package:fittrack/features/ai/presentation/widgets/coach_engagement_section.dart';
 
 /// 教练设定 —— 自由调教嘎教练
 ///
@@ -268,17 +267,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Card(
-                  margin: EdgeInsets.zero,
-                  clipBehavior: Clip.antiAlias,
-                  child: SettingsTile(
-                    icon: Icons.badge_outlined,
-                    color: AppColors.analysis,
-                    title: '人设文案',
-                    subtitle: '查看并自定义嘎教练的人设（高级）',
-                    onTap: () => context.push('/ai/persona'),
-                  ),
-                ),
+                const CoachEngagementSection(),
                 const SizedBox(height: 24),
                 const Text(
                   '设定改完立刻保存，下一条消息生效。想让语气更准，建议先清空聊天记录再试。',

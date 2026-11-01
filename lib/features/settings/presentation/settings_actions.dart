@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/coach_proactive_providers.dart';
 import 'package:fittrack/core/services/reminder_scheduler.dart';
 
 /// 设置页的操作逻辑集合（从原 settings_page.dart 抽出，保持行为不变）
@@ -87,6 +88,12 @@ Future<void> scheduleReminders(WidgetRef ref) async {
         workoutSlots: buildWorkoutSlots(plans),
         weighInId: kWeighInReminderId,
       );
+
+  // ⚠️ 上面那一步的第一步是 cancelAll()，会把教练周消息的 id=200 一起清掉。
+  // 用户周一早上"打开每日提醒"或"改提醒时间"走的正是这条 —— 不补回来，
+  // 09:00 就收不到周消息，而且没有任何报错（最难查的一类）。
+  // syncPush() 只做排期决策（不生成、不调模型），成本为零。
+  await ref.read(coachProactiveSchedulerProvider).syncPush();
 }
 
 Future<void> pickReminderTime(BuildContext context, WidgetRef ref) async {

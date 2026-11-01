@@ -2524,6 +2524,13 @@ class _FakeSettingsRepo implements UserSettingsRepository {
   @override
   Future<void> clearLock() async =>
       _previewMustNotWrite('settings.clearLock');
+
+  @override
+  Future<void> saveCoachEngagement({
+    bool? memoryEnabled,
+    bool? proactiveEnabled,
+  }) async =>
+      _previewMustNotWrite('settings.saveCoachEngagement');
 }
 
 /// 假动作库：只读方法返回固定数据，写方法一律抛错（预览阶段绝不能写库）

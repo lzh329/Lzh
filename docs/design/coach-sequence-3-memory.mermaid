@@ -1,0 +1,30 @@
+%% 嘎教练 P0 增量 — S3 一轮对话：记忆抽取 + 留痕（M2 / M12）
+%% 来源：docs/design/COACH-P0-ARCH.md §1.3
+
+sequenceDiagram
+  autonumber
+  participant N as AiChatNotifier
+  participant Flow as runMemoryExtraction
+  participant Svc as CoachMemoryService
+  participant Ext as CoachMemoryExtractor
+  participant One as AiOneShotService
+  participant Repo as CoachMemoryRepository
+
+  N->>N: assistant 正文已落库、state 已更新
+  N-)Flow: runMemoryExtraction(...)  %% fire-and-forget，不 await
+  Flow->>Svc: extractAndApply(最近3轮 user 原话, 本轮 user 文本)
+  Svc->>Svc: coach_memory_enabled == false ? → return null（M15）
+  Svc->>Ext: extract(turns, existing)
+  Ext->>One: complete(prompt, maxTokens=600, timeout=15s)
+  alt 任何异常 / 非 JSON / 非数组
+    Ext-->>Svc: []
+  else 合法 JSON 数组
+    One-->>Ext: JSON
+    Ext->>Ext: quote 必须是原话子串 / category 白名单 / topic 非空 / content ≤60 字
+    Ext-->>Svc: List~CoachMemoryCandidate~
+  end
+  Svc->>Svc: CoachMemoryPolicy.validate + evictionsNeeded（injury 不淘汰）
+  Svc->>Repo: upsert / deleteByKey（(category,topic) 唯一覆盖）
+  Repo-->>Svc: CoachMemoryWriteReport
+  Svc-->>Flow: report | null（无变化）
+  Flow->>N: appendTrace('🧠 已记住：…')  %% 只在有变化时，多条合并为 1 条

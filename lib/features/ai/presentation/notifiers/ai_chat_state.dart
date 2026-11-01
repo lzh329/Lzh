@@ -31,6 +31,11 @@ class AiChatState {
   /// 待启动训练的模板名（跳转后 SnackBar 文案用）
   final String? pendingWorkoutTemplateName;
 
+  /// 本次会话内已点过的动作芯片 key（C9）。
+  ///
+  /// **不落库**：重启后芯片复活。芯片是快捷键，不是"已读状态"。
+  final Set<String> usedChipKeys;
+
   const AiChatState({
     this.messages = const [],
     this.streamingText = '',
@@ -40,6 +45,7 @@ class AiChatState {
     this.pendingTool,
     this.pendingWorkoutStart,
     this.pendingWorkoutTemplateName,
+    this.usedChipKeys = const {},
   });
 
   bool get isBusy => isStreaming || pendingTool != null;
@@ -57,6 +63,7 @@ class AiChatState {
     AiToolPreview? pendingTool,
     List<ExerciseSlot>? pendingWorkoutStart,
     String? pendingWorkoutTemplateName,
+    Set<String>? usedChipKeys,
     bool clearError = false,
     bool clearStreaming = false,
     bool clearPendingTool = false,
@@ -76,6 +83,11 @@ class AiChatState {
       pendingWorkoutTemplateName: clearPendingWorkout
           ? null
           : (pendingWorkoutTemplateName ?? this.pendingWorkoutTemplateName),
+      usedChipKeys: usedChipKeys ?? this.usedChipKeys,
     );
   }
+
+  /// 点过某个芯片 → 本次会话内它置灰（C9）
+  AiChatState markChipUsed(String key) =>
+      copyWith(usedChipKeys: {...usedChipKeys, key});
 }

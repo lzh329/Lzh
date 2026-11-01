@@ -256,6 +256,24 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     return existing?.id ?? (await save()).id;
   }
 
+  @override
+  Future<void> saveCoachEngagement({
+    bool? memoryEnabled,
+    bool? proactiveEnabled,
+  }) async {
+    if (memoryEnabled == null && proactiveEnabled == null) return;
+    final id = await _rowIdOrCreate();
+    await (_db.update(_db.userSettings)..where((t) => t.id.equals(id)))
+        .write(UserSettingsCompanion(
+      coachMemoryEnabled: memoryEnabled != null
+          ? Value(memoryEnabled)
+          : const Value.absent(),
+      coachProactiveEnabled: proactiveEnabled != null
+          ? Value(proactiveEnabled)
+          : const Value.absent(),
+    ));
+  }
+
   /// 写入后回读最新记录
   ///
   /// 用显式异常替代原来的 `!` 空断言：极端情况（并发删除 / 写入被丢弃）下
@@ -303,5 +321,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         carbsTargetG: row.carbsTargetG,
         fatTargetG: row.fatTargetG,
         aiHealthOverrideCount: row.aiHealthOverrideCount,
+        coachMemoryEnabled: row.coachMemoryEnabled,
+        coachProactiveEnabled: row.coachProactiveEnabled,
       );
 }

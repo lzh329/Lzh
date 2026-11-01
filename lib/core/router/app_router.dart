@@ -21,6 +21,7 @@ import 'package:fittrack/features/settings/presentation/pages/voice_settings_pag
 import 'package:fittrack/features/ai/presentation/pages/ai_chat_page.dart';
 import 'package:fittrack/features/ai/presentation/pages/ai_coach_settings_page.dart';
 import 'package:fittrack/features/ai/presentation/pages/ai_persona_page.dart';
+import 'package:fittrack/features/ai/presentation/pages/coach_memory_page.dart';
 import 'package:fittrack/features/diet/presentation/pages/diet_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/weekly_report_page.dart';
 import 'package:fittrack/features/analysis/presentation/pages/monthly_compare_page.dart';
@@ -205,6 +206,11 @@ final appRouter = GoRouter(
       path: '/ai/settings',
       pageBuilder: (context, state) =>
           _subPageTransition(const AiCoachSettingsPage(), state),
+    ),
+    GoRoute(
+      path: '/ai/memory',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const CoachMemoryPage(), state),
     ),
     GoRoute(
       path: '/ai/persona',

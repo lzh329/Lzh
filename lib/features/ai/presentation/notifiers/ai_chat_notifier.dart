@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -6,10 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/ai_prompt_builder.dart';
 import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_chat_memory_flow.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/domain/ai_stall_promise.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/domain/ai_workout_intent.dart';
+import 'package:fittrack/features/ai/domain/coach_chip.dart';
+import 'package:fittrack/features/ai/presentation/coach_chip_providers.dart';
+import 'package:fittrack/features/ai/presentation/coach_memory_providers.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_round.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_session.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_side_effects.dart';
@@ -40,6 +45,12 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 本轮已拦截的空承诺次数（防死循环：最多补发一次，再犯就老实交出来）
   int _stallNudgeCount = 0;
 
+  /// 本轮的记忆注入行缓存。
+  ///
+  /// 每轮只读一次：工具回合会递归 2~4 次 `_request()`，不缓存就会把
+  /// `last_used_at` 刷 4 遍（淘汰排序被自己污染），也会多打 4 次库。
+  List<String>? _memoryLinesCache;
+
   /// 测试注入点；null = 生产路径
   final AiChatRoundRunner? _roundRunnerOverride;
 
@@ -60,6 +71,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   void _resetToolContext() {
     _tool.reset();
     _stallNudgeCount = 0;
+    // 记忆缓存一并失效：删完记忆 / 关掉开关，下一轮立刻生效
+    _memoryLinesCache = null;
   }
 
   AiChatNotifier(this._ref, {AiChatRoundRunner? roundRunner})
@@ -170,6 +183,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       // 取设置与趋势数据失败也要兜住，不能把异常冒泡到 send()
       final settings = await _ref.read(userSettingsProvider.future);
       final trends = await _ref.read(trendsDataProvider.future);
+      // 教练记得的事（≤4 行）。失败一律返回空列表，绝不让它打断对话
+      final memoryLines = _memoryLinesCache ??=
+          await _ref.read(coachMemoryServiceProvider).promptLines();
       // 联网开关：没设置过（老库 / 首启）一律按开启处理
       final webEnabled = settings?.aiWebSearchEnabled ?? true;
       state = state.copyWith(
@@ -183,7 +199,11 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         messages: [
           AiMessage(
             role: 'system',
-            content: AiPromptBuilder.build(trends: trends, settings: settings),
+            content: AiPromptBuilder.build(
+              trends: trends,
+              settings: settings,
+              memoryLines: memoryLines,
+            ),
           ),
           ...state.messages,
           ..._tool.messages,
@@ -230,16 +250,23 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         }
         // 已经补发过一轮还是空承诺 → 放弃拦截，老实交给用户（防死循环）
       }
-      await _ref.read(aiChatRepoProvider).add('assistant', round.content);
+      final chips = await _buildChips(round.content);
+      await _ref.read(aiChatRepoProvider).add(
+            'assistant',
+            round.content,
+            chips: chips,
+          );
       state = state.copyWith(
         messages: [
           ...state.messages,
-          AiMessage(role: 'assistant', content: round.content)
+          AiMessage(role: 'assistant', content: round.content, chips: chips)
         ],
         isStreaming: false,
         clearStreaming: true,
       );
       _tool.reset();
+      // 记忆抽取：本轮正常结束后的最后一步，fire-and-forget（不 await）
+      _fireMemoryExtraction();
     } on AiToolException catch (e) {
       state = state.copyWith(
           isStreaming: false, clearStreaming: true, error: e.message);
@@ -250,6 +277,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
           isStreaming: false, clearStreaming: true, error: '出错了，请稍后再试');
     }
   }
+
   /// 处理模型请求的工具调用（次数上限只防死循环，写操作仍逐次确认）
   ///
   /// 一轮可能带多个调用：只读的依次执行；遇到需要确认的写操作就停下等用户
@@ -280,6 +308,41 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       }
     }
     await _request();
+  }
+
+  /// 生成动作芯片（规则与回执格式都在 coach_chip_* 里，这里只接线）
+  ///
+  /// 任何异常 → 空列表：芯片是锦上添花，绝不影响消息正文（PRD 第八章）。
+  Future<List<CoachChip>> _buildChips(String text) async {
+    try {
+      return await _ref.read(coachChipServiceProvider).buildFor(
+            assistantText: text,
+            toolMessages: _tool.messages,
+          );
+    } catch (e) {
+      debugPrint('芯片生成异常（本次不显示芯片）: $e');
+      return const <CoachChip>[];
+    }
+  }
+
+  /// 点过某个芯片 → 本次会话内置灰（C9，不落库）
+  void markChipUsed(String key) => state = state.markChipUsed(key);
+
+  /// 记忆抽取的触发点：异步、不阻塞回复、失败静默。
+  ///
+  /// 本轮没有 user 原话（例如重试的续轮）就不触发 —— 没有原话就没有
+  /// `quote` 可校验，跑一次只会白花钱。
+  void _fireMemoryExtraction() {
+    final turns = recentUserTurns(state.messages);
+    if (turns.isEmpty) return;
+    unawaited(runMemoryExtraction(
+      service: _ref.read(coachMemoryServiceProvider),
+      userTurns: turns,
+      currentUserText: turns.last,
+      // 用户消息的落库 id 目前不回传，留 null（记忆不依赖它）
+      sourceMessageId: null,
+      appendTrace: _appendActionTrace,
+    ));
   }
 
   /// 保存用户填写的 API Key
