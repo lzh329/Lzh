@@ -85,3 +85,80 @@ bool claimsCompletedAction(String content) {
   }
   return false;
 }
+
+/// 用户这句话是不是在要求「写数据」的动作（记录/添加/删除/修改/设置…）
+///
+/// 为什么不靠模型的措辞判定：固定词表（"已记录/已补记/记好了"）会被模型
+/// 换个说法绕过（"已经给你加到记录里啦"、"补上了哈"、"弄好了"）。
+/// 反过来看**用户意图**才稳：用户要写、本轮却没有工具调用 → 一定没做。
+bool looksLikeWriteRequest(String userText) {
+  final t = userText.trim();
+  if (t.isEmpty) return false;
+
+  // 纯提问/推荐类先排除：这些不是写操作
+  const readOnlyHints = <String>['几次', '多少个', '多少斤', '推荐', '怎么', '为什么'];
+  final looksQuestion = t.endsWith('？') || t.endsWith('?');
+  if (looksQuestion) return false;
+  for (final h in readOnlyHints) {
+    if (t.contains(h)) return false;
+  }
+
+  const roots = <String>[
+    '记录',
+    '记一下',
+    '记一笔',
+    '补记',
+    '补上',
+    '添加',
+    '加个',
+    '增加',
+    '新建',
+    '建个',
+    '创建',
+    '删除',
+    '删掉',
+    '删了',
+    '去掉',
+    '修改',
+    '改成',
+    '换成',
+    '更新',
+    '设置',
+    '设个',
+    '设成',
+    '调整',
+  ];
+  for (final r in roots) {
+    if (t.contains(r)) return true;
+  }
+  return false;
+}
+
+/// 模型是否在「诚实失败」（明确说做不到 / 找不到）
+///
+/// 这种情况**不该**补发：它已经按规则 (b) 回答了，再逼一轮只会得到重复话术。
+bool isHonestFailure(String content) {
+  const marks = <String>['没法', '不能', '失败', '找不到', '没找到', '需要先', '请先', '你得'];
+  for (final m in marks) {
+    if (content.contains(m)) return true;
+  }
+  return false;
+}
+
+/// 是否需要对这一轮「无工具调用的纯文本」补发一轮
+///
+/// 判定放在 domain：notifier 只负责调用与状态，不堆规则。
+/// - 本轮没有任何工具调用
+/// - 本轮还没补发过（独立计数，最多 1 次，防死循环）
+/// - 用户是在要求写操作 **或** 模型自己声称已完成
+/// - 且模型不是在诚实失败
+bool needWriteIntentNudge({
+  required String userText,
+  required String content,
+  required bool hasToolCalls,
+  required bool alreadyNudged,
+}) {
+  if (hasToolCalls || alreadyNudged) return false;
+  if (isHonestFailure(content)) return false;
+  return looksLikeWriteRequest(userText) || claimsCompletedAction(content);
+}

@@ -47,6 +47,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 本轮已拦截的空承诺次数（防死循环：最多补发一次，再犯就老实交出来）
   int _stallNudgeCount = 0;
 
+  /// 「用户要写数据但本轮没调工具」的补发次数（独立计数：空承诺是搜索场景，
+  /// 两者共用计数会互相挤掉）
+  int _claimNudgeCount = 0;
+
   /// 本轮的记忆注入行缓存。
   ///
   /// 每轮只读一次：工具回合会递归 2~4 次 `_request()`，不缓存就会把
@@ -73,6 +77,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   void _resetToolContext() {
     _tool.reset();
     _stallNudgeCount = 0;
+    _claimNudgeCount = 0;
     // 记忆缓存一并失效：删完记忆 / 关掉开关，下一轮立刻生效
     _memoryLinesCache = null;
   }
@@ -242,21 +247,31 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         await _handleToolCalls(round.toolCalls);
         return;
       }
-      // ── 假完成拦截 ──
-      // 模型宣称"已记录/已补记"，但本轮**没有任何工具调用** → 数据根本没写。
-      // 比空承诺更危险：用户会以为已经记上了。拦下来：不落库、不显示，
-      // 用 system 指令逼它真的调工具。（与空承诺共用一次补发上限，防死循环）
-      if (claimsCompletedAction(round.content)) {
-        _stallNudgeCount++;
-        if (_stallNudgeCount <= 1) {
-          _tool.appendSystem('系统提示：你刚才声称操作已完成，但本轮没有任何'
-              '工具调用，等于没做。请立刻调用对应工具执行（记录训练用 '
-              'log_workout，改记录用 update_workout，其余同理），'
-              '不要再用文字声称完成。');
-          await _request();
-          return;
-        }
-        // 已补发过一轮仍如此 → 放弃拦截，如实显示模型原文
+      // ── 写意图拦截（不看模型措辞，看用户要什么）──
+      // 用户说"补记 11 月 2 日的训练"，模型回"好嘞，已经给你加到记录里啦"，
+      // 本轮却没有任何工具调用 → 数据没写。固定词表会被换个说法绕过，
+      // 所以按**用户意图**判定（见 domain 的 needWriteIntentNudge）。
+      final userText = _session.lastUserText;
+      if (needWriteIntentNudge(
+        userText: userText,
+        content: round.content,
+        hasToolCalls: false, // 走到这里一定没有 toolCalls
+        alreadyNudged: _claimNudgeCount > 0,
+      )) {
+        _claimNudgeCount++;
+        debugPrint('[claim-guard] nudge 触发，用户原文=$userText');
+        _tool.appendSystem('系统提示：用户要求你执行一个写操作，但你本轮没有任何'
+            '工具调用，等于没做。现在必须二选一：\n'
+            '(a) 立刻调用对应工具（记录训练用 log_workout、改记录用 '
+            'update_workout、记饮食 log_food、记体重 log_weight、'
+            '建模板 create_template…），需要确认卡就走确认；\n'
+            '(b) 如果你确实做不到，明说做不到的原因。\n'
+            '禁止只用文字声称"已完成"。');
+        await _request();
+        return;
+      }
+      if (_claimNudgeCount > 0) {
+        debugPrint('[claim-guard] 二次仍无工具调用，放行原文');
       }
       // ── 空承诺拦截 ──
       // 模型回了「我去搜一下」这类纯文本、却没带任何工具调用 → 这句就是

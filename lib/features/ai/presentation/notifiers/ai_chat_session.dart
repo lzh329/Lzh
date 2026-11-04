@@ -30,6 +30,12 @@ class AiChatSession {
   /// 最近一次用户消息内容（失败后供「重试」复用，不重复入库；图片消息也能重试）
   Object? _lastUserContent;
 
+  /// 本轮用户原文（纯文本；图片消息取文字部分）。
+  /// 供「写意图」判定用 —— 判定要看**用户要什么**，不看模型措辞。
+  String _lastUserText = '';
+
+  String get lastUserText => _lastUserText;
+
   AiChatSession({
     required Ref ref,
     required AiChatState Function() read,
@@ -67,6 +73,7 @@ class AiChatSession {
       return;
     }
     _lastUserContent = payload.content;
+    _lastUserText = trimmed;
     _resetToolContext();
     _write(_read().copyWith(
       messages: [
