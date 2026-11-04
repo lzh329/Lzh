@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/ai/data/ai_service.dart';
-import 'package:fittrack/features/ai/data/web_tools_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
@@ -32,6 +32,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
 
   /// 「联网搜索」开关（默认开，老库没这一列时也按开处理）
   bool _webSearch = true;
+  bool _voiceEnabled = true;
   bool _loaded = false;
 
   final _inputCtrl = TextEditingController();
@@ -61,6 +62,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
           (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
       _constraints = AiCoachOptions.decodeConstraints(s?.aiConstraints);
       _webSearch = s?.aiWebSearchEnabled ?? true;
+      _voiceEnabled = (s?.speechRate ?? 0.45) > 0;
       _loaded = true;
     });
   }
@@ -115,7 +117,16 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
                 AiModelConfigCard(webSearch: _webSearch),
+                const SizedBox(height: 12),
+                AiCoachNavTile(
+                  icon: Icons.auto_awesome_outlined,
+                  title: '嘎教练能做什么',
+                  subtitle: '看看它有哪些能力',
+                  onTap: () => context.push('/ai/abilities'),
+                ),
                 const SizedBox(height: 20),
+                const AiCoachGroupTitle('模型', subtitle: '语气与自由度'),
+                const SizedBox(height: 12),
                 const AiCoachSectionTitle('教练风格'),
                 const SizedBox(height: 8),
                 for (final s in AiCoachOptions.styles)
@@ -176,6 +187,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                const AiCoachGroupTitle('行为', subtitle: '联网、记忆与主动'),
+                const SizedBox(height: 12),
                 const AiCoachSectionTitle('联网'),
                 AiWebSearchTile(
                   value: _webSearch,
@@ -269,18 +282,16 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 const SizedBox(height: 18),
                 const CoachEngagementSection(),
                 const SizedBox(height: 24),
-                const Text(
-                  '设定改完立刻保存，下一条消息生效。想让语气更准，建议先清空聊天记录再试。',
-                  style: TextStyle(
-                      fontSize: 11, color: AppColors.textTertiary, height: 1.5),
+                const AiCoachGroupTitle('声音', subtitle: '朗读音色'),
+                const SizedBox(height: 12),
+                AiCoachNavTile(
+                  icon: Icons.record_voice_over_outlined,
+                  title: '语音教练',
+                  subtitle: _voiceEnabled ? '已启用 · 语速与音色可调' : '关闭',
+                  onTap: () => context.push('/settings/voice'),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  // 与服务层共用同一句话，改价只改一处
-                  WebToolsService.priceNote,
-                  style: TextStyle(
-                      fontSize: 11, color: AppColors.textTertiary, height: 1.5),
-                ),
+                const SizedBox(height: 24),
+                const AiCoachSettingsFooter(),
               ],
             ),
     );

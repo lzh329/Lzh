@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:fittrack/features/ai/data/web_tools_service.dart';
 import 'package:flutter/services.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
@@ -251,6 +253,124 @@ class AiPromptPreviewDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('关闭'),
         ),
+      ],
+    );
+  }
+}
+
+/// 三组的一级标题（模型 / 行为 / 声音）
+///
+/// 和 [AiCoachSectionTitle]（组内小节）刻意拉开层级：字号更大、带一条左侧
+/// 色条，让人一眼看出"这是段落"而不是"这是设置项"。
+class AiCoachGroupTitle extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const AiCoachGroupTitle(this.title, {super.key, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 3,
+          height: 16,
+          margin: const EdgeInsets.only(top: 2, right: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 1),
+              Text(subtitle,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textTertiary)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 页面里的跳转条目（图标 + 标题 + 副标题 + 箭头）
+class AiCoachNavTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const AiCoachNavTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 1),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textTertiary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 18, color: AppColors.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 教练设定页底部的两行说明（保存时机 + 联网计费口径）
+class AiCoachSettingsFooter extends StatelessWidget {
+  const AiCoachSettingsFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const style =
+        TextStyle(fontSize: 11, color: AppColors.textTertiary, height: 1.5);
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('设定改完立刻保存，下一条消息生效。想让语气更准，建议先清空聊天记录再试。',
+            style: style),
+        SizedBox(height: 6),
+        // 与服务层共用同一句话，改价只改一处
+        Text(WebToolsService.priceNote, style: style),
       ],
     );
   }
