@@ -260,8 +260,10 @@ void main() {
 
   test('提示词教会模型：没回执 = 没做成；建模板别拿 start_workout 去找', () {
     final prompt = AiPromptBuilder.build(trends: const TrendsData());
-    expect(prompt, contains('没看到 ok:true'));
-    expect(prompt, contains('不许说"已经建好 / 已经记录"'));
-    expect(prompt, contains('不要先用 start_workout 去找'));
+    // 合并后提示词统一成"没拿到 ok:true 绝不说已经记好了"这一句
+    expect(prompt, contains('没拿到 ok:true'));
+    expect(prompt, contains('绝不说'));
+    // 建模板走 template:create，不再提 start_workout 找模板
+    expect(prompt, contains('`template`：create 建模板'));
   });
 }

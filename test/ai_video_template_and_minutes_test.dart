@@ -28,7 +28,7 @@ void main() {
       // 必须是同一条规则里串起"读页 → 提取 → 建模板"
       expect(p, contains('用户发**视频链接**并要「按这个建模板」时'));
       expect(p, contains('先 fetch_url 读标题/简介'));
-      expect(p, contains('create_template'));
+      expect(p, contains('`template`：create'));
       expect(p, contains('minutes 用提取值'));
       expect(p, contains('create_missing_exercises: true'));
     });

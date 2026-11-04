@@ -352,16 +352,17 @@ void main() {
     test('引导调用 start_workout，不要只描述模板', () {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
-      expect(prompt, contains('start_workout'));
+      expect(prompt, contains('start 开练模板'));
       expect(prompt, contains('帮我打开模板'));
-      expect(prompt, contains('不要只描述模板内容'));
+      expect(prompt, contains('workout:start'));
     });
 
     test('不知道有哪些模板时先看 query_stats 的 templates，别编名字', () {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      // 合并后开练是 workout:start，模板名来自 query_stats 的 templates
       expect(prompt, contains('templates'));
-      expect(prompt, contains('没找到模板'));
+      expect(prompt, contains('`workout`：log 记训练'));
     });
 
     test('能力询问（有没有按钮）也要直接开练，不许回答做不到', () {

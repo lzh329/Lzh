@@ -99,7 +99,7 @@ void main() {
       // 联网默认开启（settings null = 按开启处理），应带「立刻调用」的硬规则
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
-      expect(prompt, contains('调用即执行、结果即答案'));
+      expect(prompt, contains('调用即执行'));
       expect(prompt, contains('立刻在这一次回复里调用 web_search'));
       expect(prompt, contains('完整答案一次说完'));
     });
@@ -303,19 +303,18 @@ void main() {
       expect(defaultPrompt, contains('不承诺减重速度'));
       expect(defaultPrompt, contains('1200 千卡'));
       // 17 工具相关约定照旧
-      expect(defaultPrompt, contains('set_target_weight'));
-      expect(defaultPrompt, contains('manage_goal(action:create)'));
-      expect(defaultPrompt, contains('不要凭猜的 id'));
-      expect(defaultPrompt, contains('建训练模板前先用 query_exercises 确认动作存在'));
-      expect(defaultPrompt, contains('先 create_exercise 加进动作库'));
+      expect(defaultPrompt, contains('`settings`：target_weight'));
+      expect(defaultPrompt, contains('`goal`：create'));
+      expect(defaultPrompt, contains('别猜'));
+      expect(defaultPrompt, contains('先用 exercise:create 加进动作库'));
       expect(defaultPrompt, contains('帮我加个动作'));
       expect(defaultPrompt, contains('create_missing_exercises'));
-      expect(defaultPrompt, contains('create_exercises'));
+      expect(defaultPrompt, contains('exercise:create_many'));
       expect(defaultPrompt, contains('不要逐个调用工具'));
       expect(defaultPrompt, contains('先一句话说明后果'));
       expect(defaultPrompt, contains('用户发食物照片时'));
       expect(defaultPrompt, contains('${AiToolLimits.maxCallsPerRound} 次工具调用'));
-      expect(defaultPrompt, contains('log_food'));
+      expect(defaultPrompt, contains('`diet`：food'));
       expect(defaultPrompt, contains('query_stats'));
     });
 
@@ -818,18 +817,19 @@ void main() {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
       expect(prompt, contains('先一句话说明后果'));
-      expect(prompt, contains('set_target_weight'));
-      expect(prompt, contains('manage_goal(action:create)'));
-      expect(prompt, contains('不要凭猜的 id'));
+      expect(prompt, contains('`settings`：target_weight'));
+      expect(prompt, contains('`goal`：create'));
+      expect(prompt, contains('别猜'));
     });
 
     test('动作库 / 模板：先查动作再建模板，缺动作先加动作', () {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
       expect(prompt, contains('query_exercises'));
-      expect(prompt, contains('create_exercise'));
-      expect(prompt, contains('建训练模板前先用 query_exercises 确认动作存在'));
-      expect(prompt, contains('先 create_exercise 加进动作库'));
+      expect(prompt, contains('`exercise`：create'));
+      // 合并后口径：模板 create 要求"动作名必须与动作库一致，先 query_exercises"，
+      // 加动作用 exercise:create
+      expect(prompt, contains('动作名必须与动作库一致'));
       expect(prompt, contains('帮我加个动作'));
     });
   });
@@ -2034,9 +2034,10 @@ void main() {
     test('引导一次调用 create_template 并开启 create_missing_exercises', () {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
+      // 合并后：批量加动作 = exercise:create_many；模板 create 自带补齐动作
       expect(prompt, contains('不要逐个调用工具'));
-      expect(prompt, contains('create_missing_exercises'));
-      expect(prompt, contains('create_exercises'));
+      expect(prompt, contains('exercise:create_many'));
+      expect(prompt, contains('`template`：create 建模板'));
       expect(prompt, contains('${AiToolLimits.maxCallsPerRound} 次工具调用'));
     });
   });

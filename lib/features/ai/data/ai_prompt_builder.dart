@@ -47,7 +47,7 @@ class AiPromptBuilder {
         '视频链接只能拿到标题和简介，要明确告诉用户看不到画面',
     '- 用户发**视频链接**并要「按这个建模板」时：先 fetch_url 读标题/简介，'
         '从中提动作类型 + 总时长（如「10 分钟全身燃脂」→ 有氧 / 10 分钟 / 全身）；'
-        '提到了就直接 create_template（minutes 用提取值、focus 按内容选、'
+        '提到了就直接 template:create（minutes 用提取值、focus 按内容选、'
         'create_missing_exercises: true、动作名用简介里的通用名、组次用默认值 **不要编**）；'
         '提不到就说"视频我只能读到标题和简介、看不到画面"再问动作清单，'
         '**绝不虚构视频里没有的动作**；最后一句说明这是按标题/简介推断的',
@@ -137,52 +137,26 @@ class AiPromptBuilder {
     }
     buf
       ..writeln()
-      ..writeln('# 工具使用')
-      ..writeln('- 任何工具（统计 / 搜索 / 读网页）都遵循「调用即执行、结果即答案」：'
-          '不要先答应「我去查一下 / 稍等」，再等下一轮才真正调用')
-      ..writeln('- 用户说自己称了体重 / 喝了水，直接调用对应工具记录，不要只说"记下了"')
-      ..writeln('- 记录饮食要先估重量和每 100g 热量：家常菜按常识估，拿不准取区间中值，别瞎报')
-      ..writeln('- 用户发食物照片时，先按图估算食材与分量，再调用 log_food；拿不准就问一句')
-      ..writeln('- 能估出三大营养素就一起传给 log_food（蛋白 / 脂肪 / 碳水，每 100g 计）')
-      ..writeln('- 三大营养素估不出来就留空，别填 0 —— 填 0 会被当成"算过了、结果是 0 克"，'
-          '比显示「—」更伤信任')
-      ..writeln('- 用户说"练完了 / 跑了 30 分钟"，调用 log_workout 记录；给了具体动作和组次重就写进 exercises（动作名先 query_exercises 确认）')
-      ..writeln('- 补记"模板里的训练"时：先从 query_stats 的 templates 里拿该模板的 items（动作名+组数+次数+时长），用 log_workout 原样记、date 用用户说的那天；别只记模板名或只记动作名没组次')
-      ..writeln('- 需要统计数字时调用 query_stats；要改 / 删某条训练先 query_workouts 拿 workout_id，改和删都要等确认卡点头')
-      ..writeln('- 工具结果返回 ok:false（用户取消）时，不再重复请求，改为询问或换个建议')
-      ..writeln('- 用户一次说多件事时，先处理最重要的一件，其他的问一句"要不要顺便记上"')
-      ..writeln('- 不要假设工具已执行成功，只有拿到 ok:true 才能说"已经记好了"')
-      ..writeln('- 删除 / 修改已有记录或目标属于危险操作：先一句话说明后果再调用工具，'
-          '等用户在确认卡上点头后才算数，用户取消就换个建议，别重复请求')
-      ..writeln('- 用户说"定个目标 140 斤"→ set_target_weight；说"新建一个目标"→ '
-          'manage_goal(action:create)；围度、饮食目标、提醒、身体信息分别用 '
-          'log_measurements / set_diet_target / set_reminder / update_profile')
-      ..writeln(
-          '- 不确定目标 id 时先 query_stats 看 goals 里的 id，不要凭猜的 id 调用 manage_goal')
-      ..writeln('- 建训练模板前先用 query_exercises 确认动作存在，'
-          '模板里的动作名必须与动作库完全一致')
-      ..writeln('- 用户让你"建一个 XX 模板"时，直接调用 create_template'
-          '（create_missing_exercises 设为 true），'
-          '**不要先用 start_workout 去找**——那是开练用的，库里没有只会报错')
-      ..writeln('- 动作库里没有用户要的动作时，先 create_exercise 加进动作库，再建模板')
-      ..writeln('- 用户说"帮我加个动作 XX"（想练但库里没有）时直接 create_exercise，'
-          '分类按动作性质选徒手 / 器械 / 有氧 / 拉伸')
-      ..writeln('- 用户一次列出多个动作要建模板时，**不要逐个调用工具**：'
-          '直接调用一次 create_template，把 create_missing_exercises 设成 true，'
-          '并在每个 item 里一并给出 category（徒手 / 器械 / 有氧 / 拉伸）与 muscle_group，'
-          '缺失的动作会和模板在同一次确认里一起建好')
-      ..writeln('- 只是要批量加动作、不建模板时才用 create_exercises（一次最多 10 个）')
-      ..writeln('- 用户说"用 XX 模板开练 / 直接开始训练 / 帮我打开模板"时，'
-          '直接调用 start_workout（会带他跳进训练页），不要只描述模板内容')
-      ..writeln('- 用户问"你能打开模板吗 / 有没有按钮 / 能不能直接开始训练"这类能力询问时，'
-          '不要回答"我没有按钮 / 我做不到"：直接调用 start_workout 做给他看；'
-          '不知道模板名就先调 query_stats 看 templates，或问一句"用哪个模板？"')
-      ..writeln('- 不知道有哪些模板时先调 query_stats 看 templates 列表，或直接问用户；'
-          'start_workout 报"没找到模板"就建议新建，别自己编模板名')
-      ..writeln('- **没看到 ok:true 的工具回执，就等于这件事没做成**：'
-          '回执 ok:false 或用户没点确认时，不许说"已经建好 / 已经记录"，'
-          '要向用户说明原因并给出下一步（比如改个参数重试或让他手动操作）');
-
+      ..writeln('# 工具使用（写操作要 action，都要用户确认）')
+      ..writeln('- `workout`：log 记训练（补记模板给 template_name，力量动作给 reps、有氧给 minutes）'
+          ' / update 改 / delete 删 / start 开练模板；改删前先 query_workouts 拿 id')
+      ..writeln('- `body`：weight 记体重 / measurements 记围度 / update_measurement 改围度')
+      ..writeln('- `diet`：food 记饮食 —— 用户发食物照片时先按图估食材与分量再记；能估三大营养素'
+          '（蛋白/脂肪/碳水）就一起给，估不出留空别填 0；water 记喝水')
+      ..writeln('- `settings`：target_weight 目标体重 / diet_target 饮食目标 / profile 身体信息 / reminder 提醒；'
+          '查数据用 query_stats / search_food / query_workouts / query_measurements 这些只读工具')
+      ..writeln('- `template`：create 建模板（动作名必须与动作库一致，先 query_exercises 确认；'
+          '缺失动作会随模板一起建好，不要逐个调用工具）/ delete 删模板（id 来自 query_stats）')
+      ..writeln('- `exercise`：create / create_many —— 用户说"帮我加个动作 XX"或库里没有该动作时'
+          '先用 exercise:create 加进动作库（分类选力量/有氧/拉伸）；批量加才用 exercise:create_many')
+      ..writeln('- `goal`：create / complete / delete（目标 id 先 query_stats 拿，别猜）；'
+          '`erase`：records 删某天记录 / all 清空全部（毁灭性，只在用户明说时用，先讲清会留备份）')
+      ..writeln('- 调用即执行：不要先说「我去查一下 / 稍等」再等下一轮；没拿到 ok:true 绝不说「已经记好了」；'
+          '用户取消确认卡（ok:false）后不再重复请求')
+      ..writeln('- 删除 / 修改已有数据是危险操作：先一句话说明后果，等确认卡点头才算数')
+      ..writeln('- 不知道有哪些模板时先 query_stats 看 templates，别编名字；用户说"帮我打开模板 / 用 XX 模板开练"'
+          '或问"有没有按钮"时不要回答"我没有按钮 / 我做不到"：直接 workout:start 做给他看')
+      ..writeln('- 每轮最多 ${AiToolLimits.maxCallsPerRound} 次工具调用，超了拆两步并告知用户');
     // 联网开关：关掉时工具清单里已经没有 web_search / fetch_url，
     // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动。
     // 两个能力分档：读网页任何服务商都有（本地抓取兜底），搜索只有 DeepSeek 有。
@@ -200,21 +174,8 @@ class AiPromptBuilder {
     }
 
     buf
-      ..writeln('- 用户问"我腰围多少 / 最近身体记录"→ query_measurements；'
-          '要改数值用 update_measurement（给出 id 或日期+部位，确认卡会列改前→改后）；'
-          '删记录用 delete_measurement（按 id，需用户确认）')
-      ..writeln('- 用户说"删掉某个模板 / 这个模板不要了"→ delete_template'
-          '（id 来自 query_stats 的 templates 列表，先确认再删）')
-      ..writeln('- 补记训练必须带计量：力量给 reps、有氧/拉伸给 minutes；拿不到先问用户，别留空入库')
-      ..writeln('- 用户说"用 XX 模板补记/补一个 XX 模板的记录"时，直接调 log_workout 并给 template_name，不要把模板展开成 exercises 自己猜组次（模板里的组次/时长才准）；模板名不确定先 query_stats 查 templates')
-      ..writeln('- wipe_all_data 是毁灭性操作：只在用户明确说"清空/删除全部数据"时'
-          '才能调用，调用前必须先告诉用户会自动保留一份完整备份')
-      ..writeln('- 上一条任务已经回执 ok:true 后就**不要重复执行**；'
-          '对话里已经出现"✅ 已执行"的留痕，用户再次提到同一件事时，'
-          '先确认是不是要再做一次（例如"再记一杯？"），不要自作主张再调一遍')
-      ..writeln('- 每轮最多 ${AiToolLimits.maxCallsPerRound} 次工具调用，'
-          '超了要拆成两步并告知用户"先做这一步，剩下的接着说"')
-      ..writeln('- 记录类的事顺手做完就行，一句话带过（"记上了哈"），别写成流水账')
+      ..writeln('- 已回执 ok:true 的事不要重复执行；用户再提到先确认"要再做一次吗"')
+      ..writeln('- 记录类顺手做完就一句话带过，别写成流水账')
       ..writeln()
       ..writeln('# 示例（只学语气和分寸，里面的数字只是示意，'
           '真实数据一律以【用户数据】为准）')

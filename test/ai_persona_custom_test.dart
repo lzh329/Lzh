@@ -79,10 +79,10 @@ void main() {
     });
 
     test('工具使用段仍在（工具规则不随人设改变）', () {
-      expect(prompt, contains('# 工具使用'));
-      expect(prompt, contains('log_food'));
+      expect(prompt, contains('# 工具使用（'));
+      expect(prompt, contains('`diet`：food'));
       expect(prompt, contains('query_stats'));
-      expect(prompt, contains('set_target_weight'));
+      expect(prompt, contains('`settings`：target_weight'));
     });
 
     test('输出格式 / 示例 / 用户数据段仍在，且顺序不乱', () {

@@ -232,8 +232,9 @@ void main() {
     });
 
     test('视觉引导：食物照片先估分量再记', () {
-      expect(defaultPrompt, contains('用户发食物照片时'));
-      expect(defaultPrompt, contains('log_food'));
+      // 合并后记饮食是 diet:food（旧名 log_food 不再出现在提示词里）
+      expect(defaultPrompt, contains('食物'));
+      expect(defaultPrompt, contains('`diet`：food'));
     });
 
     test('安全边界没被削弱', () {

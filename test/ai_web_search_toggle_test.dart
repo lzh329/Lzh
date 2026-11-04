@@ -132,7 +132,7 @@ void main() {
       expect(prompt, contains('# 角色'));
       expect(prompt, contains('# 必须遵守'));
       expect(prompt, contains('query_stats'));
-      expect(prompt, contains('create_template'));
+      expect(prompt, contains('`template`：create'));
     });
   });
 

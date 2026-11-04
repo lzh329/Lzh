@@ -253,7 +253,7 @@ void main() {
       final prompt =
           AiPromptBuilder.build(trends: const TrendsData(), settings: null);
       expect(prompt, contains('三大营养素'));
-      expect(prompt, contains('估不出来就留空'));
+      expect(prompt, contains('估不出留空'));
       expect(prompt, contains('别填 0'));
     });
 
