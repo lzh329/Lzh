@@ -290,11 +290,17 @@ class AiToolArgs {
       final sets = lenientIntOf(item['sets']) ?? 1;
       final reps = lenientIntOf(item['reps']);
       final weight = lenientDoubleOf(item['weight_kg']);
+      final minutes = lenientDoubleOf(item['minutes']);
+      // 分钟 → 秒（支持小数，四舍五入）；0 或负数视为没给
+      final durationSec = (minutes != null && minutes > 0 && minutes <= 600)
+          ? (minutes * 60).round()
+          : null;
       out.add(AiWorkoutExerciseInput(
         name: name.trim(),
         sets: sets < 1 ? 1 : (sets > 50 ? 50 : sets),
         reps: (reps != null && reps >= 1 && reps <= 500) ? reps : null,
         weightKg: (weight != null && weight > 0 && weight <= 500) ? weight : null,
+        durationSec: durationSec,
       ));
     }
     return out;

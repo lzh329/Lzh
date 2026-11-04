@@ -295,11 +295,16 @@ class AiWorkoutExerciseInput {
   final int? reps;
   final double? weightKg;
 
+  /// 每组时长（秒）：由 schema 的 `minutes`（分钟）换算而来，
+  /// 支持小数分钟（0.75 分钟 = 45 秒）。有氧/拉伸动作用它。
+  final int? durationSec;
+
   const AiWorkoutExerciseInput({
     required this.name,
     required this.sets,
     this.reps,
     this.weightKg,
+    this.durationSec,
   });
 }
 

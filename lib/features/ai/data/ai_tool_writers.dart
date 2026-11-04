@@ -277,14 +277,21 @@ class AiToolWriters extends AiToolHandler {
       if (ex == null) {
         throw AiToolException('动作「${input.name}」不在动作库，先用 query_exercises 查一下');
       }
+      // 兜底链：模型给的值 → 动作库默认值 → null（**不瞎编**）
+      // 之前力量动作没传 reps 时直接写 null，有氧只看动作库默认（多为 null），
+      // 用户补记后详情页每组的次数/时长全是"未记录"。
       final timed = ex.category == 'cardio' || ex.category == 'stretch';
+      final reps = timed ? null : (input.reps ?? ex.defaultReps);
+      final durationSec =
+          timed ? (input.durationSec ?? ex.defaultDurationSec) : null;
+      final weightKg = timed ? null : input.weightKg;
       for (var i = 1; i <= input.sets; i++) {
         sets.add(NewSetData(
           exerciseId: ex.id,
           setNumber: i,
-          reps: timed ? null : input.reps,
-          weightKg: timed ? null : input.weightKg,
-          durationSec: timed ? ex.defaultDurationSec : null,
+          reps: reps,
+          weightKg: weightKg,
+          durationSec: durationSec,
           isWarmup: false,
         ));
       }

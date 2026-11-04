@@ -66,7 +66,7 @@ void main() {
       expect(kPromptExamples[10], '');
     });
 
-    test('builder 净行数 ≤319（补"模板补记原样落组次"规则后上调）', () {
+    test('builder 净行数 ≤320（补"补记必须带计量"规则后上调）', () {
       final total = _read('lib/features/ai/data/ai_prompt_builder.dart')
           .split('\n')
           .length;
@@ -74,8 +74,9 @@ void main() {
       // 304 → 316：联网规则拆「读网页 / 搜索」两档（+12 行）
       // 316 → 318：补「ok:false 读不到正文 → 如实说、别按标题编动作」（+2 行）
       // 318 → 319：补「模板补记从 items 原样落组次」（+1 行）
-      expect(total - 1, lessThanOrEqualTo(319),
-          reason: '基线 318 + 模板补记规则净增 1 行（硬上限 319）');
+      // 319 → 320：补「补记必须带计量」（+1 行，压成单行写）
+      expect(total - 1, lessThanOrEqualTo(320),
+          reason: '基线 319 + 补记计量规则净增 1 行（硬上限 320）');
     });
   });
 

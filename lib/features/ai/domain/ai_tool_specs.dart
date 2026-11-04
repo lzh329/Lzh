@@ -253,7 +253,13 @@ class AiToolSpecs {
                   },
                   'reps': {
                     'type': 'integer',
-                    'description': '每组次数（力量/徒手动作填）',
+                    'description': '每组次数。**力量动作必须填**，'
+                        '如"深蹲 4 组 × 12 次"→ reps=12',
+                  },
+                  'minutes': {
+                    'type': 'number',
+                    'description': '每组时长（分钟）。**有氧/拉伸动作必须填**，'
+                        '如"跑步 30 分钟"→ minutes=30；可带小数（0.75 = 45 秒）',
                   },
                   'weight_kg': {
                     'type': 'number',
