@@ -258,7 +258,9 @@ void main() {
     });
 
     test('log_food schema 里三个宏量是可选参数，不在 required 里', () {
-      final def = AiToolSpecs.defs.firstWhere(
+      // log_food 现在是合并工具 diet:food 的内部实现，schema 仍保留在
+      // legacyDefs（回滚用）；这里直接查它
+      final def = AiToolSpecs.legacyDefs.firstWhere(
         (d) => (d['function'] as Map)['name'] == AiToolSpecs.logFood,
       );
       final params = (def['function'] as Map)['parameters'] as Map;

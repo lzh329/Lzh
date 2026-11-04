@@ -37,8 +37,8 @@ void main() {
   // ═══════════ 1. 工具集合 ═══════════
 
   group('start_workout 在工具集合里的位置', () {
-    test('28 个工具、唯一、写 21 + 只读 7 正好划分', () {
-      final names = AiToolSpecs.defs
+    test('旧工具面 28 个、唯一、写 21 + 只读 7 正好划分（legacyDefs）', () {
+      final names = AiToolSpecs.legacyDefs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
@@ -70,7 +70,7 @@ void main() {
     });
 
     test('schema 只要求 template_name，rest_sec 可选', () {
-      final def = AiToolSpecs.defs.firstWhere(
+      final def = AiToolSpecs.legacyDefs.firstWhere(
           (d) => (d['function'] as Map)['name'] == AiToolSpecs.startWorkout);
       final params = (def['function'] as Map)['parameters'] as Map;
       expect(params['required'], ['template_name']);

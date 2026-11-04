@@ -315,8 +315,8 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('28 个工具、唯一、写/只读互斥并集全覆盖，危险 = 五个删除类', () {
-      final registered = AiToolSpecs.defs
+    test('旧工具面 28 个、唯一、写/只读互斥并集全覆盖，危险 = 五个删除类（legacyDefs）', () {
+      final registered = AiToolSpecs.legacyDefs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 

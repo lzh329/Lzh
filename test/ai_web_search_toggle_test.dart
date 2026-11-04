@@ -27,35 +27,53 @@ void main() {
   }
 
   group('AiToolSpecs.defsFor：按开关裁剪工具清单', () {
-    test('两个开关都开（默认）时与 defs 完全一致：28 个', () {
+    test('两个开关都开（默认）时与 defs 完全一致：15 个', () {
       final defs = AiToolSpecs.defsFor();
-      expect(defs, hasLength(28));
+      expect(defs, hasLength(15));
       expect(namesOf(defs), namesOf(AiToolSpecs.defs));
     });
 
     test('只关搜索（非 DeepSeek）：摘掉 web_search，**保留 fetch_url**', () {
       final names =
           namesOf(AiToolSpecs.defsFor(searchEnabled: false, fetchEnabled: true));
-      expect(names, hasLength(27));
+      expect(names, hasLength(14));
       expect(names, isNot(contains(AiToolSpecs.webSearch)));
       expect(names, contains(AiToolSpecs.fetchUrl),
           reason: '读网页有本地抓取兜底，任何服务商都该能用（本 bug 的修复点）');
     });
 
-    test('用户关掉「联网」总开关：两个都摘（26 个）', () {
+    test('用户关掉「联网」总开关：两个都摘（13 个）', () {
       final names =
           namesOf(AiToolSpecs.defsFor(searchEnabled: false, fetchEnabled: false));
-      expect(names, hasLength(26));
+      expect(names, hasLength(13));
       expect(names, isNot(contains(AiToolSpecs.webSearch)));
       expect(names, isNot(contains(AiToolSpecs.fetchUrl)));
       // 其余只读工具与全部写工具都还在（关联网不影响记体重 / 查统计）
       expect(names, contains(AiToolSpecs.queryStats));
       expect(names, contains(AiToolSpecs.searchFood));
       expect(names, contains(AiToolSpecs.queryExercises));
-      expect(AiToolSpecs.writeTools.difference(names.toSet()), isEmpty,
-          reason: '写工具一个都不能少');
+      // 合并后写入口是 8 个 tool+action，不再是 writeTools 里的旧名字
+      expect(names.toSet(), containsAll(const {
+        'workout',
+        'body',
+        'diet',
+        'settings',
+        'template',
+        'exercise',
+        'goal',
+        'erase',
+      }), reason: '写入口一个都不能少');
       expect(names.toSet(), {
-        ...AiToolSpecs.writeTools,
+        ...const {
+          'workout',
+          'body',
+          'diet',
+          'settings',
+          'template',
+          'exercise',
+          'goal',
+          'erase',
+        },
         ...AiToolSpecs.readOnlyTools.difference(AiToolSpecs.webTools)
       });
     });
@@ -67,8 +85,8 @@ void main() {
       expect(names, isNot(contains(AiToolSpecs.fetchUrl)));
     });
 
-    test('defs 本身仍是 28 个全集（执行器与老测试依赖它不变）', () {
-      expect(AiToolSpecs.defs, hasLength(28));
+    test('defs 是 15 个合并后的工具面（7 只读 + 8 写）', () {
+      expect(AiToolSpecs.defs, hasLength(15));
       expect(
           AiToolSpecs.webTools, {AiToolSpecs.webSearch, AiToolSpecs.fetchUrl});
       // 裁剪不修改原表，关闭两次结果一致（无副作用）

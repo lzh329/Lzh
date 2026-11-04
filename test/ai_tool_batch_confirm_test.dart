@@ -61,8 +61,8 @@ void main() {
       }
     });
 
-    test('28 个工具：写 21 + 只读 7 正好覆盖，危险 = 五个删除类', () {
-      final registered = AiToolSpecs.defs
+    test('旧工具面 28 个：写 21 + 只读 7，危险 = 五个删除类（legacyDefs）', () {
+      final registered = AiToolSpecs.legacyDefs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toSet();
 

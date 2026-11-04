@@ -1099,8 +1099,8 @@ void main() {
           1);
     });
 
-    test('E-21 / P-2：工具清单与安全闸门（28 / 21 写 / 7 只读 / 5 危险）', () {
-      expect(AiToolSpecs.defs.length, 28, reason: '基线 25 + 训练记录增删改查 3 个');
+    test('E-21 / P-2：旧工具面与安全闸门（28 / 21 写 / 7 只读 / 5 危险，legacyDefs）', () {
+      expect(AiToolSpecs.legacyDefs.length, 28, reason: '基线 25 + 训练记录增删改查 3 个');
       expect(AiToolSpecs.writeTools.length, 21);
       expect(AiToolSpecs.readOnlyTools.length, 7);
       expect(AiToolSpecs.destructiveTools.length, 5);

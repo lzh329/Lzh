@@ -91,7 +91,7 @@ void main() {
     }
 
     test('schema 里确实有可选 minutes（1~600，说明"没说要改就别传"）', () {
-      final updateDef = AiToolSpecs.defs.firstWhere(
+      final updateDef = AiToolSpecs.legacyDefs.firstWhere(
           (d) => (d['function'] as Map)['name'] == AiToolSpecs.updateWorkout);
       final props =
           ((updateDef['function'] as Map)['parameters'] as Map)['properties']

@@ -1,6 +1,14 @@
+import 'package:fittrack/features/ai/domain/ai_merged_specs.dart';
 /// 工具名常量、OpenAI function schema 与工具分类（纯数据，便于单测）
 class AiToolSpecs {
   AiToolSpecs._();
+
+  /// **回滚开关**：true 时模型看到旧的 20 个写工具（一个工具一个动作），
+  /// false 时看到合并后的 8 个（工具名 + action）。
+  ///
+  /// 真机上如果模型对 action 枚举不适应（漏 action / 选错 action），
+  /// 把这里改成 true 就能一行回到旧工具面 —— 底下 handler 完全没动过。
+  static const bool useLegacyTools = false;
 
   // ── 记录类（写，需确认） ──
   static const logWeight = 'log_weight';
@@ -136,11 +144,23 @@ class AiToolSpecs {
     return name is String ? name : '';
   }
 
-  /// 暴露给模型的工具清单（20 个：15 个写操作 + 5 个只读工具）
+  /// 模型看到的工具清单：7 个只读 + 8 个合并写 = 15 个
+  ///
+  /// [useLegacyTools] 为 true 时回落到旧的 20 个写工具 + 只读（共 28 个）。
+  static List<Map<String, dynamic>> get defs => useLegacyTools
+      ? legacyDefs
+      : <Map<String, dynamic>>[
+          ...mergedWriteDefs,
+          for (final d in legacyDefs)
+            if (readOnlyTools.contains(_nameOf(d))) d,
+        ];
+
+  /// 旧工具面（一个工具一个动作），保留给回滚用
+  @Deprecated('合并后由 AiMergedTools + ai_tool_router 提供，仅 useLegacyTools 时使用')
   ///
   /// ⚠️ 没有必填参数的工具**不要**写 `'required': []`：
   /// 空数组会被部分 OpenAI 兼容网关判为非法 schema 并返回 400，直接省略该键即可。
-  static const defs = <Map<String, dynamic>>[
+  static const legacyDefs = <Map<String, dynamic>>[
     // ───────── 记录类 ─────────
     {
       'type': 'function',

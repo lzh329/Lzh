@@ -160,7 +160,7 @@ void main() {
   });
 
   test('⑦ schema 守卫：logWorkout 的 exercises.items 里有 minutes 字段', () {
-    final def = AiToolSpecs.defs.firstWhere(
+    final def = AiToolSpecs.legacyDefs.firstWhere(
         (d) => (d['function'] as Map)['name'] == AiToolSpecs.logWorkout);
     final items =
         ((def['function'] as Map)['parameters'] as Map)['properties'] as Map;

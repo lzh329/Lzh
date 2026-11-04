@@ -746,66 +746,31 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('28 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('15 个工具（8 合并写 + 7 只读）、名称唯一', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(28));
-      expect(names.toSet(), hasLength(28));
-      expect(names.toSet(),
-          {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
-      expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(28));
-      // 只读工具不重叠写工具
-      expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
-          isEmpty);
-      // 原有 5 个工具名不变
-      expect(
-          names,
-          containsAll([
-            'log_weight',
-            'log_water',
-            'query_stats',
-            'log_food',
-            'log_workout',
-          ]));
-      // 第二批新增 8 个
-      expect(
-          names,
-          containsAll([
-            'log_measurements',
-            'set_target_weight',
-            'update_profile',
-            'set_diet_target',
-            'set_reminder',
-            'delete_records',
-            'manage_goal',
-            'search_food',
-          ]));
-      // 第三批新增 3 个（动作库 + 训练模板）
-      expect(
-          names,
-          containsAll([
-            'query_exercises',
-            'create_exercise',
-            'create_template',
-          ]));
-      // 第四批新增 1 个（批量加动作）
-      expect(names, containsAll(['create_exercises']));
-      // 第五批新增 2 个（联网搜索 / 读网页，只读自动执行）
-      expect(names, containsAll(['web_search', 'fetch_url']));
-      // 第六批新增 1 个（按模板直接开练，需确认但不落库）
-      expect(names, containsAll(['start_workout']));
-      // 第七批新增 1 个（一键清空全部数据：毁灭性，红卡 + 二次确认）
-      expect(names, containsAll(['wipe_all_data']));
-      expect(AiToolSpecs.destructiveTools, contains('wipe_all_data'));
-      expect(AiToolSpecs.writeTools, contains('wipe_all_data'),
-          reason: '写操作从第一天起就弹确认卡，没有"降级前可直接生效"的空间');
-      // 第八批新增 3 个（训练记录增删改查：记一笔权限下放给教练）
-      expect(names, containsAll(['query_workouts', 'update_workout', 'delete_workout']));
-      expect(AiToolSpecs.readOnlyTools, contains('query_workouts'));
-      expect(AiToolSpecs.writeTools, contains('update_workout'));
-      expect(AiToolSpecs.destructiveTools, contains('delete_workout'));
+      expect(names, hasLength(15), reason: '7 只读 + 8 合并写');
+      expect(names.toSet(), hasLength(15), reason: '名称唯一');
+      // 只读 7 个保持原样，一个不少
+      expect(names.toSet().containsAll(AiToolSpecs.readOnlyTools), isTrue);
+      expect(AiToolSpecs.readOnlyTools, hasLength(7));
+      // 写入口收敛成 8 个（旧 20 个已合并且名字不在 defs 里）
+      expect(names.toSet().containsAll(const {
+        'workout',
+        'body',
+        'diet',
+        'settings',
+        'template',
+        'exercise',
+        'goal',
+        'erase',
+      }), isTrue);
+      // 旧写工具名不该再出现在模型面前
+      for (final legacy in const ['log_weight', 'log_workout', 'set_target_weight']) {
+        expect(names, isNot(contains(legacy)),
+            reason: '合并后不应再暴露 $legacy');
+      }
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -872,8 +837,12 @@ void main() {
   // ═══════════ 安全不变量：工具清单 / 预览层（假仓储，不连数据库） ═══════════
 
   group('工具清单一致性', () {
-    test('20 个常量与 defs 一一对应（无遗漏 / 无多余）', () {
-      expect(_defToolNames(), {
+    test('旧工具面（回滚用）常量与 legacyDefs 一一对应', () {
+      expect(
+          AiToolSpecs.legacyDefs
+              .map((d) => (d['function'] as Map)['name'])
+              .toSet(),
+          {
         AiToolSpecs.logWeight,
         AiToolSpecs.logWater,
         AiToolSpecs.logFood,
@@ -2097,7 +2066,11 @@ Future<void> _expectToolRejected(
 }
 
 /// defs 里注册的工具名集合
-Set<String> _defToolNames() => AiToolSpecs.defs
+/// 内部注册的工具名（= 旧工具面）。
+///
+/// 合并后模型看到的是 8 个 `tool+action` 入口，但 handler 仍按旧名字注册，
+/// 所以"白名单并集 = 工具面"这类不变量要对着 legacyDefs 校验。
+Set<String> _defToolNames() => AiToolSpecs.legacyDefs
     .map((d) => (d['function'] as Map)['name'] as String)
     .toSet();
 

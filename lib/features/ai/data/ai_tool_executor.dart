@@ -12,6 +12,7 @@ import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_workout_launcher.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/ai/domain/ai_tool_router.dart';
 
 /// 工具执行器 —— 模型只能提交"意图"，真正写库在这里，且经过白名单 + 参数校验
 ///
@@ -40,11 +41,19 @@ class AiToolExecutor {
       AiToolExecutor(repos: AiToolRepos.fromRef(ref));
 
   /// 校验并生成确认卡内容（越界直接抛 AiToolException）
-  Future<AiToolPreview> preview(AiToolCall call) =>
-      _handlerFor(call).preview(call);
+  /// 入口统一规范化：合并工具（tool + action）→ 旧工具名
+  ///
+  /// handler / 仓储一行不改，只是把"模型看到的入口"翻译成"内部实现"。
+  Future<AiToolPreview> preview(AiToolCall call) {
+    final normalized = normalize(call);
+    return _handlerFor(normalized).preview(normalized);
+  }
 
   /// 执行工具，返回给模型的 JSON 结果
-  Future<String> execute(AiToolCall call) => _handlerFor(call).execute(call);
+  Future<String> execute(AiToolCall call) {
+    final normalized = normalize(call);
+    return _handlerFor(normalized).execute(normalized);
+  }
 
   AiToolHandler _handlerFor(AiToolCall call) {
     for (final handler in _handlers) {

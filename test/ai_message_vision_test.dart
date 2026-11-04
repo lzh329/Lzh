@@ -155,7 +155,7 @@ void main() {
         AiToolSpecs.queryExercises,
       ];
       for (final name in optionalArgTools) {
-        final def = AiToolSpecs.defs
+        final def = AiToolSpecs.legacyDefs
             .firstWhere((d) => (d['function'] as Map)['name'] == name);
         final params = (def['function'] as Map)['parameters'] as Map;
         expect(params.containsKey('required'), isFalse,
@@ -164,7 +164,7 @@ void main() {
     });
 
     test('有必填参数的工具 required 仍然保留', () {
-      final def = AiToolSpecs.defs.firstWhere(
+      final def = AiToolSpecs.legacyDefs.firstWhere(
           (d) => (d['function'] as Map)['name'] == AiToolSpecs.logWeight);
       final params = (def['function'] as Map)['parameters'] as Map;
       expect(params['required'], ['weight_jin']);
