@@ -230,6 +230,22 @@ class AiToolArgs {
     return m;
   }
 
+  /// update_workout 的**可选**时长（分钟）：不传 = 不改；传了必须 1~600。
+  ///
+  /// 为什么不复用 [minutes]：那是 create/log 的**必填**项、上限 300；
+  /// 放宽它会顺带把"新建训练最长 300 分钟"的护栏也松开。改时长是另一件事
+  /// （历史记录可能确实超过 300 分钟，比如长途骑行）。
+  static int? optionalMinutes(Map<String, dynamic> args) {
+    final raw = args['minutes'];
+    if (raw == null) return null;
+    final m = lenientIntOf(raw);
+    if (m == null) throw const AiToolException('训练时长不是数字');
+    if (m < 1 || m > 600) {
+      throw const AiToolException('训练时长不合理（应在 1~600 分钟）');
+    }
+    return m;
+  }
+
   /// 训练备注（可选，截断保护）
   static String? workoutNote(Map<String, dynamic> args) {
     final v = args['note'];
@@ -237,6 +253,51 @@ class AiToolArgs {
     final note = v.trim();
     if (note.isEmpty) return null;
     return note.length > 120 ? note.substring(0, 120) : note;
+  }
+
+  /// 训练记录 id（update_workout / delete_workout 用）
+  static int workoutId(Map<String, dynamic> args) {
+    final id = intOf(args['workout_id']);
+    if (id == null || id <= 0) {
+      throw const AiToolException('缺少训练记录 id');
+    }
+    return id;
+  }
+
+  /// 要查询的最近训练条数（query_workouts 用），默认 7，上限 20
+  static int workoutCount(Map<String, dynamic> args) {
+    final c = lenientIntOf(args['count']);
+    if (c == null) return 7;
+    if (c < 1) return 1;
+    if (c > 20) return 20;
+    return c;
+  }
+
+  /// 解析训练动作清单：`[{name, sets, reps?, weight_kg?}]`
+  ///
+  /// 与「记一笔」同口径：一行动作 = N 组 × 每组的次数/重量（不做逐组差异）。
+  /// 名字 / 组数 / 次数 / 重量都只做格式校验，**动作名 → id 的映射在 writer
+  /// 里查动作库**（这里是纯函数）。
+  static List<AiWorkoutExerciseInput> workoutExercises(
+      Map<String, dynamic> args) {
+    final raw = args['exercises'];
+    if (raw is! List) return const [];
+    final out = <AiWorkoutExerciseInput>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final name = item['name'];
+      if (name is! String || name.trim().isEmpty) continue;
+      final sets = lenientIntOf(item['sets']) ?? 1;
+      final reps = lenientIntOf(item['reps']);
+      final weight = lenientDoubleOf(item['weight_kg']);
+      out.add(AiWorkoutExerciseInput(
+        name: name.trim(),
+        sets: sets < 1 ? 1 : (sets > 50 ? 50 : sets),
+        reps: (reps != null && reps >= 1 && reps <= 500) ? reps : null,
+        weightKg: (weight != null && weight > 0 && weight <= 500) ? weight : null,
+      ));
+    }
+    return out;
   }
 
   /// 日期展示：今天 / 昨天 / 10-24

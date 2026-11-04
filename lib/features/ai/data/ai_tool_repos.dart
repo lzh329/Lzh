@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/reminder_scheduler.dart';
+import 'package:fittrack/features/plan/data/reminder_scheduler.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';
 import 'package:fittrack/features/diet/domain/repositories/diet_repository.dart';
 import 'package:fittrack/features/exercise/domain/repositories/exercise_repository.dart';

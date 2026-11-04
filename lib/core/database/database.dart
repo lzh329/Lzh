@@ -125,6 +125,9 @@ class UserSettings extends Table {
   RealColumn get speechRate => real().nullable()();
   RealColumn get speechPitch => real().nullable()();
   TextColumn get ttsVoice => text().nullable()();
+  // 云端音色（MiniMax）：整块 JSON 存一列，别开 4 个列 ——
+  // {provider, apiKey, groupId, baseUrl, presetId}，加字段不用再动 schema
+  TextColumn get ttsConfig => text().nullable()();
   BoolColumn get reminderEnabled =>
       boolean().withDefault(const Constant(false))();
   IntColumn get reminderHour => integer().nullable()();
@@ -140,6 +143,8 @@ class UserSettings extends Table {
       boolean().withDefault(const Constant(true))();
   // AI 教练：智谱开放平台 API Key（--dart-define 优先，此处兜底）
   TextColumn get aiApiKey => text().nullable()();
+  // AI 教练：选用的服务商 id（见 ai_providers.dart，空 = deepseek）
+  TextColumn get aiProviderId => text().nullable()();
   // AI 教练调教设定：风格（doubao/guga/gentle/strict，空值 = doubao）、
   // 自定义约束（JSON 数组）、回复长度（short/medium/long）、自由度 temperature
   TextColumn get aiStyle => text().nullable()();
@@ -180,6 +185,16 @@ class UserSettings extends Table {
   /// v24：主动消息总开关（默认开）。关掉 = 不生成、不排通知、气泡不出现。
   BoolColumn get coachProactiveEnabled =>
       boolean().withDefault(const Constant(true))();
+
+  /// v25：当前角色（`guga` / `nuonuo` / `phoebe`）。
+  ///
+  /// ⚠️ 同上：NOT NULL 列必须有 `withDefault`，否则老库（有行）升级直接抛。
+  /// 默认 `guga` 是三条路径的共同结论（C3）：新装、老库升级、清空数据后都是咕嘎 ——
+  /// 老用户升级后突然换脸是惊吓不是惊喜，咕嘎也是 App 图标与通知标题里的那只。
+  ///
+  /// 读路径**永不写回**：非法值（空串/大写/未来角色名）只影响渲染，不改数据（C4）。
+  TextColumn get characterId =>
+      text().withDefault(const Constant('guga'))();
 }
 
 class FoodLibrary extends Table {
@@ -437,7 +452,7 @@ class CoachMemories extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 24;
+const int kSchemaVersion = 27;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -788,7 +803,46 @@ class AppDatabase extends _$AppDatabase {
               }
             }
 
+            // v25：user_settings.character_id（三角色形象系统，纯加一列）
+            //
+            // 不建表、不建索引、不写种子 DML、也不包事务（playbook 7.4：纯加列）。
+            // `character_id` 的默认值写在列定义的 `withDefault(Constant('guga'))` 上 ——
+            // `addColumnIfNotExists` 没有 defaultValue 参数（migration_helpers.dart:88
+            // 只有 3 个位置参数），drift 的 `m.addColumn` 会把列定义里的默认值
+            // 一起带进 `ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT 'guga'`。
+            if (from < 25) {
+              // 半迁移现场兜底：极老库里 user_settings 可能还没建起来，
+              // `addColumnIfNotExists` 靠 PRAGMA table_info 判存在，
+              // 表不在会直接执行 ALTER 报 "no such table"（v24 块同款注释）。
+              if (await _tableExists(this, 'user_settings')) {
+                step = 'addColumn:character_id';
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.characterId);
+              }
+            }
+
+            // v26：user_settings.ai_provider_id（多 AI 服务商，纯加一列可空）
+            if (from < 26) {
+              if (await _tableExists(this, 'user_settings')) {
+                step = 'addColumn:ai_provider_id';
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.aiProviderId);
+              }
+            }
+
+            // v27：user_settings.tts_config（云端音色，纯加一列可空）
+            if (from < 27) {
+              if (await _tableExists(this, 'user_settings')) {
+                step = 'addColumn:tts_config';
+                await addColumnIfNotExists(m, userSettings, userSettings.ttsConfig);
+              }
+            }
+
             // 成功：清掉可能存在的旧失败标记（清不掉不影响正确性）
+            //
+            // ⚠️ 这一行必须是独立语句，不能和上面注释并成一行 ——
+            // 并进注释 = 静默不再清标记（迁移"失败过一次、重试成功"的用户，
+            // 旧标记会留到下次冷启动，可能被启动期健检判成 unreadable 进失败页）。
             await MigrationFailureMarker.clear(baseDir: markerBaseDir);
           } catch (e) {
             // 迁移失败不是崩溃，是"可以重试的状态"：先留下可诊断的痕迹再上抛。

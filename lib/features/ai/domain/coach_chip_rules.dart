@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 
 /// 芯片生成的 6 条规则（**纯函数、零 IO**，C2 要求每条可单独证伪）。
@@ -30,38 +32,51 @@ class CoachChipRules {
     required bool hasFoodToday,
   }) {
     final out = <CoachChip>[];
-    void add(String key) {
+    void add(String key, {String? payload}) {
       if (out.length >= maxChips) return;
       if (out.any((c) => c.key == key)) return;
       if (!kCoachChipKeys.contains(key)) return;
-      out.add(CoachChip(key));
+      out.add(CoachChip(key, payload: payload));
     }
 
-    // ① 本轮 start_workout 回执 ok:false → 去开练
+    // ① 本轮补记/改训练成功 → 「查看记录」（跳到那条记录详情，优先级最高：
+    //    这是用户刚做的动作，比任何"建议去开练"都更该立刻给出口）
+    for (final r in toolReceipts) {
+      if ((r.startsWith('log_workout:') || r.startsWith('update_workout:')) &&
+          r.contains('"ok":true')) {
+        final id = _workoutIdOf(r);
+        if (id != null) {
+          add('view_workout', payload: id);
+          break;
+        }
+      }
+    }
+
+    // ② 本轮 start_workout 回执 ok:false → 去开练
     final startFailed = toolReceipts.any((r) =>
         r.startsWith('start_workout:') && r.contains('"ok":false'));
     if (startFailed) add('open_workout');
 
-    // ② 正文含开练 / 开始训练 / 模板
+    // ③ 正文含开练 / 开始训练 / 模板
     if (_has(assistantText, const ['开练', '开始训练', '模板'])) add('open_workout');
 
-    // ③ 体重 / 称重 / 上秤 —— 且**今日无体重记录**（C5）
+    // ④ 体重 / 称重 / 上秤 —— 且**今日无体重记录**（C5）
     if (_has(assistantText, const ['体重', '称重', '上秤']) && !hasWeightToday) {
       add('log_weight');
     }
 
-    // ④ 吃 / 热量 / 蛋白 / 碳水 / 饮食 —— 且今日无饮食记录（C5）
+    // ⑤ 吃 / 热量 / 蛋白 / 碳水 / 饮食 —— 且今日无饮食记录（C5）
     if (_has(assistantText, const ['吃', '热量', '蛋白', '碳水', '饮食']) &&
         !hasFoodToday) {
       add('log_food');
     }
 
-    // ⑤ 提醒 / 几点 / 早点睡 / 作息
+    // ⑥ 提醒 / 几点 / 早点睡 / 作息
     if (_has(assistantText, const ['提醒', '几点', '早点睡', '作息'])) {
       add('set_reminder');
     }
 
-    // ⑥ 趋势 / 进度 / 变化 / 这周 / 上周
+    // ⑦ 趋势 / 进度 / 变化 / 这周 / 上周
     if (_has(assistantText, const ['趋势', '进度', '变化', '这周', '上周'])) {
       add('open_trends');
     }
@@ -69,6 +84,23 @@ class CoachChipRules {
     // 一条都不命中 → 空列表。**不给兜底芯片**：一旦有一半时候给的是无关按钮，
     // 用户就学会无视它，那时它连装饰都算不上，只是噪音。
     return out;
+  }
+
+  /// 从 `log_workout:{"ok":true,"workout_id":7,...}` 里提 workout_id。
+  /// 兼容回执里写 `id` 或 `workout_id`（新老口径都认）。
+  static String? _workoutIdOf(String receipt) {
+    final colon = receipt.indexOf(':');
+    if (colon < 0) return null;
+    final raw = receipt.substring(colon + 1);
+    try {
+      final map = jsonDecode(raw);
+      if (map is Map) {
+        final id = map['workout_id'] ?? map['id'];
+        if (id is num) return id.toString();
+        if (id is String && id.isNotEmpty) return id;
+      }
+    } catch (_) {}
+    return null;
   }
 
   static bool _has(String text, List<String> keywords) {

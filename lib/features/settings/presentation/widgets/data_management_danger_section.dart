@@ -6,9 +6,6 @@ import 'package:fittrack/core/services/data_wipe_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/settings/presentation/widgets/settings_section.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
-// 训练模板列表的 provider 定义在页面文件里（历史遗留），只能按定义处 import。
-import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart'
-    show workoutTemplatesProvider;
 
 /// 「危险操作」区块：清除所有数据。
 ///

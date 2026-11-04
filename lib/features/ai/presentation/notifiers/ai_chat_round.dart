@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 
 /// 一次对话回合的结果（正文 / 工具调用 / 给用户看的错误文案）
@@ -24,21 +24,28 @@ class AiChatRoundResult {
   /// 跑一轮流式请求；网络 / 服务端异常统一转成可读文案（不向外抛）
   ///
   /// 工具调用异常（[AiToolException]）由调用方自己处理，这里原样抛出。
-  /// [webEnabled] 关闭时只下发 17 个工具（不含 web_search / fetch_url）。
+  /// [searchEnabled] / [fetchEnabled] 分别控制 web_search 与 fetch_url 是否下发
+  /// （读网页有本地抓取兜底，任何服务商都能用；搜索只有 DeepSeek 有）。
   static Future<AiChatRoundResult> run({
     required String apiKey,
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
     double temperature = AiService.defaultTemperature,
-    bool webEnabled = true,
+    bool searchEnabled = true,
+    bool fetchEnabled = true,
+    AiProvider? provider,
   }) async {
     try {
       final res = await AiService.streamChat(
         apiKey: apiKey,
         messages: messages,
         onDelta: onDelta,
-        tools: AiToolSpecs.defsFor(webEnabled: webEnabled),
+        tools: AiToolSpecs.defsFor(
+          searchEnabled: searchEnabled,
+          fetchEnabled: fetchEnabled,
+        ),
         temperature: temperature,
+        provider: provider,
       );
       return AiChatRoundResult(
         content: res.content,

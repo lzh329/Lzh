@@ -8,6 +8,7 @@ class AiToolSpecs {
   static const logFood = 'log_food';
   static const logWorkout = 'log_workout';
   static const logMeasurements = 'log_measurements';
+  static const updateWorkout = 'update_workout';
 
   // ── 设置类（写，需确认） ──
   static const setTargetWeight = 'set_target_weight';
@@ -24,6 +25,7 @@ class AiToolSpecs {
   static const manageGoal = 'manage_goal';
   static const deleteRecords = 'delete_records';
   static const deleteTemplate = 'delete_template';
+  static const deleteWorkout = 'delete_workout';
   static const wipeAllData = 'wipe_all_data';
 
   // ── 动作库 / 模板类（create_* 写需确认，query_exercises 只读） ──
@@ -38,6 +40,7 @@ class AiToolSpecs {
   static const queryStats = 'query_stats';
   static const searchFood = 'search_food';
   static const queryExercises = 'query_exercises';
+  static const queryWorkouts = 'query_workouts';
 
   // ── 联网类（只读，自动执行） ──
   static const webSearch = 'web_search';
@@ -48,6 +51,7 @@ class AiToolSpecs {
     deleteRecords,
     deleteTemplate,
     deleteMeasurement,
+    deleteWorkout,
     wipeAllData,
   };
 
@@ -59,6 +63,7 @@ class AiToolSpecs {
     searchFood,
     queryExercises,
     queryMeasurements,
+    queryWorkouts,
     webSearch,
     fetchUrl,
   };
@@ -73,6 +78,7 @@ class AiToolSpecs {
     logFood,
     logWorkout,
     logMeasurements,
+    updateWorkout,
     setTargetWeight,
     updateProfile,
     setDietTarget,
@@ -81,6 +87,7 @@ class AiToolSpecs {
     deleteRecords,
     deleteTemplate,
     deleteMeasurement,
+    deleteWorkout,
     updateMeasurement,
     wipeAllData,
     createExercise,
@@ -96,16 +103,28 @@ class AiToolSpecs {
   /// 联网类工具（web_search / fetch_url）——「联网搜索」开关关闭时整体摘掉
   static const Set<String> webTools = {webSearch, fetchUrl};
 
-  /// 按「联网搜索」开关裁剪后的工具清单
+  /// 按开关裁剪后的工具清单。**搜索与读网页是两个独立开关**：
   ///
-  /// [webEnabled] 为 false 时把 [webSearch] / [fetchUrl] 两个 schema 摘掉
-  /// （20 → 18）：模型看不到这两个工具，就没法调，也就不会产生搜索费用。
-  /// [defs] 本身保持 20 个不变（单测锁全集、执行器仍认识这两个名字）。
-  static List<Map<String, dynamic>> defsFor({required bool webEnabled}) {
-    if (webEnabled) return defs;
+  /// - [searchEnabled]：`web_search` 走服务商的搜索接口（按次计费，且只有
+  ///   DeepSeek 有），关掉就摘掉；
+  /// - [fetchEnabled]：`fetch_url` 有**本地抓取兜底**，任何服务商都能用，
+  ///   只有用户把「联网」总开关关掉时才摘。
+  ///
+  /// 把两者拆开是因为旧实现一关就两个一起摘 → 非 DeepSeek 用户连"打开链接"
+  /// 都做不到（用户反馈"嘎教练打不开链接"的直接原因）。
+  /// [defs] 本身保持 28 个不变（单测锁全集、执行器仍认识这两个名字）。
+  static List<Map<String, dynamic>> defsFor({
+    bool searchEnabled = true,
+    bool fetchEnabled = true,
+  }) {
+    if (searchEnabled && fetchEnabled) return defs;
+    final dropped = <String>{
+      if (!searchEnabled) webSearch,
+      if (!fetchEnabled) fetchUrl,
+    };
     return [
       for (final def in defs)
-        if (!webTools.contains(_nameOf(def))) def,
+        if (!dropped.contains(_nameOf(def))) def,
     ];
   }
 
@@ -201,7 +220,8 @@ class AiToolSpecs {
       'type': 'function',
       'function': {
         'name': logWorkout,
-        'description': '记录用户完成的一次训练（自由度较高的记录，不细分每组动作）',
+        'description': '记录用户完成的一次训练。给了 exercises 就按动作+组次重记（记一笔格式），'
+            '不给则只记时长。',
         'parameters': {
           'type': 'object',
           'properties': {
@@ -214,6 +234,34 @@ class AiToolSpecs {
             'note': {
               'type': 'string',
               'description': '训练内容简述，如"深蹲 4 组 × 12 次、卧推 4 组 × 10 次"',
+            },
+            'date': {
+              'type': 'string',
+              'description': '日期 YYYY-MM-DD，默认今天；补记过去几天时给日期',
+            },
+            'exercises': {
+              'type': 'array',
+              'description': '动作清单（可空）。动作名必须是动作库里的名字，'
+                  '不确定先查 query_exercises。',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'name': {'type': 'string', 'description': '动作名，如"深蹲"'},
+                  'sets': {
+                    'type': 'integer',
+                    'description': '组数，默认 1',
+                  },
+                  'reps': {
+                    'type': 'integer',
+                    'description': '每组次数（力量/徒手动作填）',
+                  },
+                  'weight_kg': {
+                    'type': 'number',
+                    'description': '每组重量（kg），自重/空杠不填',
+                  },
+                },
+                'required': ['name'],
+              },
             },
           },
           'required': ['workout_type', 'minutes'],
@@ -651,6 +699,77 @@ class AiToolSpecs {
             },
           },
           'required': ['template_name'],
+        },
+      },
+    },
+    // ───────── 训练记录增删改查（写需确认；query 只读） ─────────
+    {
+      'type': 'function',
+      'function': {
+        'name': updateWorkout,
+        'description': '修改一条已有训练记录（按 id）。会整体替换这条记录的动作清单，'
+            '需要先 query_workouts 拿到 workout_id。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'workout_id': {'type': 'integer', 'description': '要改的训练记录 id'},
+            'note': {
+              'type': 'string',
+              'description': '可选，更新备注',
+            },
+            'minutes': {
+              'type': 'integer',
+              'description': '可选：把这条记录的时长改成 N 分钟（1~600）。'
+                  '**用户没说要改时长就不要传**，不传则时长保持不变。',
+            },
+            'exercises': {
+              'type': 'array',
+              'description': '替换后的动作清单（动作名须在库里，不确定先查 query_exercises）。'
+                  '**不传 = 不动动作清单**（只改时长/备注时用）；传了则整体替换。',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'name': {'type': 'string', 'description': '动作名，如"深蹲"'},
+                  'sets': {'type': 'integer', 'description': '组数，默认 1'},
+                  'reps': {'type': 'integer', 'description': '每组次数'},
+                  'weight_kg': {'type': 'number', 'description': '每组重量（kg）'},
+                },
+                'required': ['name'],
+              },
+            },
+          },
+          'required': ['workout_id'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': deleteWorkout,
+        'description': '删除一条训练记录（按 id）。删除前必须先 query_workouts 拿到 workout_id 并跟用户确认。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'workout_id': {'type': 'integer', 'description': '要删除的训练记录 id'},
+          },
+          'required': ['workout_id'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': queryWorkouts,
+        'description': '查看最近的训练记录明细（日期 / 类型 / 时长 / 动作与组次重）。'
+            '用户问"我最近练了啥""上次深蹲多重"或要改/删某条训练时先查。',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'count': {
+              'type': 'integer',
+              'description': '返回最近几条（默认 7，最多 20）',
+            },
+          },
         },
       },
     },

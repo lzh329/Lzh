@@ -1,3 +1,7 @@
+import 'package:fittrack/core/services/ai_prompt_constants.dart';
+import 'package:fittrack/core/services/ai_providers.dart' show aiProviderById;
+import 'package:fittrack/core/services/character_catalog.dart';
+import 'package:fittrack/core/services/character_prompt_line.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart' show AiToolLimits;
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
@@ -37,27 +41,23 @@ class AiPromptBuilder {
     '- 用户明确要计划 / 清单时才分点，其余情况说人话就行',
   ];
 
-  /// few-shot：豆包感的 3 组示例（只学语气和分寸，数字以【用户数据】为准）
-  static const _examples = [
-    '【示例 1｜闲聊 / 情绪：先接住，再给一件小到不可能拒绝的事，最后追问】',
-    '用户：今天好累啊，不想动。',
-    '回答：累就先躺着吧，别硬撑呀。',
-    '给你个不用换衣服的：靠墙蹲 30 秒，就一次，蹲完继续躺 😌',
-    '你一般几点到家？我看看能不能帮你挤出 10 分钟。',
-    '',
-    '【示例 2｜数据：用真实数字给他台阶，只补一句实在的，不列点】',
-    '用户：我这周是不是很废？',
-    '回答：不废哈，你练了 2 次、一共 40 分钟，比上周还多一次呢。',
-    '真要挑毛病，就是两次挨得太近了，隔一天练一次会舒服很多。',
-    '',
-    '【示例 3｜记录确认：自然确认 + 顺手记上 + 看情况给一件小事】',
-    '用户：刚吃了碗牛肉面。',
-    '回答：牛肉面记上了，一碗 250 克左右，大概 320 千卡。',
-    '今天蛋白有点少，晚饭加个鸡蛋就够啦。',
+  /// 读网页规则：**任何服务商都给**（fetch_url 有本地抓取兜底，不花钱）
+  static const _fetchRules = [
+    '- 用户发来链接（公众号 / 知乎 / B 站 / YouTube 等）时用 fetch_url 读正文；'
+        '视频链接只能拿到标题和简介，要明确告诉用户看不到画面',
+    '- 用户发**视频链接**并要「按这个建模板」时：先 fetch_url 读标题/简介，'
+        '从中提动作类型 + 总时长（如「10 分钟全身燃脂」→ 有氧 / 10 分钟 / 全身）；'
+        '提到了就直接 create_template（minutes 用提取值、focus 按内容选、'
+        'create_missing_exercises: true、动作名用简介里的通用名、组次用默认值 **不要编**）；'
+        '提不到就说"视频我只能读到标题和简介、看不到画面"再问动作清单，'
+        '**绝不虚构视频里没有的动作**；最后一句说明这是按标题/简介推断的',
+    '- 抓取失败或内容为空时，直说「这个链接我没读到可用内容」，不要凭标题编内容',
+    '- 回执 ok:false 且说「读不到视频正文」时（抖音/小红书这类），直接告诉用户'
+        '这个平台读不到正文、请他把视频里的动作名和时长发你；**绝不按标题编动作**',
   ];
 
-  /// 联网规则（「联网搜索」开关打开时才写进「工具使用」段）
-  static const _webRules = [
+  /// 联网搜索规则：**只有 DeepSeek 才有服务端搜索接口**，其它服务商不给
+  static const _searchRules = [
     '- 需要最新、有时效性的信息（新闻、价格、赛事、政策、产品发布）时，'
         '先用 web_search 搜，不要凭记忆编',
     '- 要联网就**立刻在这一次回复里调用 web_search**：不要先回「我去搜一下 / '
@@ -65,16 +65,14 @@ class AiPromptBuilder {
         '用户得再催一次才会真的搜',
     '- 工具返回后**按问题组织成完整答案一次说完**（结论、关键数字、建议都给齐），'
         '不要只罗列搜索结果，也不要停在「搜到了这些」等用户追问',
-    '- 用户发来链接（公众号 / 知乎 / B 站 / YouTube 等）时用 fetch_url 读正文；'
-        '视频链接只能拿到标题和简介，要明确告诉用户看不到画面',
     '- 引用搜索结果必须标来源：正文结束后单独一行写「来源：站点名 链接」，'
         '最多 3 条；不要用 [标题](url) 这种 Markdown 链接，气泡里不渲染',
-    '- 搜索 / 抓取失败或结果为空时，直说「没搜到可靠信息」，不要编造',
+    '- 搜索失败或结果为空时，直说「没搜到可靠信息」，不要编造',
   ];
 
   /// 联网关闭时替代上面四条的唯一一条规则（避免模型以为还能搜）
   static const _webDisabledRule = '- 联网已关闭：无法搜索或抓取网页；'
-      '用户需要时，提示他到「教练设定 → 联网搜索」开启';
+      '用户需要时，提示他到「教练设定 → 联网」开启';
 
   /// 构建完整 system prompt（数据为空时也能工作）
   ///
@@ -148,8 +146,9 @@ class AiPromptBuilder {
       ..writeln('- 能估出三大营养素就一起传给 log_food（蛋白 / 脂肪 / 碳水，每 100g 计）')
       ..writeln('- 三大营养素估不出来就留空，别填 0 —— 填 0 会被当成"算过了、结果是 0 克"，'
           '比显示「—」更伤信任')
-      ..writeln('- 用户说"练完了 / 跑了 30 分钟"，调用 log_workout，把动作细节写进 note')
-      ..writeln('- 需要统计数字时调用 query_stats，绝不凭印象编造数据')
+      ..writeln('- 用户说"练完了 / 跑了 30 分钟"，调用 log_workout 记录；给了具体动作和组次重就写进 exercises（动作名先 query_exercises 确认）')
+      ..writeln('- 补记"模板里的训练"时：先从 query_stats 的 templates 里拿该模板的 items（动作名+组数+次数+时长），用 log_workout 原样记、date 用用户说的那天；别只记模板名或只记动作名没组次')
+      ..writeln('- 需要统计数字时调用 query_stats；要改 / 删某条训练先 query_workouts 拿 workout_id，改和删都要等确认卡点头')
       ..writeln('- 工具结果返回 ok:false（用户取消）时，不再重复请求，改为询问或换个建议')
       ..writeln('- 用户一次说多件事时，先处理最重要的一件，其他的问一句"要不要顺便记上"')
       ..writeln('- 不要假设工具已执行成功，只有拿到 ok:true 才能说"已经记好了"')
@@ -185,10 +184,16 @@ class AiPromptBuilder {
           '要向用户说明原因并给出下一步（比如改个参数重试或让他手动操作）');
 
     // 联网开关：关掉时工具清单里已经没有 web_search / fetch_url，
-    // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动
+    // 提示词也必须同步改口，否则模型会一直解释"我搜一下"却调不动。
+    // 两个能力分档：读网页任何服务商都有（本地抓取兜底），搜索只有 DeepSeek 有。
     if (settings?.aiWebSearchEnabled ?? true) {
-      for (final line in _webRules) {
+      for (final line in _fetchRules) {
         buf.writeln(line);
+      }
+      if (aiProviderById(settings?.aiProviderId).id == 'deepseek') {
+        for (final line in _searchRules) {
+          buf.writeln(line);
+        }
       }
     } else {
       buf.writeln(_webDisabledRule);
@@ -211,7 +216,10 @@ class AiPromptBuilder {
       ..writeln()
       ..writeln('# 示例（只学语气和分寸，里面的数字只是示意，'
           '真实数据一律以【用户数据】为准）')
-      ..writeAll(_examples, '\n')
+      ..writeAll(kPromptExamples, '\n')
+      ..writeln()
+      // 陪伴角色一行（C14）：角色是用户选的形象，教练是产品人格；只需名字，形态传 0
+      ..writeln(CharacterPromptLine.of(CharacterCatalog.resolve(settings?.characterId, 0)))
       ..writeln()
       ..writeln('# 用户数据（自动注入，真实记录）');
 
@@ -255,6 +263,9 @@ class AiPromptBuilder {
     lines.add('今天：${now.year}-${now.month}-${now.day}');
 
     if (settings != null) {
+      // 昵称注入：改完昵称教练立刻用新名字
+      final nickname = settings.nickname?.trim();
+      if (nickname != null && nickname.isNotEmpty) lines.add('用户昵称：$nickname');
       final s = <String>[];
       if (settings.heightCm != null) {
         s.add('身高 ${settings.heightCm!.round()}cm');

@@ -1,5 +1,5 @@
-import 'package:fittrack/core/services/ai_service.dart';
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';

@@ -3,6 +3,51 @@ import 'package:flutter/material.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
 
+/// 模板卡的配色 —— 由「类型（力量/有氧）× 难度（入门/中阶/高阶）」决定。
+///
+/// 为什么不再用模板自带的 `accentKey`：accentKey 是种子随机派的（green/orange/
+/// red…），和难度、类型毫无关系，用户看不出"这张卡是入门还是有氧"。
+/// 改成类型×难度驱动后：
+/// - 力量走暖色系，有氧走冷色系 → 色相一眼分清类型
+/// - 难度越大颜色越深 → 强度一眼看清难度
+/// 按钮复用同一个主色（accent），做到"背景和按钮同色"。
+
+/// 类型 × 难度 → 主色（用于「开始训练」按钮、类型角标等）
+Color templateAccent(WorkoutTemplateEntity t) =>
+    templatePalette(t).$1;
+
+/// 类型 × 难度 → 封面渐变双色（深色收尾，保证白字可读）
+List<Color> templateGradient(WorkoutTemplateEntity t) =>
+    templatePalette(t).$2;
+
+/// 返回 (主色, 渐变)
+(Color, List<Color>) templatePalette(WorkoutTemplateEntity t) {
+  if (t.isCardio) {
+    switch (t.difficulty) {
+      case '入门':
+        return (const Color(0xFF00897B),
+            const [Color(0xFF4DD0E1), Color(0xFF00838F)]);
+      case '中阶':
+        return (const Color(0xFF0277BD),
+            const [Color(0xFF29B6F6), Color(0xFF01579B)]);
+      default:
+        return (const Color(0xFF5E35B1),
+            const [Color(0xFF7E57C2), Color(0xFF311B92)]);
+    }
+  }
+  switch (t.difficulty) {
+    case '入门':
+      return (const Color(0xFFEF6C00),
+          const [Color(0xFFFFB74D), Color(0xFFE65100)]);
+    case '中阶':
+      return (const Color(0xFFE64A19),
+          const [Color(0xFFFF7043), Color(0xFFBF360C)]);
+    default:
+      return (const Color(0xFFD32F2F),
+          const [Color(0xFFEF5350), Color(0xFFB71C1C)]);
+  }
+}
+
 /// 训练模板相关的展示型组件：区段标题 / 封面卡 / 空态 / 提示。
 class TemplateSectionHeader extends StatelessWidget {
   final String title;
@@ -53,6 +98,7 @@ class TemplateCard extends StatelessWidget {
   final double coverHeight;
   final VoidCallback onStart;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const TemplateCard({
     super.key,
@@ -61,6 +107,7 @@ class TemplateCard extends StatelessWidget {
     required this.coverHeight,
     required this.onStart,
     this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -80,6 +127,7 @@ class TemplateCard extends StatelessWidget {
               height: coverHeight,
               compact: coverHeight < 120,
               onEdit: onEdit,
+              onDelete: onDelete,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -88,15 +136,13 @@ class TemplateCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      // 类型角标：力量 / 有氧，一眼分清这张卡是什么
+                      // 类型角标：力量 / 有氧，颜色随卡片主色走（与封面/按钮同色）
                       Container(
                         margin: const EdgeInsets.only(right: 6),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: template.isCardio
-                              ? AppColors.info.withAlpha(36)
-                              : AppColors.primary.withAlpha(30),
+                          color: templateAccent(template).withAlpha(36),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -104,9 +150,7 @@ class TemplateCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
-                            color: template.isCardio
-                                ? AppColors.info
-                                : AppColors.primary,
+                            color: templateAccent(template),
                           ),
                         ),
                       ),
@@ -140,9 +184,10 @@ class TemplateCard extends StatelessWidget {
                 height: 40,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
-                    disabledBackgroundColor: AppColors.primary.withAlpha(60),
+                    backgroundColor: templateAccent(template),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        templateAccent(template).withAlpha(60),
                     disabledForegroundColor: AppColors.textTertiary,
                     elevation: 0,
                     minimumSize: Size.zero,
@@ -172,6 +217,7 @@ class TemplateCover extends StatelessWidget {
   final double height;
   final bool compact;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const TemplateCover({
     super.key,
@@ -179,31 +225,14 @@ class TemplateCover extends StatelessWidget {
     required this.height,
     required this.compact,
     this.onEdit,
+    this.onDelete,
   });
-
-  /// accentKey → 渐变双色（深色收尾，保证白字可读）
-  static const _gradients = <String, List<Color>>{
-    'green': [AppColors.primary, Color(0xFF1B5E20)],
-    'orange': [Color(0xFFFF7043), Color(0xFFBF360C)],
-    'red': [Color(0xFFEF5350), Color(0xFFB71C1C)],
-    'cyan': [Color(0xFF26C6DA), Color(0xFF00695C)],
-    'purple': [Color(0xFFC084FC), Color(0xFF4A148C)],
-  };
-
-  static const _icons = <String, IconData>{
-    'green': Icons.fitness_center,
-    'orange': Icons.local_fire_department,
-    'red': Icons.bolt,
-    'cyan': Icons.business_center,
-    'purple': Icons.nightlight_round,
-  };
-
-  static const List<Color> _fallback = [AppColors.primary, Color(0xFF1B5E20)];
 
   @override
   Widget build(BuildContext context) {
-    final colors = _gradients[template.accentKey] ?? _fallback;
-    final icon = _icons[template.accentKey] ?? Icons.fitness_center;
+    final colors = templateGradient(template);
+    final icon =
+        template.isCardio ? Icons.directions_run : Icons.fitness_center;
     final iconSize = compact ? 32.0 : 46.0;
 
     return SizedBox(
@@ -265,8 +294,8 @@ class TemplateCover extends StatelessWidget {
               ),
             ),
           ),
-          // 右上：编辑按钮（我的模板）或时长（推荐模板）
-          if (onEdit != null)
+          // 右上：编辑按钮（我的模板）/ 删除按钮（推荐模板），否则显示时长
+          if (onEdit != null || onDelete != null)
             Positioned(
               right: 8,
               top: 8,
@@ -275,10 +304,14 @@ class TemplateCover extends StatelessWidget {
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: onEdit,
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(Icons.edit_note, size: 18, color: Colors.white),
+                  onTap: onEdit ?? onDelete,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      onEdit != null ? Icons.edit_note : Icons.delete_outline,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -296,8 +329,8 @@ class TemplateCover extends StatelessWidget {
                 ),
               ),
             ),
-          // 编辑按钮占用了右上角时，时长落到封面右下
-          if (onEdit != null)
+          // 按钮占用了右上角时，时长落到封面右下
+          if (onEdit != null || onDelete != null)
             Positioned(
               right: 12,
               bottom: 8,

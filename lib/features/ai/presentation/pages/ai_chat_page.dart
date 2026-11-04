@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fittrack/core/services/guga_level.dart';
+import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/ai_providers.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiMessage;
+import 'package:fittrack/core/services/character_providers.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/compare_review_launcher.dart'
     show resolveInitialImage;
@@ -12,11 +16,9 @@ import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_bubbles.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chip_bar.dart';
-import 'package:fittrack/features/ai/presentation/widgets/coach_weekly_bubble.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_input_bar.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chat_panels.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_tool_confirm_card.dart';
-import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 
 /// 嘎教练 —— AI 减脂教练聊天页
 ///
@@ -44,6 +46,10 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 
   /// 待发送的图片（发送后清空）
   File? _image;
+
+  /// 错误弹窗防重：同一条错误短时间重复触发时不再弹（否则像"卡住不消失"）
+  String? _lastErrorMsg;
+  DateTime? _lastErrorAt;
 
   static const _quickPrompts = [
     '用模板开练',
@@ -125,32 +131,39 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   @override
   Widget build(BuildContext context) {
     final chat = ref.watch(aiChatProvider);
-    // 当前咕嘎形态的头像（按累计减重）—— 让对话像咕嘎在说话
-    final trends = ref.watch(trendsDataProvider).valueOrNull;
-    final stage = GugaLevelService.resolve(trends?.totalLossJin ?? 0).stage;
-    final headAsset = stage.asset.replaceFirst('.png', '_head.png');
+    // 当前角色的头像 —— 让对话像"陪着他的那个形象"在说话。
+    // 路径只从注册表取：以前这里 `replaceFirst('.png', '_head.png')`，
+    // 糯糯/菲比根本没有 `_head` 文件 ⇒ 头像白框。
+    final spec = ref.watch(currentCharacterProvider);
+    final headAsset = spec.avatarAsset;
+
+    // 周消息（「教练说」）作为教练的第一条消息，跟着对话滚动，
+    // 而不是固定钉在顶部（之前那张卡片看起来像卡住的横幅）。
+    final weekly = ref.watch(coachLatestWeeklyProvider).valueOrNull;
+    final displayMessages = <AiMessage>[
+      if (weekly != null)
+        AiMessage(role: 'assistant', content: weekly.content),
+      ...chat.messages,
+    ];
 
     ref.listen(aiChatProvider, (prev, next) {
       _startPendingWorkout(next);
       if (next.error != null && next.error != prev?.error) {
         final msg = next.error!;
+        // 防重：同一条错误 3 秒内不重复弹（反复触发会让 SnackBar 看起来"一直停着"）
+        final now = DateTime.now();
+        if (_lastErrorMsg == msg &&
+            _lastErrorAt != null &&
+            now.difference(_lastErrorAt!) < const Duration(seconds: 3)) {
+          ref.read(aiChatProvider.notifier).consumeError();
+          return;
+        }
+        _lastErrorMsg = msg;
+        _lastErrorAt = now;
         ref.read(aiChatProvider.notifier).consumeError();
         final canRetry = !msg.contains('API Key') && !msg.contains('余额');
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              duration: const Duration(seconds: 5),
-              action: canRetry
-                  ? SnackBarAction(
-                      label: '重试',
-                      onPressed: () =>
-                          ref.read(aiChatProvider.notifier).retryLast(),
-                    )
-                  : null,
-            ),
-          );
+        // 顶部轻提示，不盖住输入框 / 对话内容（原来底部 SnackBar 会挡住输入区）
+        _showErrorToast(msg, canRetry: canRetry);
       }
     });
 
@@ -195,24 +208,21 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
       body: Column(
         children: [
-          // 本周那条周消息（已读也保留到下次周消息，PRD 6.1）
-          const CoachWeeklyCard(),
           if (!chat.hasKey) const ApiKeyCard(),
           Expanded(
-            child: chat.messages.isEmpty &&
+            child: displayMessages.isEmpty &&
                     chat.streamingText.isEmpty &&
                     chat.pendingTool == null
                 ? AiEmptyHint(
                     onTap: _send, prompts: _quickPrompts, headAsset: headAsset)
                 : AiMessageList(
-                    messages: chat.messages,
+                    messages: displayMessages,
                     streamingText: chat.streamingText,
                     isStreaming: chat.isStreaming,
                     headAsset: headAsset,
                     usedChipKeys: chat.usedChipKeys,
                     onChipTap: (chip) {
-                      // 点过即置灰（C9）；跳页但不调模型、不写历史（C8）
-                      ref.read(aiChatProvider.notifier).markChipUsed(chip.key);
+                      // 跳页但不调模型、不写历史（C8）；不再置灰，回来还能再点
                       openCoachChip(context, ref, chip);
                     },
                   ),
@@ -270,43 +280,113 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     );
   }
 
-  Future<void> _showKeyDialog(bool configured) async {
-    final ctrl = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('配置 API Key'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '去 platform.deepseek.com 创建 API Key（sk- 开头），'
-              '模型 DeepSeek-V4.1-Flash，按量计费，日常聊天每次约几分钱。',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              decoration: const InputDecoration(
-                hintText: '粘贴 sk- 开头的 Key',
-                border: OutlineInputBorder(),
-                isDense: true,
+  /// 顶部轻提示（错误用）：浮在 AppBar 下方，不占对话 / 输入区空间，自动消失
+  void _showErrorToast(String msg, {bool canRetry = false}) {
+    final overlay = Overlay.of(context);
+    final top = MediaQuery.of(context).padding.top + 8;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => Positioned(
+        top: top,
+        left: 16,
+        right: 16,
+        child: Material(
+          color: AppColors.textPrimary,
+          elevation: 6,
+          borderRadius: BorderRadius.circular(10),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      msg,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
+                  if (canRetry)
+                    TextButton(
+                      onPressed: () {
+                        entry.remove();
+                        ref.read(aiChatProvider.notifier).retryLast();
+                      },
+                      child: const Text('重试',
+                          style: TextStyle(color: AppColors.primary)),
+                    ),
+                ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(aiChatProvider.notifier).saveApiKey(ctrl.text);
-            },
-            child: const Text('保存'),
           ),
-        ],
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(milliseconds: 2600), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
+  Future<void> _showKeyDialog(bool configured) async {
+    final ctrl = TextEditingController();
+    final settings = ref.read(userSettingsProvider).valueOrNull;
+    var providerId = settings?.aiProviderId ?? 'deepseek';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final provider = aiProviderById(providerId);
+          return AlertDialog(
+            title: const Text('配置 AI 服务'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: providerId,
+                  decoration: const InputDecoration(
+                      labelText: '服务商', isDense: true),
+                  items: [
+                    for (final p in aiProviders)
+                      DropdownMenuItem(value: p.id, child: Text(p.name)),
+                  ],
+                  onChanged: (v) =>
+                      setDialogState(() => providerId = v ?? 'deepseek'),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '去 ${provider.keyUrl} 创建 Key（${provider.keyHint}），'
+                  '默认模型 ${provider.defaultModel}，按量计费。',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  decoration: const InputDecoration(
+                    hintText: '粘贴 API Key',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('取消')),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ref.read(aiChatProvider.notifier).saveAiProvider(providerId);
+                  ref.read(aiChatProvider.notifier).saveApiKey(ctrl.text);
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          );
+        },
       ),
     );
     ctrl.dispose();

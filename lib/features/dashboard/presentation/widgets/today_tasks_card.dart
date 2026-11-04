@@ -17,7 +17,12 @@ class TodayTasksCard extends StatelessWidget {
   /// 今日是否已拍身体照片
   final bool photoDone;
 
-  final String? gugaAsset;
+  /// 当前角色的立绘（**只从 `CharacterCatalog.resolve` 取**，不许在这里拼路径）
+  final String? characterAsset;
+
+  /// 当前角色的名字（不带形态名）。文案里的角色名只允许来自这里 ——
+  /// 写死「咕嘎」会让选了糯糯的用户看到别人的名字（C20）。
+  final String? characterName;
 
   final VoidCallback onWeight;
   final VoidCallback onWorkout;
@@ -30,7 +35,8 @@ class TodayTasksCard extends StatelessWidget {
     this.hasTraining = false,
     this.workoutCount = 0,
     this.photoDone = false,
-    this.gugaAsset,
+    this.characterAsset,
+    this.characterName,
     required this.onWeight,
     required this.onWorkout,
     required this.onPhoto,
@@ -52,7 +58,11 @@ class TodayTasksCard extends StatelessWidget {
     final encourage = switch (doneCount) {
       0 => '先动起来，比什么都重要',
       1 || 2 => '已经完成 $doneCount 项，继续保持',
-      _ => '今日全部完成，咕嘎为你鼓掌！',
+      // 角色名未知时**不点名**：拿"咕嘎"当兜底会让选了糯糯的用户在首帧
+      // 看到别人的名字（QA 记的 D2）。宁可爱谁都不点名。
+      _ => characterName == null
+          ? '今日全部完成，为你鼓掌！'
+          : '今日全部完成，$characterName为你鼓掌！',
     };
 
     return Card(
@@ -169,7 +179,7 @@ class TodayTasksCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // ── 咕嘎鼓励 ──
+            // ── 角色鼓励（名字动态，不许写死咕嘎） ──
             Row(
               children: [
                 Container(
@@ -181,8 +191,8 @@ class TodayTasksCard extends StatelessWidget {
                     border: Border.all(color: AppColors.border),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: gugaAsset != null
-                      ? Image.asset(gugaAsset!,
+                  child: characterAsset != null
+                      ? Image.asset(characterAsset!,
                           fit: BoxFit.cover, alignment: Alignment.topCenter)
                       : const Icon(Icons.sentiment_satisfied_alt,
                           size: 14, color: _orange),

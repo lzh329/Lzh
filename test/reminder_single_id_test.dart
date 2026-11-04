@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
-import 'package:fittrack/core/services/reminder_scheduler.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/features/plan/data/reminder_scheduler.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
 import 'package:fittrack/core/database/daily_override_repository.dart';
 import 'package:fittrack/features/settings/data/user_settings_repository_impl.dart';
 import 'package:drift/native.dart';

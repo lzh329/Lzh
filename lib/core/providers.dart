@@ -31,12 +31,13 @@ import 'package:fittrack/features/diet/data/diet_repository_impl.dart';
 import 'package:fittrack/features/water/data/water_repository_impl.dart'
     show WaterRepository, WaterRepositoryImpl;
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
+import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 import 'package:fittrack/features/ai/data/coach_memory_repository.dart';
 import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/services/notification_service.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
-import 'package:fittrack/core/services/reminder_scheduler.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
+import 'package:fittrack/features/plan/data/reminder_scheduler.dart';
 
 // ── 数据库 ──
 /// 全 App 唯一的数据库实例。
@@ -366,9 +367,22 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   );
 });
 
+/// 训练模板（推荐 + 我的）。
+///
+/// 原本定义在 `quick_start_page.dart`：现在「记一笔」也要用它选模板，
+/// 而"从页面文件 import 一个 provider"会让两个页面互相依赖。移到 core 后
+/// 声明只有一处，改查询也不会漏掉第二个调用点。
+final workoutTemplatesProvider =
+    FutureProvider<List<WorkoutTemplateEntity>>((ref) {
+  return ref.watch(workoutTemplateRepoProvider).getAll();
+});
+
 // ── 提醒设置 ──
 
-/// 训练历史（训练页「历史」分段 / 训练记录列表共用；保存训练后需 invalidate）
+/// 训练历史（**全库唯一的训练记录列表数据源**：`/workout/records`；保存训练后需 invalidate）
+///
+/// 训练页的「历史」分段已删除（决策 12）：同一份数据两套渲染会让口径分叉
+/// （曾经是 N/M 组 vs N 组）。现在只有记录页在读它。
 final workoutHistoryProvider = FutureProvider<List<WorkoutEntity>>(
     (ref) => ref.watch(workoutRepoProvider).getAll());
 

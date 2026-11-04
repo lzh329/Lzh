@@ -1,13 +1,16 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:fittrack/features/dashboard/presentation/pages/dashboard_page.dart';
-import 'package:fittrack/features/workout/presentation/pages/workout_list_page.dart';
+import 'package:fittrack/features/workout/presentation/pages/workout_log_page.dart';
+import 'package:fittrack/features/workout/presentation/pages/workout_records_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_active_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_detail_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_metric_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_album_page.dart';
 import 'package:fittrack/features/body_log/presentation/pages/body_compare_page.dart';
+import 'package:fittrack/features/settings/presentation/pages/character_page.dart';
 import 'package:fittrack/features/settings/presentation/pages/settings_page.dart';
 import 'package:fittrack/features/exercise/presentation/pages/exercise_manage_page.dart';
 import 'package:fittrack/features/workout/presentation/pages/workout_stats_page.dart';
@@ -34,6 +37,13 @@ import 'package:fittrack/features/workout/presentation/pages/template_edit_page.
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+
+/// 页面可见性观察者。
+///
+/// 首页「从教练页返回时自动播一次动作」需要知道"我又回到前台了" ——
+/// 这不是 app 生命周期（App 一直在前台），而是**路由栈变化**，
+/// 只有 RouteObserver 能观察到（`didPopNext`）。
+final appRouteObserver = RouteObserver<PageRoute<dynamic>>();
 
 /// 统一的子页面过渡（底部滑入 + 淡入）
 Page<void> _subPageTransition(Widget child, GoRouterState state) {
@@ -63,6 +73,7 @@ Page<void> _subPageTransition(Widget child, GoRouterState state) {
 
 final appRouter = GoRouter(
   navigatorKey: navigatorKey,
+  observers: [appRouteObserver],
   initialLocation: '/',
   routes: [
     ShellRoute(
@@ -76,7 +87,7 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/workout',
           pageBuilder: (context, state) =>
-              _tabPage(const WorkoutListPage(), state),
+              _tabPage(const QuickStartPage(), state),
         ),
         GoRoute(
           path: '/trends',
@@ -89,10 +100,27 @@ final appRouter = GoRouter(
         ),
       ],
     ),
+    // 老路径保留并 redirect → /workout：首页「今日任务」、通知、AI 工具回执里
+    // 都可能还带着 /workout/quick-start，直接删会断链（用户点进去白屏）。
+    // 与 /settings/body-info、/goals 同惯例。
     GoRoute(
       path: '/workout/quick-start',
+      redirect: (_, __) => '/workout',
+    ),
+    // ⚠️ `/workout/records` 必须声明在 `/workout/:id` 之前：
+    //    go_router 按声明顺序匹配，写反了就会把 "records" 当成训练 id 解析 →
+    //    点「训练记录」进「无效的训练ID」。下面 stats / active / template-edit
+    //    都排在 :id 前面，新路由照此位置插入。
+    GoRoute(
+      path: '/workout/records',
       pageBuilder: (context, state) =>
-          _subPageTransition(const QuickStartPage(), state),
+          _subPageTransition(const WorkoutRecordsPage(), state),
+    ),
+    // 「记一笔」：先选模板 → 带出动作 → 填实际组次重 → 保存
+    GoRoute(
+      path: '/workout/log/new',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const WorkoutLogPage(), state),
     ),
     GoRoute(
       path: '/workout/custom',
@@ -122,6 +150,20 @@ final appRouter = GoRouter(
       path: '/workout/stats',
       pageBuilder: (context, state) =>
           _subPageTransition(const WorkoutStatsPage(), state),
+    ),
+    // 芯片「去开练」（无计划）的目标：顶层路由，push 能返回对话。
+    // 不能用底部 Tab /workout —— 从聊天这种顶层路由 push 一个 Shell 子路由
+    // 在真机上会白屏（本地空库测试复现不出）。
+    GoRoute(
+      path: '/workout/start',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const QuickStartPage(), state),
+    ),
+    // 芯片「看趋势」的目标：同上去壳化，push 能返回对话
+    GoRoute(
+      path: '/trends/view',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const TrendsPage(), state),
     ),
     GoRoute(
       path: '/workout/:id',
@@ -164,6 +206,14 @@ final appRouter = GoRouter(
       path: '/settings/profile',
       pageBuilder: (context, state) =>
           _subPageTransition(const ProfilePage(), state),
+    ),
+    // 「我的形象」：入口在「我的 → 我的档案」，语义是身份类设置，
+    // 和「个人档案」「身体相册」同一层。**不放教练设定下面** ——
+    // 那条路是「点角色 → 进聊天 → 右上角设置 → 往下滚」，3 层且语义错位。
+    GoRoute(
+      path: '/settings/character',
+      pageBuilder: (context, state) =>
+          _subPageTransition(const CharacterPage(), state),
     ),
     // 老入口保留并重定向：别处（AI 建议文案、旧通知等）可能还在跳这个路径，
     // 直接删会断链，用户点进去是白屏
@@ -289,9 +339,22 @@ Page<void> _tabPage(Widget child, GoRouterState state) {
 }
 
 /// 带底部导航的壳
-class ScaffoldWithNav extends StatelessWidget {
+///
+/// 只在四个一级 Tab（主控/训练/趋势/我的）出现；子页是壳外的独立路由，
+/// 返回键在子页上是正常 pop，回到壳之后才走下面的"双击退出"。
+class ScaffoldWithNav extends StatefulWidget {
   final Widget child;
   const ScaffoldWithNav({super.key, required this.child});
+
+  @override
+  State<ScaffoldWithNav> createState() => _ScaffoldWithNavState();
+}
+
+class _ScaffoldWithNavState extends State<ScaffoldWithNav> {
+  /// 上次按返回键的时刻；2 秒内再按一次才真正退出
+  DateTime? _lastBack;
+
+  static const _doublePressWindow = Duration(seconds: 2);
 
   int _currentIndex(String location) {
     if (location.startsWith('/workout')) return 1;
@@ -300,14 +363,39 @@ class ScaffoldWithNav extends StatelessWidget {
     return 0;
   }
 
+  void _onBackPressed() {
+    final now = DateTime.now();
+    if (_lastBack == null || now.difference(_lastBack!) > _doublePressWindow) {
+      _lastBack = now;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text('再按一次退出应用'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ));
+      return;
+    }
+    // 2 秒内第二次按返回 → 真正退出
+    SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     final index = _currentIndex(location);
 
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: NavigationBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        // didPop == true 说明这次返回被允许了（不会发生，因为 canPop=false）；
+        // 我们只处理"系统尝试返回但被拦下"的分支。
+        if (didPop) return;
+        _onBackPressed();
+      },
+      child: Scaffold(
+        body: widget.child,
+        bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) {
           final routes = ['/', '/workout', '/trends', '/profile'];
@@ -332,7 +420,8 @@ class ScaffoldWithNav extends StatelessWidget {
               icon: Icon(Icons.person_outline),
               selectedIcon: Icon(Icons.person),
               label: '我的'),
-        ],
+          ],
+        ),
       ),
     );
   }

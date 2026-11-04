@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
 import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
@@ -37,23 +37,23 @@ void main() {
   // ═══════════ 1. 工具集合 ═══════════
 
   group('start_workout 在工具集合里的位置', () {
-    test('25 个工具、唯一、写 19 + 只读 6 正好划分', () {
+    test('28 个工具、唯一、写 21 + 只读 7 正好划分', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(names, hasLength(25), reason: '21 → 24，总数要同步');
-      expect(names.toSet(), hasLength(25), reason: '工具名不能重复');
+      expect(names, hasLength(28), reason: '总数要同步');
+      expect(names.toSet(), hasLength(28), reason: '工具名不能重复');
       expect({...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools},
           names.toSet(),
           reason: '写 / 只读两集合必须正好划分已注册的工具');
-      expect(AiToolSpecs.writeTools, hasLength(19));
-      expect(AiToolSpecs.readOnlyTools, hasLength(6));
+      expect(AiToolSpecs.writeTools, hasLength(21));
+      expect(AiToolSpecs.readOnlyTools, hasLength(7));
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
     });
 
-    test('start_workout 是写工具但非危险；危险是 delete_records / delete_measurement / wipe_all_data', () {
+    test('start_workout 是写工具但非危险；危险是五个删除类', () {
       expect(AiToolSpecs.writeTools, contains(AiToolSpecs.startWorkout));
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.startWorkout), isFalse,
           reason: '要跳界面，不能自动执行');
@@ -64,6 +64,7 @@ void main() {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
             AiToolSpecs.deleteTemplate,
+            AiToolSpecs.deleteWorkout,
             AiToolSpecs.wipeAllData,
           });
     });

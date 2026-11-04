@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
-import 'package:fittrack/core/services/ai_service.dart';
-import 'package:fittrack/core/services/coach_memory_service.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
+import 'package:fittrack/features/ai/data/coach_memory_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_memory_flow.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
@@ -520,7 +520,9 @@ void main() {
                 required messages,
                 required onDelta,
                 double temperature = 0.9,
-                bool webEnabled = true,
+                bool searchEnabled = true,
+        bool fetchEnabled = true,
+                AiProvider? provider,
               }) async {
                 rounds++;
                 return const AiChatRoundResult(content: '知道了，注意别做深蹲');
@@ -564,7 +566,9 @@ void main() {
                 required messages,
                 required onDelta,
                 double temperature = 0.9,
-                bool webEnabled = true,
+                bool searchEnabled = true,
+        bool fetchEnabled = true,
+                AiProvider? provider,
               }) async =>
                   const AiChatRoundResult(content: '好的'),
             )),
@@ -602,7 +606,9 @@ void main() {
                 required messages,
                 required onDelta,
                 double temperature = 0.9,
-                bool webEnabled = true,
+                bool searchEnabled = true,
+        bool fetchEnabled = true,
+                AiProvider? provider,
               }) async =>
                   const AiChatRoundResult(content: '好的'),
             )),

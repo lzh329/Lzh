@@ -2,175 +2,21 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/cloud_voice_config.dart';
 import 'package:fittrack/core/services/countdown_controller.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
 import 'package:fittrack/core/services/notification_service.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
 
-// ───────────────────── 统一 Exercise 槽位模型 ─────────────────────
+import 'workout_session_state.dart';
 
-/// 统一的训练动作槽位，自由训练和计划训练共用
-class ExerciseSlot {
-  final int exerciseId;
-  final String exerciseName;
-  final String category;
-  final int targetSets;
-  final int? targetReps;
-  final double? targetWeightKg;
-  final int? targetDurationSec;
-  final int restSec;
-
-  const ExerciseSlot({
-    required this.exerciseId,
-    required this.exerciseName,
-    required this.category,
-    required this.targetSets,
-    this.targetReps,
-    this.targetWeightKg,
-    this.targetDurationSec,
-    this.restSec = 90,
-  });
-}
-
-// ───────────────────── 状态 ─────────────────────
-
-class WorkoutSessionState {
-  final List<ExerciseSlot> slots;
-  final int currentSlotIndex;
-  final int currentSetIndex;
-  final List<NewSetData> completedSets;
-
-  // 休息计时器
-  final int restSeconds;
-  final int restDurationSec;
-  final bool isResting;
-
-  // 训练计时器
-  final int trainingSeconds;
-  final int trainingDurationSec;
-  final bool isTraining;
-
-  final bool isAutoMode;
-  final bool isComplete;
-  final int paceIntervalSec;
-
-  /// 循环训练：当前轮次（1 基）与总轮数
-  final int currentRound;
-  final int totalRounds;
-
-  /// 循环训练休息节奏：动作间短休息 / 轮间长休息（秒）
-  final int restShortSec;
-  final int restLongSec;
-
-  final String sessionType; // 'free' | 'plan'
-  final int? planId;
-  final DateTime? startTime;
-
-  // 上一组输入值，供下一组预填
-  final String? lastReps;
-  final String? lastWeight;
-  final String? lastDuration;
-
-  const WorkoutSessionState({
-    this.slots = const [],
-    this.currentSlotIndex = 0,
-    this.currentSetIndex = 0,
-    this.completedSets = const [],
-    this.restSeconds = 0,
-    this.restDurationSec = 90,
-    this.isResting = false,
-    this.trainingSeconds = 0,
-    this.trainingDurationSec = 60,
-    this.isTraining = false,
-    this.isAutoMode = false,
-    this.isComplete = false,
-    this.paceIntervalSec = 2,
-    this.currentRound = 1,
-    this.totalRounds = 4,
-    this.restShortSec = 15,
-    this.restLongSec = 60,
-    this.sessionType = 'free',
-    this.planId,
-    this.startTime,
-    this.lastReps,
-    this.lastWeight,
-    this.lastDuration,
-  });
-
-  WorkoutSessionState copyWith({
-    List<ExerciseSlot>? slots,
-    int? currentSlotIndex,
-    int? currentSetIndex,
-    List<NewSetData>? completedSets,
-    int? restSeconds,
-    int? restDurationSec,
-    bool? isResting,
-    int? trainingSeconds,
-    int? trainingDurationSec,
-    bool? isTraining,
-    bool? isAutoMode,
-    bool? isComplete,
-    int? paceIntervalSec,
-    int? currentRound,
-    int? totalRounds,
-    int? restShortSec,
-    int? restLongSec,
-    String? sessionType,
-    int? planId,
-    DateTime? startTime,
-    String? lastReps,
-    String? lastWeight,
-    String? lastDuration,
-    bool clearLastReps = false,
-    bool clearLastWeight = false,
-    bool clearLastDuration = false,
-  }) {
-    return WorkoutSessionState(
-      slots: slots ?? this.slots,
-      currentSlotIndex: currentSlotIndex ?? this.currentSlotIndex,
-      currentSetIndex: currentSetIndex ?? this.currentSetIndex,
-      completedSets: completedSets ?? this.completedSets,
-      restSeconds: restSeconds ?? this.restSeconds,
-      restDurationSec: restDurationSec ?? this.restDurationSec,
-      isResting: isResting ?? this.isResting,
-      trainingSeconds: trainingSeconds ?? this.trainingSeconds,
-      trainingDurationSec: trainingDurationSec ?? this.trainingDurationSec,
-      isTraining: isTraining ?? this.isTraining,
-      isAutoMode: isAutoMode ?? this.isAutoMode,
-      isComplete: isComplete ?? this.isComplete,
-      paceIntervalSec: paceIntervalSec ?? this.paceIntervalSec,
-      currentRound: currentRound ?? this.currentRound,
-      totalRounds: totalRounds ?? this.totalRounds,
-      restShortSec: restShortSec ?? this.restShortSec,
-      restLongSec: restLongSec ?? this.restLongSec,
-      sessionType: sessionType ?? this.sessionType,
-      planId: planId ?? this.planId,
-      startTime: startTime ?? this.startTime,
-      lastReps: clearLastReps ? null : (lastReps ?? this.lastReps),
-      lastWeight: clearLastWeight ? null : (lastWeight ?? this.lastWeight),
-      lastDuration:
-          clearLastDuration ? null : (lastDuration ?? this.lastDuration),
-    );
-  }
-
-  // ── 便捷 getter ──
-  ExerciseSlot? get currentSlot =>
-      currentSlotIndex < slots.length ? slots[currentSlotIndex] : null;
-  bool get isLastSetOfCurrentSlot => currentRound >= totalRounds && isLastSlot;
-  bool get isLastSlot => currentSlotIndex >= slots.length - 1;
-
-  /// 循环模式：本轮内动作进度（1 基 / 总数）
-  int get roundActionIndex => currentSlotIndex + 1;
-
-  /// 轮数：取各动作目标组数的最大值
-  int roundsOf(List<ExerciseSlot> slots) {
-    if (slots.isEmpty) return 1;
-    return slots.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b);
-  }
-}
+// 状态模型已下沉到 workout_session_state.dart；这里 export 一次，
+// 老代码 `import 'workout_session_notifier.dart'` 拿 ExerciseSlot /
+// WorkoutSessionState 的地方全部不用改（零涟漪）。
+export 'workout_session_state.dart';
 
 // ───────────────────── Notifier ─────────────────────
 
@@ -304,6 +150,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       pitch: s?.speechPitch ?? 1.0,
       voiceName: s?.ttsVoice,
     );
+    // 云端音色：没配 Key / 选了系统音色 → applyTo 内部会关掉云端，
+    // 后面的播报自动走系统 TTS（训练播报不能哑）
+    CloudVoiceConfig.fromJsonString(s?.ttsConfig).applyTo(_coach);
+    // 预热倒计时短语：让「3/2/1」等 tick 时瞬时播放、跟读秒同步
+    _coach.prewarmCountdown();
     _coachEnabled = (s?.speechRate ?? 0.45) > 0;
     _coach.enabled = _coachEnabled;
   }
@@ -592,13 +443,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   /// 休息每秒回调
   ///
-  /// 原先每秒都 speak 一次，TTS 队列严重堆积（播报落后数秒、休息结束后仍在念数字）。
-  /// 现在只在关键节点用 [WorkoutCoach.speakImmediate] 播报，其余秒静默。
+  /// 只在最后 3 秒念「3 / 2 / 1」，其余秒静默。原先每秒都 speak 一次，
+  /// 云端 TTS 有合成延迟，每秒打断 → 数字念不全、还越念越滞后（跟读秒不同步）。
   void _onRestTick() {
     final next = state.restSeconds - 1;
     state = state.copyWith(restSeconds: next);
-    // 全程播报（speakImmediate 打断式，保证不排队积压）
-    if (_coachEnabled && next > 0) {
+    if (_coachEnabled && next >= 1 && next <= 3) {
       _coach.speakImmediate('$next');
     }
     if (next % 5 == 0) _syncOngoing();
@@ -663,12 +513,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _startTraining();
   }
 
-  /// 训练每秒回调：仅在最后 5 秒做关键播报，避免 TTS 队列堆积
+  /// 训练每秒回调：只在最后 3 秒念「3 / 2 / 1」，其余秒静默
+  /// （同休息计时：每秒都念会互相打断、不同步）
   void _onTrainingTick() {
     final next = state.trainingSeconds - 1;
     state = state.copyWith(trainingSeconds: next);
-    // 开场"动作名，开始"占约 2 秒 → 前 3 秒静默，避免与 59/58 播报重叠
-    if (_coachEnabled && next > 0 && next <= _trainingTotal - 3) {
+    if (_coachEnabled && next >= 1 && next <= 3) {
       _coach.speakImmediate('$next');
     }
     if (next % 5 == 0) _syncOngoing();

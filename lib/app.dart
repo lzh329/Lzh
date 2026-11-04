@@ -12,8 +12,8 @@ import 'core/providers.dart';
 import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/database/db_replaced_marker.dart';
 import 'core/services/database_resolver.dart';
-import 'core/services/reminder_scheduler.dart';
-import 'core/services/coach_proactive_providers.dart';
+import 'features/plan/data/reminder_scheduler.dart';
+import 'features/ai/data/coach_proactive_providers.dart';
 import 'core/services/auto_backup_service.dart';
 
 class FitTrackApp extends ConsumerStatefulWidget {

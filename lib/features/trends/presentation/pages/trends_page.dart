@@ -42,7 +42,9 @@ class TrendsPage extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
             children: [
-              CompanionCard(totalLossJin: d.totalLossJin),
+              // 角色/形态由 `currentCharacterProvider` 提供（唯一渲染口径），
+              // 页面不再自己算累计减重 → 不会再出现"两套口径各算一遍"
+              const CompanionCard(),
               GoalProgressCard(data: d),
               WeightTimelineCard(data: d),
               WeightChartCard(metrics: d.metrics),

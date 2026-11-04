@@ -14,6 +14,8 @@ import 'package:fittrack/features/settings/domain/entities/user_settings_entity.
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
 import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart';
+import 'package:fittrack/features/workout/domain/workout_log_draft.dart';
+import 'package:fittrack/features/workout/presentation/widgets/workout_repeat_button.dart';
 
 const _amber = AppColors.warning;
 const _purple = AppColors.analysis;
@@ -110,6 +112,12 @@ class WorkoutDetailPage extends ConsumerWidget {
                             _Badge(
                                 text: _fmt(workout.durationSec!),
                                 color: _amber),
+                          // 补记（type == 'log'）：只显示用户向文案「补记」，
+                          // 绝不把内部值 log/free/plan 漏到界面上
+                          if (workout.type == WorkoutLogDraft.workoutType)
+                            const _Badge(
+                                text: WorkoutLogDraft.typeLabel,
+                                color: AppColors.infoStrong),
                         ],
                       ),
                       if (workout.note != null && workout.note!.isNotEmpty) ...[
@@ -299,6 +307,11 @@ class WorkoutDetailPage extends ConsumerWidget {
                   },
                 );
               }),
+              // 末尾：「再练一次」（T15）。放全宽按钮而不是卡片上的图标 ——
+              // 卡片整块已经是"进详情"的热区，两个右向元素指向两个行为会点错。
+              const SizedBox(height: 8),
+              WorkoutRepeatButton(workout: workout),
+              const SizedBox(height: 4),
             ],
           );
         },

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';

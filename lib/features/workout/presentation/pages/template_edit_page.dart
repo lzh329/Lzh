@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_template_repository.dart';
-import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart';
 import 'package:fittrack/features/workout/presentation/widgets/exercise_item_editor.dart';
 import 'package:fittrack/features/workout/presentation/widgets/exercise_picker_sheet.dart';
 import 'package:fittrack/features/workout/presentation/widgets/template_edit_item.dart';

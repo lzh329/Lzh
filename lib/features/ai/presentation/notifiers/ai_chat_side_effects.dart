@@ -3,50 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';
-import 'package:fittrack/features/workout/presentation/pages/quick_start_page.dart'
-    show workoutTemplatesProvider;
 
-/// AI 写库后的副作用：刷新首页 / 趋势 / 目标 / 身体信息 / 动作库 / 模板
+/// AI 写库后的副作用：**统一刷新一组核心视图**。
+///
+/// 为什么不再按工具名逐个 `if`：历史上每加一个写工具都要记得补一条
+/// `invalidate`，漏一次就出"记了看不到"的 bug（`log_workout` → 记录页
+/// 不刷新，就是漏掉的那次）。本地 SQLite 查询很便宜，宁可多刷一组，
+/// 也不让以后新增的写工具再踩同一个坑。
 void applyAiToolSideEffects(Ref ref, AiToolCall call) {
+  // 首页 / 趋势 / 目标 / 设置 / 训练记录 / 模板 / 动作库 / 身体记录
+  // （后两个是"页面直接 watch 仓储"的数据源，重建后按新数据重新拉取）
   ref.invalidate(dashboardDataProvider);
   ref.invalidate(trendsDataProvider);
   ref.invalidate(goalListProvider);
   ref.invalidate(userSettingsProvider);
+  ref.invalidate(workoutHistoryProvider);
+  ref.invalidate(workoutTemplatesProvider);
+  ref.invalidate(exerciseRepoProvider);
+  ref.invalidate(bodyMetricRepoProvider);
+
+  // 提醒开关：内存态要跟设置页实时对齐（不只是重查）
   if (call.name == AiToolSpecs.setReminder) {
     syncReminderState(ref, call.arguments);
   }
-  if (call.name == AiToolSpecs.createExercise ||
-      call.name == AiToolSpecs.createExercises) {
-    // 动作库列表页直接 watch 仓储，重建后按新数据重新拉取
-    ref.invalidate(exerciseRepoProvider);
-  }
-  if (call.name == AiToolSpecs.updateMeasurement ||
-      call.name == AiToolSpecs.deleteMeasurement) {
-    // 身体记录列表页直接 watch bodyMetricRepoProvider，重建后按新数据拉取
-    ref.invalidate(bodyMetricRepoProvider);
-  }
+
+  // 清空全部数据：聊天记录也要失效（否则还能看到已删的对话）
   if (call.name == AiToolSpecs.wipeAllData) {
-    // 清空全部数据：核心 provider 全量 invalidate（不是只刷几个页面，
-    // 否则会留旧数据），内存态归位。清单与「设置 → 清除所有数据」保持逐项一致。
-    ref.invalidate(dashboardDataProvider);
-    ref.invalidate(trendsDataProvider);
-    ref.invalidate(goalListProvider);
-    ref.invalidate(userSettingsProvider);
-    ref.invalidate(exerciseRepoProvider);
-    ref.invalidate(workoutTemplatesProvider);
     ref.invalidate(aiChatRepoProvider);
-    // 训练历史是页面级缓存（非 autoDispose），不失效的话清完还能看到已删的训练
-    ref.invalidate(workoutHistoryProvider);
     ref.read(reminderEnabledProvider.notifier).state = false;
-  }
-  if (call.name == AiToolSpecs.deleteTemplate) {
-    ref.invalidate(workoutTemplatesProvider);
-  }
-  if (call.name == AiToolSpecs.createTemplate) {
-    // create_template 可能顺手新建了缺失动作（create_missing_exercises），
-    // 所以动作库与训练页「模板」分段两个数据源都要刷新
-    ref.invalidate(exerciseRepoProvider);
-    ref.invalidate(workoutTemplatesProvider);
   }
 }
 

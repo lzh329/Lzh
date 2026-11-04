@@ -1,0 +1,153 @@
+%% 三角色形象系统 P0 —— 类图
+%% 来源：docs/design/CHARACTERS-P0-ARCH.md §1.1
+%% 说明：CharacterCatalog.resolve() 是全 App 唯一的渲染口径纯函数；
+%%      CharacterRenderSpec 是唯一的渲染输入；GugaLevelService 被复用取阈值，不重写。
+
+classDiagram
+    class CharacterId {
+        <<enumeration>>
+        guga
+        nuonuo
+        phoebe
+        +String wire
+        +parse(String raw) CharacterId
+        +tryParse(String raw) CharacterId?
+    }
+
+    class CharacterFormSpec {
+        +int form
+        +String displayName
+        +double minLossJin
+        +String? imageAsset
+        +String? headAsset
+        +String? bodyAsset
+        +bool get hasSplit
+        +bool get hasImage
+    }
+
+    class CharacterDef {
+        +CharacterId id
+        +String name
+        +String cardTagline
+        +Color accent
+        +List~CharacterFormSpec~ forms
+        +Map linesByTier
+        +String introLine
+        +String? formUpLine
+        +int get maxForm
+        +formSpec(int form)
+        +formForLoss(double lossJin)
+        +tierForLoss(double lossJin)
+        +remainToNextJin(double lossJin)
+        +nextFormName(double lossJin)
+    }
+
+    class CharacterRenderSpec {
+        +CharacterId id
+        +String name
+        +int form
+        +int lineTier
+        +String formName
+        +String? imageAsset
+        +String? headAsset
+        +String? bodyAsset
+        +String rivPath
+        +List~String~ linePool
+        +double historyMaxLossJin
+        +double? remainToNextJin
+        +String? nextFormName
+        +Color accent
+        +String introLine
+        +String? formUpLine
+        +bool get hasSplit
+        +bool get isMaxForm
+    }
+
+    class CharacterCatalog {
+        <<abstract final>>
+        +List~CharacterDef~ all$
+        +CharacterRenderSpec fallback$
+        +defOf(id) CharacterDef$
+        +resolve(rawId, historyMaxLossJin) CharacterRenderSpec$
+    }
+
+    class CharacterLoss {
+        <<abstract final>>
+        +of(weightsJinAsc) LossSnapshot$
+    }
+
+    class LossSnapshot {
+        +double? startJin
+        +double? minJin
+        +double? currentJin
+        +double historyMaxLossJin
+        +double currentLossJin
+    }
+
+    class CharacterPromptLine {
+        <<abstract final>>
+        +of(spec) String$
+    }
+
+    class CharacterSelection {
+        +select(CharacterId id)
+    }
+
+    class GugaLevelService {
+        <<abstract final>>
+        +resolve(totalLossJin) GugaStatus$
+    }
+
+    class CharacterProceduralView {
+        +CharacterRenderSpec spec
+        +double height
+        +bool forceSingleImage
+    }
+
+    class RiveCharacterAdapter {
+        +preflight(String rivPath)
+        +int liveControllerCount$
+        +dispose() void
+    }
+
+    class CharacterView {
+        +CharacterRenderSpec spec
+        +double height
+        +String line
+        +bool isChatEntry
+        +VoidCallback? onTap
+        +VoidCallback? onBubbleTap
+        +VoidCallback? onLongPress
+        +bool forceProcedural
+        +CharacterRenderMode get mode
+    }
+
+    class WeekSummaryCalc {
+        <<abstract final>>
+        +of(workoutDates, now) WeekSummary$
+    }
+
+    class WeekSummary {
+        +int weekCount
+        +int weekMinutes
+        +int streakWeeks
+    }
+
+    class WorkoutRepeat {
+        <<abstract final>>
+        +slotsOf(workout, exerciseNames, exerciseCategories) List~ExerciseSlot~$
+    }
+
+    CharacterDef "1" *-- "1..3" CharacterFormSpec : forms
+    CharacterCatalog "1" --> "*" CharacterDef : all
+    CharacterCatalog ..> CharacterRenderSpec : resolve()
+    CharacterRenderSpec ..> CharacterId : id
+    CharacterLoss ..> LossSnapshot : of()
+    CharacterCatalog ..> GugaLevelService : 复用 0/2/5 阈值
+    CharacterView --> CharacterRenderSpec : 唯一渲染依据
+    CharacterView *-- CharacterProceduralView : 常驻图层（永不卸载）
+    CharacterView *-- RiveCharacterAdapter : 预检 / 降级
+    CharacterSelection ..> CharacterId : 写入枚举（禁 String）
+    CharacterPromptLine ..> CharacterRenderSpec : 读取 name
+    WeekSummaryCalc ..> WeekSummary : of()
+    WorkoutRepeat ..> WorkoutEntity : 只读 sets

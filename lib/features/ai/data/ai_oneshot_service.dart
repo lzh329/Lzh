@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 
 /// 「问一句、拿一段」的轻量模型调用的唯一入口。
 ///

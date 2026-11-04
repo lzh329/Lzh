@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart'
+    show NewSetData;
 
 /// 记录类写操作：log_weight / log_water / log_food / log_workout / log_measurements
 class AiToolWriters extends AiToolHandler {
@@ -16,6 +18,7 @@ class AiToolWriters extends AiToolHandler {
         AiToolSpecs.logFood,
         AiToolSpecs.logWorkout,
         AiToolSpecs.logMeasurements,
+        AiToolSpecs.updateWorkout,
       };
 
   @override
@@ -61,10 +64,25 @@ class AiToolWriters extends AiToolHandler {
         final type = AiToolArgs.workoutType(args);
         final minutes = AiToolArgs.minutes(args);
         final note = AiToolArgs.workoutNote(args);
+        final exCount = AiToolArgs.workoutExercises(args).length;
         return AiToolPreview(
           call: call,
           label: '记录训练',
-          detail: '$type训练 · $minutes 分钟${note != null ? ' · $note' : ''}',
+          detail: '$type训练 · $minutes 分钟'
+              '${exCount > 0 ? ' · $exCount 个动作' : ''}'
+              '${note != null ? ' · $note' : ''}',
+          needsConfirm: true,
+        );
+
+      case AiToolSpecs.updateWorkout:
+        final id = AiToolArgs.workoutId(call.arguments);
+        final minutes = AiToolArgs.optionalMinutes(call.arguments);
+        final exCount = AiToolArgs.workoutExercises(call.arguments).length;
+        return AiToolPreview(
+          call: call,
+          label: '修改训练记录',
+          detail: '#$id${exCount > 0 ? ' · $exCount 个动作' : ''}'
+              '${minutes != null ? ' · 时长 $minutes 分钟' : ''}',
           needsConfirm: true,
         );
 
@@ -103,6 +121,8 @@ class AiToolWriters extends AiToolHandler {
         return _logWorkout(call);
       case AiToolSpecs.logMeasurements:
         return _logMeasurements(call);
+      case AiToolSpecs.updateWorkout:
+        return _updateWorkout(call);
       default:
         unsupported(call);
     }
@@ -185,20 +205,91 @@ class AiToolWriters extends AiToolHandler {
     final type = AiToolArgs.workoutType(args);
     final minutes = AiToolArgs.minutes(args);
     final note = AiToolArgs.workoutNote(args);
-    final now = DateTime.now();
-    await repos.workout.createWorkout(
-      date: now,
+    final date = AiToolArgs.date(args);
+    final sets = await _resolveSets(AiToolArgs.workoutExercises(args));
+    final w = await repos.workout.createWorkout(
+      date: date,
       type: type,
       note: note ?? _aiNote,
       durationSec: minutes * 60,
-      sets: const [],
+      sets: sets,
     );
     return jsonEncode({
       'ok': true,
+      'workout_id': w.id,
       'type': type,
       'minutes': minutes,
-      'date': AiToolFormat.ymd(now),
+      'date': AiToolFormat.ymd(date),
+      'exercise_count': sets.map((s) => s.exerciseId).toSet().length,
     });
+  }
+
+  /// 修改一条训练记录（按 id）：整体替换动作清单，备注可留空保留原值
+  Future<String> _updateWorkout(AiToolCall call) async {
+    final args = call.arguments;
+    final id = AiToolArgs.workoutId(args);
+    final note = AiToolArgs.workoutNote(args);
+    // 可选：模型只在用户明确要改时长时才传（不传 = 时长保持不变）
+    final minutes = AiToolArgs.optionalMinutes(args);
+    // 「没给动作」和「给了空数组」都当成**不动动作清单**：
+    // 只改时长/备注是最常见的用法，而"0 个动作的训练"没有业务意义
+    // （真要删整条记录请用 delete_workout）。
+    final inputs = AiToolArgs.workoutExercises(args);
+    final sets = inputs.isEmpty ? null : await _resolveSets(inputs);
+    final existing = await repos.workout.getById(id);
+    if (existing == null) {
+      throw const AiToolException('没找到这条训练记录，先用 query_workouts 查一下 id');
+    }
+    await repos.workout.updateWorkout(
+      id: id,
+      note: note,
+      durationSec: minutes == null ? null : minutes * 60,
+      sets: sets,
+    );
+    // 回执里给"现在的时长/动作数"（改了就是新值，没改就是原值），模型据此复述
+    final durationMinutes = minutes ??
+        (existing.durationSec == null ? null : existing.durationSec! ~/ 60);
+    final exerciseCount = sets == null
+        ? existing.sets.map((s) => s.exerciseId).toSet().length
+        : sets.map((s) => s.exerciseId).toSet().length;
+    return jsonEncode({
+      'ok': true,
+      'workout_id': id,
+      'exercise_count': exerciseCount,
+      'duration_minutes': durationMinutes,
+    });
+  }
+
+  /// 动作名 → id 映射，展开成 N 条 set（与「记一笔」同口径：一行动作 = N 组 × 组次重）
+  ///
+  /// 名字不在动作库 → 抛错，让模型先 query_exercises；不给动作则返回空列表
+  /// （兼容"只记时长"的旧调用）。
+  Future<List<NewSetData>> _resolveSets(
+      List<AiWorkoutExerciseInput> inputs) async {
+    if (inputs.isEmpty) return const [];
+    final all = await repos.exercise.getAll();
+    final byName = {
+      for (final e in all) e.name.trim().toLowerCase(): e,
+    };
+    final sets = <NewSetData>[];
+    for (final input in inputs) {
+      final ex = byName[input.name.toLowerCase()];
+      if (ex == null) {
+        throw AiToolException('动作「${input.name}」不在动作库，先用 query_exercises 查一下');
+      }
+      final timed = ex.category == 'cardio' || ex.category == 'stretch';
+      for (var i = 1; i <= input.sets; i++) {
+        sets.add(NewSetData(
+          exerciseId: ex.id,
+          setNumber: i,
+          reps: timed ? null : input.reps,
+          weightKg: timed ? null : input.weightKg,
+          durationSec: timed ? ex.defaultDurationSec : null,
+          isWarmup: false,
+        ));
+      }
+    }
+    return sets;
   }
 
   /// 围度记录：体重缺省时取最新一次体重（没有体重记录则要求先记体重）

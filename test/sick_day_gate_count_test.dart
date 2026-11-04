@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/database/daily_override_repository.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
 import 'package:fittrack/features/settings/data/user_settings_repository_impl.dart';
 
 /// 计数写入必失败的仓储 —— 用来证明「计数挂了也要把用户放出来」。

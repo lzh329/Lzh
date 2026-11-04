@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiMessage;
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 
 /// 一次对话里的工具上下文（assistant tool_calls + tool 结果），仅内存保存

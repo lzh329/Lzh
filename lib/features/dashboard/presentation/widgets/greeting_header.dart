@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 
-/// 首页问候区 —— 咕嘎头像 + 时间段问候 + 日期 + 连续打卡徽章（非卡片，直接排版）
+/// 首页问候区 —— 角色小头像 + 时间段问候 + 日期 + 连续打卡徽章（非卡片，直接排版）
 class GreetingHeader extends StatelessWidget {
   final int streakDays;
 
-  /// 咕嘎立绘（传入后显示圆形头像）
+  /// 当前角色立绘（传入后显示圆形头像；路径只来自注册表）
   final String? avatarAsset;
 
-  /// 当前咕嘎形态名（拼接在问候语后，如"晚上好，肥咕嘎"）
-  final String? gugaName;
+  /// 当前**角色名**（如「糯糯」）。**不带形态名** ——
+  /// 「晚上好，糯糯（蓝发版）」在中文里读不通，还会把问候语挤成两行（C19）。
+  final String? characterName;
 
-  /// 用户自定义昵称（null / 空串 = 没设 → 回落咕嘎形态名）
+  /// 用户自定义昵称（null / 空串 = 没设 → 回落角色名）
   final String? nickname;
 
   /// 距升级提示（如"距升级 12.0 斤"）
@@ -22,7 +23,7 @@ class GreetingHeader extends StatelessWidget {
     super.key,
     this.streakDays = 0,
     this.avatarAsset,
-    this.gugaName,
+    this.characterName,
     this.nickname,
     this.upgradeHint,
   });
@@ -80,14 +81,14 @@ class GreetingHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                // 称呼优先级：昵称 → 咕嘎形态名 → 什么都不加。
+                // 称呼优先级：昵称 → 角色名 → 什么都不加。
                 // 三处都可能为空，所以拼之前必须过滤空串，
                 // 否则会出现「下午好，」这种空尾（或更糟的「下午好，null」）。
-                greetingWithName(greetingOf(now), nickname ?? gugaName),
+                greetingWithName(greetingOf(now), nickname ?? characterName),
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w600),
-                // 带上咕嘎形态名（如"你好呀，小嘎 · 新手"）可能超一行，
-                // 放宽到 2 行：截断成"你好呀，小…"比换行更伤
+                // 带上角色名（「晚上好，糯糯」）一般一行够；昵称很长时放宽到
+                // 2 行：截断成"你好呀，小…"比换行更伤
                 maxLines: 2,
               ),
               const SizedBox(height: 3),
@@ -95,8 +96,6 @@ class GreetingHeader extends StatelessWidget {
                 upgradeHint != null ? '$dateLabel · $upgradeHint' : dateLabel,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: AppColors.textTertiary),
-                // 带上咕嘎形态名（如"你好呀，小嘎 · 新手"）可能超一行，
-                // 放宽到 2 行：截断成"你好呀，小…"比换行更伤
                 maxLines: 2,
               ),
             ],

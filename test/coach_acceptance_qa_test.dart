@@ -13,16 +13,16 @@ import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/database/daily_override_repository.dart';
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_service.dart';
-import 'package:fittrack/core/services/coach_memory_service.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
-import 'package:fittrack/core/services/coach_proactive_scheduler.dart';
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
-import 'package:fittrack/core/services/coach_weekly_template.dart';
-import 'package:fittrack/core/services/coach_workout_recap.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
+import 'package:fittrack/features/ai/data/coach_memory_service.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_scheduler.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_template.dart';
+import 'package:fittrack/features/ai/data/coach_workout_recap.dart';
 import 'package:fittrack/core/services/data_wipe_service.dart';
-import 'package:fittrack/core/services/reminder_scheduler.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/features/plan/data/reminder_scheduler.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 import 'package:fittrack/features/ai/data/coach_chip_service.dart';
 import 'package:fittrack/features/ai/data/coach_memory_extractor.dart';
@@ -86,7 +86,7 @@ void main() {
         db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
         // 打开即触发 onUpgrade：这里抛异常就是"启动即死"
         await db.customSelect('SELECT 1').get();
-        expect(await _userVersion(db), 24);
+        expect(await _userVersion(db), kSchemaVersion);
         expect(await _tableNames(db),
             containsAll(['coach_memories', 'coach_proactive_messages']));
         // chips 列仍然加上（ai_chat_messages 在）
@@ -112,7 +112,7 @@ void main() {
       try {
         db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
         await db.customSelect('SELECT 1').get();
-        expect(await _userVersion(db), 24);
+        expect(await _userVersion(db), kSchemaVersion);
         expect(await _columns(db, 'user_settings'),
             containsAll(['coach_memory_enabled', 'coach_proactive_enabled']));
       } finally {
@@ -807,7 +807,7 @@ void main() {
       );
     });
 
-    testWidgets('D-18：计划被删后点「去开练」→ 落 /workout/quick-start（不白屏）',
+    testWidgets('D-18：计划被删后点「去开练」→ 落 /workout/start（不白屏）',
         (tester) async {
       String? location;
       final router = GoRouter(
@@ -828,10 +828,10 @@ void main() {
             ),
           ),
           GoRoute(
-            path: '/workout/quick-start',
+            path: '/workout/start',
             builder: (c, s) {
               location = s.uri.toString();
-              return const Scaffold(body: Text('快速开始'));
+              return const Scaffold(body: Text('训练页'));
             },
           ),
         ],
@@ -852,9 +852,9 @@ void main() {
 
       await tester.tap(find.text('tap'));
       await tester.pumpAndSettle();
-      expect(location, '/workout/quick-start',
-          reason: '芯片只存 key，落点在点击那一刻解析 → 计划被删也不白屏');
-      expect(find.text('快速开始'), findsOneWidget);
+      expect(location, '/workout/start',
+          reason: '无计划时「去开练」应 push 顶层路由 /workout/start（不能 push 底部 Tab 导致白屏）');
+      expect(find.text('训练页'), findsOneWidget);
     });
 
     testWidgets('D-19 / C-6 / C-7：`chips` 为 NULL 的历史消息正常渲染、不崩、不画芯片',
@@ -1099,11 +1099,11 @@ void main() {
           1);
     });
 
-    test('E-21 / P-2：工具清单与安全闸门一字未改（25 / 19 写 / 6 只读 / 4 危险）', () {
-      expect(AiToolSpecs.defs.length, 25, reason: '与基线一致：本期不新增任何工具');
-      expect(AiToolSpecs.writeTools.length, 19);
-      expect(AiToolSpecs.readOnlyTools.length, 6);
-      expect(AiToolSpecs.destructiveTools.length, 4);
+    test('E-21 / P-2：工具清单与安全闸门（28 / 21 写 / 7 只读 / 5 危险）', () {
+      expect(AiToolSpecs.defs.length, 28, reason: '基线 25 + 训练记录增删改查 3 个');
+      expect(AiToolSpecs.writeTools.length, 21);
+      expect(AiToolSpecs.readOnlyTools.length, 7);
+      expect(AiToolSpecs.destructiveTools.length, 5);
       expect(AiToolLimits.maxCallsPerRound, 8, reason: 'maxCallsPerRound 未动');
       // 写操作仍逐次确认：写集合与只读集合不相交，且 start_workout 在写集合里
       expect(
@@ -1176,7 +1176,7 @@ void main() {
       try {
         db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
         await db.customSelect('SELECT 1').get();
-        expect(await _userVersion(db), 24);
+        expect(await _userVersion(db), kSchemaVersion);
         // 缺的那部分必须补齐
         expect(await _columns(db, 'user_settings'),
             containsAll(['coach_memory_enabled', 'coach_proactive_enabled']));
@@ -1254,7 +1254,9 @@ void main() {
                 required messages,
                 required onDelta,
                 double temperature = 0.9,
-                bool webEnabled = true,
+                bool searchEnabled = true,
+        bool fetchEnabled = true,
+                AiProvider? provider,
               }) async {
                 systemPrompt = messages.first.content as String;
                 return const AiChatRoundResult(content: '好的，注意别深蹲');

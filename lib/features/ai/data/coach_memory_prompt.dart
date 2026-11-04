@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/domain/coach_memory.dart';
 
 /// 记忆抽取的提示词（独立文件，不碰对话用的四层结构）。

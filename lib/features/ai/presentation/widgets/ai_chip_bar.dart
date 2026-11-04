@@ -13,7 +13,8 @@ import 'package:fittrack/features/ai/domain/coach_chip.dart';
 class AiChipBar extends StatelessWidget {
   final List<CoachChip> chips;
 
-  /// 本次会话内已点过的 key（C9：置灰不落库，重启复活）
+  /// 保留参数仅为兼容旧调用，不再用于置灰 —— 用户反馈「点一次就点不了」，
+  /// 芯片是快捷入口不是对话轮次，跳转后回来自当还能再点。
   final Set<String> usedKeys;
   final void Function(CoachChip chip)? onTap;
 
@@ -47,9 +48,9 @@ class AiChipBar extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               backgroundColor: AppColors.background,
               side: const BorderSide(color: AppColors.border),
-              // 点过即置灰：芯片是快捷键，不是对话轮次，不能反复触发
-              onPressed:
-                  usedKeys.contains(chip.key) ? null : () => onTap?.call(chip),
+              // 芯片是快捷键，始终可点：跳转后用户回来还能再点同一个入口
+              // （「记体重」「记饮食」本来就是可重复进入的操作）。
+              onPressed: () => onTap?.call(chip),
             ),
         ],
       ),
@@ -74,8 +75,10 @@ Future<void> openCoachChip(
       final plans = await ref.read(planRepoProvider).getAll();
       final active = plans.where((p) => p.isActive).toList();
       if (!context.mounted) return;
+      // 用 push（返回键能回对话）+ 顶层路由（push 底部 Tab 会白屏）：
+      // 无计划 → /workout/start（去壳化的训练页）；有计划 → /plan/:id/execute。
       context.push(active.isEmpty
-          ? '/workout/quick-start'
+          ? '/workout/start'
           : '/plan/${active.first.id}/execute');
     case 'log_weight':
       // focus=weight：进页面就把焦点落到体重输入框
@@ -84,15 +87,20 @@ Future<void> openCoachChip(
       // add=1：进页面直接弹录入
       context.push('/diet?add=1');
     case 'set_reminder':
-      // 设置页是 ListView，没有锚点机制；做"滚动到提醒区"要跨页传 GlobalKey
-      // （脆、难测、收益是一句提示）。P0 落成"进设置页 + 一句提示"。
-      context.push('/profile');
+      // /settings 是顶层路由（与底部 Tab /profile 同一页面），push 能返回对话
+      context.push('/settings');
       ScaffoldMessenger.maybeOf(context)
         ?..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(content: Text('在「每日提醒」里改时间与开关')),
         );
     case 'open_trends':
-      context.push('/trends');
+      context.push('/trends/view');
+    case 'view_workout':
+      // 跳到刚补记/改的那条训练记录详情；payload 是 workout_id（自增主键）。
+      // 路由是路径参数 `/workout/:id`，不是 query（`/workout/detail?id=` 会 404）。
+      final id = chip.payload;
+      if (id == null || id.isEmpty) return;
+      context.push('/workout/$id');
   }
 }

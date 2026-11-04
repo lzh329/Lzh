@@ -4,8 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
+import 'package:fittrack/core/services/character_catalog.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'fake_database.dart';
 import 'package:fittrack/features/ai/data/ai_tool_admin_writers.dart';
 import 'package:fittrack/features/ai/data/ai_tool_body_writers.dart';
@@ -642,12 +643,13 @@ void main() {
       expect(() => AiToolArgs.recordType({}), throwsA(isA<AiToolException>()));
     });
 
-    test('危险工具有两个：delete_records + wipe_all_data', () {
+    test('危险工具有五个：删记录/删身体记录/删模板/删训练/清空全部', () {
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.deleteRecords));
       expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.wipeAllData));
       expect(AiToolSpecs.destructiveTools,
           contains(AiToolSpecs.deleteMeasurement));
-      expect(AiToolSpecs.destructiveTools, hasLength(4));
+      expect(AiToolSpecs.destructiveTools, contains(AiToolSpecs.deleteWorkout));
+      expect(AiToolSpecs.destructiveTools, hasLength(5));
       expect(AiToolSpecs.isDestructive(AiToolSpecs.deleteRecords), isTrue);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.logWeight), isFalse);
       expect(AiToolSpecs.isDestructive(AiToolSpecs.manageGoal), isFalse);
@@ -744,16 +746,16 @@ void main() {
   });
 
   group('AiToolSpecs 工具清单', () {
-    test('20 个工具、名称唯一、读写两类正好覆盖全部', () {
+    test('28 个工具、名称唯一、读写两类正好覆盖全部', () {
       final names = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
-      expect(names, hasLength(25));
-      expect(names.toSet(), hasLength(25));
+      expect(names, hasLength(28));
+      expect(names.toSet(), hasLength(28));
       expect(names.toSet(),
           {...AiToolSpecs.writeTools, ...AiToolSpecs.readOnlyTools});
       expect(AiToolSpecs.writeTools.union(AiToolSpecs.readOnlyTools),
-          hasLength(25));
+          hasLength(28));
       // 只读工具不重叠写工具
       expect(AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools),
           isEmpty);
@@ -799,6 +801,11 @@ void main() {
       expect(AiToolSpecs.destructiveTools, contains('wipe_all_data'));
       expect(AiToolSpecs.writeTools, contains('wipe_all_data'),
           reason: '写操作从第一天起就弹确认卡，没有"降级前可直接生效"的空间');
+      // 第八批新增 3 个（训练记录增删改查：记一笔权限下放给教练）
+      expect(names, containsAll(['query_workouts', 'update_workout', 'delete_workout']));
+      expect(AiToolSpecs.readOnlyTools, contains('query_workouts'));
+      expect(AiToolSpecs.writeTools, contains('update_workout'));
+      expect(AiToolSpecs.destructiveTools, contains('delete_workout'));
     });
 
     test('每个工具都有描述与 object 参数', () {
@@ -892,6 +899,9 @@ void main() {
         AiToolSpecs.createExercises,
         AiToolSpecs.createTemplate,
         AiToolSpecs.startWorkout,
+        AiToolSpecs.queryWorkouts,
+        AiToolSpecs.updateWorkout,
+        AiToolSpecs.deleteWorkout,
       });
     });
 
@@ -910,18 +920,18 @@ void main() {
           reason: '三集合并集必须覆盖全部工具');
       expect(write.length + readOnly.length, all.length,
           reason: '写 + 只读应正好划分全部工具');
-      expect(readOnly, hasLength(6),
-          reason: '只允许 query_stats / search_food / query_exercises / '
-              'query_measurements / web_search / fetch_url 自动执行');
+      expect(readOnly, hasLength(7),
+          reason: '只允许统计 / 搜索食物 / 查动作 / 查围度 / 查训练 / 联网两类自动执行');
       expect(
           AiToolSpecs.destructiveTools,
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
             AiToolSpecs.deleteTemplate,
+            AiToolSpecs.deleteWorkout,
             AiToolSpecs.wipeAllData,
           },
-          reason: '危险工具有三个：删记录 / 删身体记录 / 清空全部数据');
+          reason: '危险工具有五个：删记录 / 删身体记录 / 删模板 / 删训练 / 清空全部');
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.queryExercises), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.webSearch), isTrue);
       expect(AiToolSpecs.isReadOnly(AiToolSpecs.fetchUrl), isTrue);
@@ -1048,13 +1058,14 @@ void main() {
           const AiGoalCommand(action: AiGoalActions.complete, goalId: 3)
               .isDestructive,
           isFalse);
-      // manage_goal 的危险语义仍只来自 delete 动作；工具级危险另有三个
+      // manage_goal 的危险语义仍只来自 delete 动作；工具级危险另有五个
       expect(
           AiToolSpecs.destructiveTools,
           {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
             AiToolSpecs.deleteTemplate,
+            AiToolSpecs.deleteWorkout,
             AiToolSpecs.wipeAllData,
           });
     });
@@ -2106,6 +2117,14 @@ const _validArgs = <String, Map<String, dynamic>>{
     'calories_per_100g': 120,
   },
   AiToolSpecs.logWorkout: {'workout_type': '力量', 'minutes': 45},
+  AiToolSpecs.queryWorkouts: {'count': 5},
+  AiToolSpecs.updateWorkout: {
+    'workout_id': 1,
+    'exercises': [
+      {'name': '深蹲', 'sets': 4, 'reps': 12},
+    ],
+  },
+  AiToolSpecs.deleteWorkout: {'workout_id': 1},
   AiToolSpecs.logMeasurements: {'waist_cm': 80},
   AiToolSpecs.setTargetWeight: {'target_jin': 140},
   AiToolSpecs.updateProfile: {'height_cm': 175},
@@ -2338,7 +2357,12 @@ class _FakeWorkoutRepo implements WorkoutRepository {
       rows;
 
   @override
-  Future<WorkoutEntity?> getById(int id) async => null;
+  Future<WorkoutEntity?> getById(int id) async {
+    for (final r in rows) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
 
   @override
   Future<WorkoutEntity> createWorkout({
@@ -2355,7 +2379,8 @@ class _FakeWorkoutRepo implements WorkoutRepository {
   Future<void> updateWorkout({
     required int id,
     String? note,
-    required List<NewSetData> sets,
+    int? durationSec,
+    List<NewSetData>? sets,
   }) async =>
       _previewMustNotWrite('workout.update');
 
@@ -2483,6 +2508,7 @@ class _FakeSettingsRepo implements UserSettingsRepository {
     double? speechRate,
     double? speechPitch,
     String? ttsVoice,
+    String? ttsConfig,
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
@@ -2493,6 +2519,7 @@ class _FakeSettingsRepo implements UserSettingsRepository {
     int? restLongSec,
     bool? autoBackupEnabled,
     String? aiApiKey,
+    String? aiProviderId,
     String? aiStyle,
     String? aiConstraints,
     String? aiReplyLength,
@@ -2531,6 +2558,10 @@ class _FakeSettingsRepo implements UserSettingsRepository {
     bool? proactiveEnabled,
   }) async =>
       _previewMustNotWrite('settings.saveCoachEngagement');
+
+  @override
+  Future<void> saveCharacterId(CharacterId id) async =>
+      _previewMustNotWrite('settings.saveCharacterId');
 }
 
 /// 假动作库：只读方法返回固定数据，写方法一律抛错（预览阶段绝不能写库）

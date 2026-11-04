@@ -285,6 +285,24 @@ class AiExerciseInput {
   bool get hasDefaults => defaultReps != null || defaultDurationSec != null;
 }
 
+/// log_workout / update_workout 里的一行动作输入（与「记一笔」同口径）
+///
+/// 一行动作 = N 组 × 每组的次数/重量；不做逐组差异（补记是回忆，逐组记
+/// 对用户和模型都是负担）。名字到 id 的映射在 writer 里查动作库。
+class AiWorkoutExerciseInput {
+  final String name;
+  final int sets;
+  final int? reps;
+  final double? weightKg;
+
+  const AiWorkoutExerciseInput({
+    required this.name,
+    required this.sets,
+    this.reps,
+    this.weightKg,
+  });
+}
+
 /// create_template 的单个动作（已校验）
 class AiTemplateItemInput {
   final String exerciseName;

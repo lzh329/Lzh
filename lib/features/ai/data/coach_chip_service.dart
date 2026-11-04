@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 import 'package:fittrack/features/ai/domain/coach_chip_rules.dart';
 import 'package:fittrack/features/body_log/domain/repositories/body_metric_repository.dart';

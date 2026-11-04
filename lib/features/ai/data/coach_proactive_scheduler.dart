@@ -5,14 +5,14 @@ import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/database/daily_override_repository.dart';
 import 'package:fittrack/core/database/database.dart'
     show CoachProactiveMessagesCompanion;
-import 'package:fittrack/core/services/ai_service.dart';
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
-import 'package:fittrack/core/services/coach_weekly_push.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_push.dart';
 import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
 
 // 「怎么生成」「推不推」都在 coach_weekly_push.dart（纯函数 + 假落点接口），
 // 这里只剩「什么时候调它们」。两件事分文件，W5~W14 才能在无库无插件的单测里证伪。
-export 'package:fittrack/core/services/coach_weekly_push.dart';
+export 'package:fittrack/features/ai/data/coach_weekly_push.dart';
 
 /// 主动消息的唯一入口：「生成」与「推送」彻底分离。
 ///

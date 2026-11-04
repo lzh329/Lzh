@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/database/database.dart'
     show CoachProactiveMessagesCompanion;
-import 'package:fittrack/core/services/coach_weekly_facts.dart' show mondayOf;
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart' show mondayOf;
 import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
 
 /// 主动消息的第二种 kind

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/presentation/coach_memory_providers.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';

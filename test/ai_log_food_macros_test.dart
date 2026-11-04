@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
 import 'fake_database.dart';
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_writers.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';

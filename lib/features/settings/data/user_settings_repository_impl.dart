@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fittrack/core/database/database.dart';
+import 'package:fittrack/core/services/character_catalog.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/settings/domain/repositories/user_settings_repository.dart';
 
@@ -27,6 +28,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     double? speechRate,
     double? speechPitch,
     String? ttsVoice,
+    String? ttsConfig,
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
@@ -37,6 +39,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     int? restLongSec,
     bool? autoBackupEnabled,
     String? aiApiKey,
+    String? aiProviderId,
     String? aiStyle,
     String? aiConstraints,
     String? aiReplyLength,
@@ -69,6 +72,8 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         speechPitch:
             speechPitch != null ? Value(speechPitch) : const Value.absent(),
         ttsVoice: ttsVoice != null ? Value(ttsVoice) : const Value.absent(),
+        ttsConfig:
+            ttsConfig != null ? Value(ttsConfig) : const Value.absent(),
         reminderEnabled: reminderEnabled != null
             ? Value(reminderEnabled)
             : const Value.absent(),
@@ -92,6 +97,8 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             ? Value(autoBackupEnabled)
             : const Value(true),
         aiApiKey: aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
+        aiProviderId:
+            aiProviderId != null ? Value(aiProviderId) : const Value.absent(),
         aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
         aiConstraints:
             aiConstraints != null ? Value(aiConstraints) : const Value.absent(),
@@ -137,6 +144,8 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             speechPitch:
                 speechPitch != null ? Value(speechPitch) : const Value.absent(),
             ttsVoice: ttsVoice != null ? Value(ttsVoice) : const Value.absent(),
+        ttsConfig:
+            ttsConfig != null ? Value(ttsConfig) : const Value.absent(),
             reminderEnabled: reminderEnabled != null
                 ? Value(reminderEnabled)
                 : const Value(false),
@@ -163,6 +172,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
                 ? Value(autoBackupEnabled)
                 : const Value.absent(),
             aiApiKey: aiApiKey != null ? Value(aiApiKey) : const Value.absent(),
+            aiProviderId: aiProviderId != null
+                ? Value(aiProviderId)
+                : const Value.absent(),
             aiStyle: aiStyle != null ? Value(aiStyle) : const Value.absent(),
             aiConstraints: aiConstraints != null
                 ? Value(aiConstraints)
@@ -274,8 +286,20 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     ));
   }
 
-  /// 写入后回读最新记录
+  // ── 角色（v25 · user_settings.character_id） ──
+
+  /// 切换角色。入参是枚举 ⇒ 落库值一定是白名单三选一（C1/C4）。
   ///
+  /// 没有设置行时先建行（`_rowIdOrCreate`）：新用户没填过任何东西也可能先进
+  /// 「我的形象」，此时静默失败会让他点了没反应。
+  @override
+  Future<void> saveCharacterId(CharacterId id) async {
+    final rowId = await _rowIdOrCreate();
+    await (_db.update(_db.userSettings)..where((t) => t.id.equals(rowId)))
+        .write(UserSettingsCompanion(characterId: Value(id.wire)));
+  }
+
+  /// 写入后回读最新记录  ///
   /// 用显式异常替代原来的 `!` 空断言：极端情况（并发删除 / 写入被丢弃）下
   /// 抛出可读错误，由上层 try/catch 兜底，避免空断言导致难以定位的崩溃。
   Future<UserSettingsEntity> _rereadOrThrow() async {
@@ -298,6 +322,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         speechRate: row.speechRate,
         speechPitch: row.speechPitch,
         ttsVoice: row.ttsVoice,
+        ttsConfig: row.ttsConfig,
         reminderEnabled: row.reminderEnabled,
         reminderHour: row.reminderHour,
         reminderMinute: row.reminderMinute,
@@ -308,6 +333,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         restLongSec: row.restLongSec,
         autoBackupEnabled: row.autoBackupEnabled,
         aiApiKey: row.aiApiKey,
+        aiProviderId: row.aiProviderId,
         aiStyle: row.aiStyle,
         aiConstraints: row.aiConstraints,
         aiReplyLength: row.aiReplyLength,
@@ -323,5 +349,6 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         aiHealthOverrideCount: row.aiHealthOverrideCount,
         coachMemoryEnabled: row.coachMemoryEnabled,
         coachProactiveEnabled: row.coachProactiveEnabled,
+        characterId: row.characterId,
       );
 }

@@ -1,10 +1,10 @@
 import 'package:http/http.dart' as http;
 
 import 'package:fittrack/core/database/coach_proactive_repository.dart';
-import 'package:fittrack/core/services/ai_oneshot_service.dart';
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
-import 'package:fittrack/core/services/coach_weekly_prompt.dart';
-import 'package:fittrack/core/services/coach_weekly_template.dart';
+import 'package:fittrack/features/ai/data/ai_oneshot_service.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_prompt.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_template.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 

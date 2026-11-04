@@ -1,0 +1,122 @@
+%% 三角色形象系统 P0 —— 关键调用序列
+%% 来源：docs/design/CHARACTERS-P0-ARCH.md §2.5 / §3.4 / §5.1 / §5.2
+%% ============================================================
+%% 序列 1：首页角色区渲染 —— 预检、首帧超时、静默降级（R4/R8/R11/R12）
+%% ============================================================
+sequenceDiagram
+    autonumber
+    participant D as DashboardPage
+    participant CP as currentCharacterProvider
+    participant CV as CharacterView
+    participant PR as CharacterProceduralView
+    participant AD as RiveCharacterAdapter
+    participant RB as rootBundle / RiveFile
+    participant RV as RiveAnimation leaf
+
+    D->>CP: watch()
+    CP-->>D: CharacterRenderSpec（FutureProvider 未完成时用 CharacterCatalog.fallback）
+    D->>CV: CharacterView(spec, line, onTap, onBubbleTap, onLongPress)
+
+    CV->>PR: 立刻挂程序化图层（呼吸 + 摆头，TickerMode 开启）
+    Note over PR: 首帧成本 ≈ 一次 PNG 解码，目标 ≤300ms
+    CV->>CV: 启动 500ms firstFrame 计时器
+    CV->>AD: preflight(spec.rivPath)（异步，2s 超时）
+    AD->>RB: RiveFile.asset(rivPath)
+
+    alt 抛错 / 2s 超时
+        RB-->>AD: 异常
+        AD-->>CV: failed(fileMissing | parseFailed | versionUnsupported)
+        CV->>CV: mode = procedural（取消计时器）
+        Note over PR,CV: 程序化图层从未卸载 ⇒ 零闪烁、零重建
+    else 预检通过
+        RB-->>AD: RiveFile
+        AD-->>CV: ok
+        CV->>RV: 挂 RiveAnimation(key: ValueKey('rive'))（不传 stateMachines，避免双 controller）
+        RV->>RV: onInit(artboard) → StateMachineController.fromArtboard(artboard, 'main')
+        alt 取不到 main
+            RV-->>CV: stateMachineMissing
+            CV->>CV: 卸 Rive leaf → dispose controller → mode = procedural
+        else 拿到 main
+            RV->>RV: findInput 逐个解析（tap / speaking / form / celebrate），缺一个就跳过该输入
+            RV-->>CV: 首帧出图 → 取消 500ms 计时器
+            CV->>CV: mode = rive
+            CV->>PR: Visibility(visible:false, maintainState:true) + TickerMode(false)
+            CV->>RV: 发 form = spec.form（首帧）
+        end
+    end
+
+    Note over CV,RV: —— 用户点角色本体（R14/R15）——
+    CV->>CV: HapticFeedback.lightImpact()
+    alt mode == rive
+        CV->>RV: tap.fire()（canTap == false 时不重发）
+        CV->>CV: Timer(1.5s) → canTap = true
+    else mode == procedural
+        CV->>PR: tapBounce.forward(from: 0)（1.5s 内不重启）
+    end
+    CV->>D: onTap()（父级只换一句台词，不跳页）
+
+    Note over CV,D: —— 气泡 / 长按 ——
+    CV->>D: onBubbleTap() → context.push('/ai/coach')
+    CV->>D: onLongPress() → context.push('/settings/character')（不播动作、不进对话）
+
+%% ============================================================
+%% 序列 2：切换角色即时生效（C5/C6 —— 失效链 + 丢弃动作帧）
+%% ============================================================
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant P as CharacterPage
+    participant S as CharacterSelection
+    participant R as UserSettingsRepositoryImpl
+    participant DB as user_settings
+    participant UP as userSettingsProvider
+    participant CP as currentCharacterProvider
+    participant CV as CharacterView
+
+    U->>P: 点「糯糯」
+    P->>S: select(CharacterId.nuonuo)
+    S->>R: saveCharacterId(CharacterId.nuonuo)
+    R->>DB: UPDATE user_settings SET character_id = 'nuonuo'
+    R-->>S: ok（回读校验）
+    S->>UP: ref.invalidate(userSettingsProvider)
+    Note over UP,CP: 失效链：userSettingsProvider → currentCharacterProvider（watch 自动级联）
+    UP-->>CP: 重建
+    CP->>CP: CharacterCatalog.resolve() 纯计算
+    CP-->>CV: 新 CharacterRenderSpec
+    CV->>CV: didUpdateWidget：rivPath / form 变 → 先 dispose 旧 Rive controller（R11）
+    CV->>CV: 程序化图层就地换 Image.asset（同一棵子树）
+    CV->>CV: mode = procedural（回到待机，旧动作帧丢弃，C6）
+    P-->>U: 勾选即时移动；首页 1.5s 内气泡「我是糯糯」，之后回通用台词
+    Note over U,P: 无二次确认、无「重启生效」提示（C5）
+
+%% ============================================================
+%% 序列 3：训练 Tab → 记录页 → 再练一次（T1–T15）
+%% ============================================================
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant W as QuickStartPage（/workout）
+    participant REC as WorkoutRecordsPage（/workout/records）
+    participant STRIP as WorkoutWeekStrip
+    participant SUM as WorkoutWeekCalc / WeekSummaryCalc
+    participant CARD as WorkoutRecordCard
+    participant DET as WorkoutDetailPage（/workout/:id）
+    participant ACT as WorkoutActivePage（/workout/active）
+
+    U->>W: 点底部「训练」Tab
+    W-->>U: AppBar「训练」+ 两段（模板 | 计划）+ 无 FAB
+    U->>W: 点 AppBar 的 Icons.history（tooltip「训练记录」）
+    W->>REC: context.push('/workout/records')
+    REC->>STRIP: 渲染周日期条（周一为起点、橙=训练/蓝=称重、带图例）
+    REC->>SUM: 由 workoutHistoryProvider 派生 WeekSummary
+    SUM-->>REC: 本周 N 次 / 共 M 分钟 / 连续 W 周（本周为空不中断）
+    U->>STRIP: 点另一天
+    STRIP-->>REC: onSelect(day)（只换明细，不跳页、不改路由）
+    REC->>CARD: 渲染当天记录卡（动作名去重、N 组、时长、HH:mm）
+    U->>CARD: 点卡
+    CARD->>DET: context.push('/workout/{id}')
+    U->>DET: 点底部「再练一次」
+    DET->>DET: WorkoutRepeat.slotsOf(workout, names, categories)（不填重量）
+    DET->>ACT: context.pushReplacement('/workout/active', extra: slots)
+    Note over REC: 记录页自身不放图表；「看统计」→ /workout/stats（T12）
+    Note over REC: 空态按钮用 context.go('/workout')，不是 push（T16/T17）

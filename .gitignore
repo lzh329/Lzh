@@ -35,3 +35,6 @@ generated-images/
 
 # 调试临时文件（截图 / 导出的 UI 树等）
 .tmp_*
+
+# 本地侦察临时目录（不入库）
+.probe/

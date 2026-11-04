@@ -1,4 +1,4 @@
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
 
 /// 周消息正文的长度区间（PRD 决策 1 第 3 级）
 const int kWeeklyMinChars = 40;

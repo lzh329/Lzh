@@ -6,8 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
-import 'package:fittrack/core/services/reminder_scheduler.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
+import 'package:fittrack/features/plan/data/reminder_scheduler.dart';
 
 /// 设置页的操作逻辑集合（从原 settings_page.dart 抽出，保持行为不变）
 

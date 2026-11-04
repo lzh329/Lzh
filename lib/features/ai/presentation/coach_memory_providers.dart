@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/coach_memory_service.dart';
+import 'package:fittrack/features/ai/data/coach_memory_service.dart';
 import 'package:fittrack/features/ai/data/coach_memory_extractor.dart';
 import 'package:fittrack/features/ai/domain/coach_memory.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/coach_memory_notifier.dart';

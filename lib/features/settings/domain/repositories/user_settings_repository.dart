@@ -1,3 +1,5 @@
+import 'package:fittrack/core/services/character_catalog.dart';
+
 import '../entities/user_settings_entity.dart';
 
 abstract class UserSettingsRepository {
@@ -13,6 +15,7 @@ abstract class UserSettingsRepository {
     double? speechRate,
     double? speechPitch,
     String? ttsVoice,
+    String? ttsConfig,
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
@@ -23,6 +26,7 @@ abstract class UserSettingsRepository {
     int? restLongSec,
     bool? autoBackupEnabled,
     String? aiApiKey,
+    String? aiProviderId,
     String? aiStyle,
     String? aiConstraints,
     String? aiReplyLength,
@@ -64,4 +68,12 @@ abstract class UserSettingsRepository {
     bool? memoryEnabled,
     bool? proactiveEnabled,
   });
+
+  /// v25：切换角色（形象页唯一的写入口）。
+  ///
+  /// 入参是**枚举**而不是 String，这是 C4 的类型级防线：
+  /// 「把 DB 里的脏值原样写回去」在这里根本不成立 —— 读路径永远不会触发写。
+  ///
+  /// 没有设置行时先建行再写（新用户还没填过任何东西也能换形象）。
+  Future<void> saveCharacterId(CharacterId id);
 }

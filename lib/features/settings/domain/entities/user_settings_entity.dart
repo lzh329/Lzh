@@ -11,6 +11,11 @@ class UserSettingsEntity {
   final double? speechRate; // 0.0 ~ 1.0
   final double? speechPitch; // 0.5 ~ 2.0
   final String? ttsVoice; // 系统 TTS 音色标识
+
+  /// 云端音色配置（MiniMax）的 JSON 字符串；null / 空 = 用系统 TTS
+  ///
+  /// 存整块 JSON 而不是拆 4 个列：加字段（比如以后换供应商）不用再改 schema。
+  final String? ttsConfig;
   final bool reminderEnabled;
   final int? reminderHour;
   final int? reminderMinute;
@@ -29,6 +34,9 @@ class UserSettingsEntity {
 
   /// AI 教练：智谱 API Key（与 --dart-define 互补）
   final String? aiApiKey;
+
+  /// AI 教练：选用的服务商 id（ai_providers.dart 里的 id，空 = deepseek）
+  final String? aiProviderId;
 
   /// AI 教练风格：doubao（豆包感，默认）/ guga（嘎式）/ gentle（温柔）/ strict（严厉）
   final String? aiStyle;
@@ -67,7 +75,7 @@ class UserSettingsEntity {
   ///
   /// 只有 AI 触发（`source='ai_health'`）且被用户撤销才 +1；用户自己开自己关不算。
   /// 单调不减、不自动衰减，由设置页手动清零。达到
-  /// [kSickDayFalsePositiveLimit]（定义在 `core/services/sick_day_gate.dart`）
+  /// [kSickDayFalsePositiveLimit]（定义在 `features/ai/data/sick_day_gate.dart`）
   /// 后 AI 不再自动调工具。此处不引 service 层，避免实体反向依赖策略。
   ///
   /// 读不到（还没有设置行）时按 0 处理 —— 「没记过」就是 0 次。
@@ -78,6 +86,13 @@ class UserSettingsEntity {
 
   /// v24：主动消息总开关（默认开）。关掉 = 不生成、不排通知、气泡不出现。
   final bool coachProactiveEnabled;
+
+  /// v25：当前角色（`guga` / `nuonuo` / `phoebe`）。
+  ///
+  /// 存**原始字符串**而不是枚举：模拟"新版本写了第 4 个角色、又装回旧版本"的场景，
+  /// 旧版本必须能原样读出来（渲染成咕嘎但**不回写**，C4）。
+  /// 解析一律走 `CharacterId.parse(characterId)`。
+  final String characterId;
 
   const UserSettingsEntity({
     required this.id,
@@ -91,6 +106,7 @@ class UserSettingsEntity {
     this.speechRate,
     this.speechPitch,
     this.ttsVoice,
+    this.ttsConfig,
     this.reminderEnabled = false,
     this.reminderHour,
     this.reminderMinute,
@@ -101,6 +117,7 @@ class UserSettingsEntity {
     this.restLongSec,
     this.autoBackupEnabled = true,
     this.aiApiKey,
+    this.aiProviderId,
     this.aiStyle,
     this.aiConstraints,
     this.aiReplyLength,
@@ -116,6 +133,7 @@ class UserSettingsEntity {
     this.aiHealthOverrideCount = 0,
     this.coachMemoryEnabled = true,
     this.coachProactiveEnabled = true,
+    this.characterId = 'guga',
   });
 
   int? get age {

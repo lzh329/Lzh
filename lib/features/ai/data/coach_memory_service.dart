@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:fittrack/core/database/database.dart'
     show CoachMemoriesCompanion;
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/coach_memory_extractor.dart';
 import 'package:fittrack/features/ai/data/coach_memory_repository.dart';
 import 'package:fittrack/features/ai/domain/coach_memory.dart';

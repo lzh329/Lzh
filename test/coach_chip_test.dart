@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fittrack/core/database/database.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_repository.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 import 'package:fittrack/features/ai/domain/coach_chip_rules.dart';
@@ -30,6 +30,7 @@ void main() {
         'log_food',
         'set_reminder',
         'open_trends',
+        'view_workout',
       });
     });
 
@@ -46,6 +47,19 @@ void main() {
           reason: '白名单外的 key 不许落库');
       expect(CoachChip.encode(const [CoachChip('log_weight')]),
           contains('"k":"log_weight"'));
+    });
+
+    test('decode/encode：view_workout 带 id 往返；缺 id 丢弃', () {
+      const chips = [CoachChip('view_workout', payload: '7')];
+      expect(CoachChip.encode(chips), '[{"k":"view_workout","id":"7"}]');
+
+      final decoded = CoachChip.decode('[{"k":"view_workout","id":"7"}]');
+      expect(decoded, hasLength(1));
+      expect(decoded.single.key, 'view_workout');
+      expect(decoded.single.payload, '7');
+
+      // view_workout 缺 id 跳不过去 → 直接丢弃
+      expect(CoachChip.decode('[{"k":"view_workout"}]'), isEmpty);
     });
 
     testWidgets('widget：传入白名单外 key 只渲染 1 个芯片', (tester) async {
@@ -75,6 +89,50 @@ void main() {
           hasWeightToday: weight,
           hasFoodToday: food,
         ).map((c) => c.key).toList();
+
+    test('view_workout：log_workout 成功 → 「查看记录」带 workout_id', () {
+      final chips = CoachChipRules.build(
+        assistantText: '已帮你记好了',
+        toolReceipts: ['log_workout:{"ok":true,"workout_id":7,"type":"力量"}'],
+        hasWeightToday: false,
+        hasFoodToday: false,
+      );
+      expect(chips.map((c) => c.key).toList(), ['view_workout']);
+      expect(chips.single.payload, '7');
+    });
+
+    test('view_workout：update_workout 成功同样触发（带 workout_id）', () {
+      final chips = CoachChipRules.build(
+        assistantText: '改好了',
+        toolReceipts: ['update_workout:{"ok":true,"workout_id":9}'],
+        hasWeightToday: false,
+        hasFoodToday: false,
+      );
+      expect(chips.single.key, 'view_workout');
+      expect(chips.single.payload, '9');
+    });
+
+    test('view_workout：失败 / 没给 id → 不出「查看记录」', () {
+      expect(
+        CoachChipRules.build(
+          assistantText: '没记上',
+          toolReceipts: ['log_workout:{"ok":false,"error":"动作不在库"}'],
+          hasWeightToday: false,
+          hasFoodToday: false,
+        ),
+        isEmpty,
+      );
+      expect(
+        CoachChipRules.build(
+          assistantText: '记上了',
+          toolReceipts: ['log_workout:{"ok":true}'],
+          hasWeightToday: false,
+          hasFoodToday: false,
+        ),
+        isEmpty,
+        reason: '回执没有 workout_id 就跳不过去，宁可不出按钮',
+      );
+    });
 
     test('① start_workout 回执 ok:false → 去开练', () {
       expect(
@@ -186,7 +244,7 @@ void main() {
     expect(find.byType(ActionChip), findsNothing);
   });
 
-  testWidgets('C-9：点过的芯片置灰（onPressed == null）', (tester) async {
+  testWidgets('芯片始终可点：跳转后回来还能再点同一个入口', (tester) async {
     await _pump(
       tester,
       const AiChipBar(
@@ -197,7 +255,8 @@ void main() {
     final chips =
         tester.widgetList<ActionChip>(find.byType(ActionChip)).toList();
     expect(chips, hasLength(2));
-    expect(chips.first.onPressed, isNull, reason: '点过即置灰，本次会话内不可再点');
+    expect(chips.first.onPressed, isNotNull,
+        reason: '芯片是快捷入口，点过后仍应可再点（用户反馈「点一次就点不了」）');
     expect(chips.last.onPressed, isNotNull);
   });
 

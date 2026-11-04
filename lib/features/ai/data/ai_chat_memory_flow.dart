@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 
-import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
-import 'package:fittrack/core/services/coach_memory_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiMessage;
+import 'package:fittrack/features/ai/data/coach_memory_service.dart';
 
 /// 抽取用到的历史轮数（PRD：「最近 3 轮 user 原话」）
 const int kMemoryExtractUserTurns = 3;

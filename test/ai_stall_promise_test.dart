@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/domain/ai_stall_promise.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_notifier.dart';
@@ -42,7 +42,9 @@ void main() {
         required List<AiMessage> messages,
         required void Function(String delta) onDelta,
         double temperature = 0.7,
-        bool webEnabled = true,
+        bool searchEnabled = true,
+        bool fetchEnabled = true,
+        AiProvider? provider,
       }) async {
         invocations.add(messages);
         final i = invocations.length - 1;

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/workout/domain/entities/workout_entity.dart';
 
 /// 只读工具：query_stats / search_food / query_exercises（无需用户确认，直接执行）
 class AiToolReaders extends AiToolHandler {
@@ -15,6 +16,7 @@ class AiToolReaders extends AiToolHandler {
         AiToolSpecs.queryStats,
         AiToolSpecs.searchFood,
         AiToolSpecs.queryExercises,
+        AiToolSpecs.queryWorkouts,
       };
 
   @override
@@ -46,6 +48,13 @@ class AiToolReaders extends AiToolHandler {
           detail: _exerciseDetail(query, category),
           needsConfirm: false,
         );
+      case AiToolSpecs.queryWorkouts:
+        return AiToolPreview(
+          call: call,
+          label: '查训练记录',
+          detail: '最近 ${AiToolArgs.workoutCount(call.arguments)} 条',
+          needsConfirm: false,
+        );
       default:
         unsupported(call);
     }
@@ -64,6 +73,8 @@ class AiToolReaders extends AiToolHandler {
           query: AiToolArgs.optionalExerciseQuery(args),
           category: AiToolArgs.optionalExerciseCategory(args),
         );
+      case AiToolSpecs.queryWorkouts:
+        return _queryWorkouts(AiToolArgs.workoutCount(call.arguments));
       default:
         unsupported(call);
     }
@@ -192,7 +203,8 @@ class AiToolReaders extends AiToolHandler {
           },
       ],
       // 模板清单：模型据此判断"有哪个模板可以直接开练"（start_workout 用），
-      // 没有模板时也知道该建议用户新建，而不是瞎猜名字
+      // 没有模板时也知道该建议用户新建，而不是瞎猜名字。
+      // items 给全动作+组次：补记"模板里的训练"时模型要原样落库，不能只记个名。
       'templates': [
         for (final t in templates)
           {
@@ -201,9 +213,73 @@ class AiToolReaders extends AiToolHandler {
             'focus': t.focus,
             'difficulty': t.difficulty,
             'minutes': t.minutes,
+            'type': t.type,
+            'type_label': t.typeLabel,
             'item_count': t.items.length,
+            'items': [
+              for (final i in t.items)
+                {
+                  'exercise_name': i.exerciseName,
+                  'sets': i.targetSets,
+                  'reps': i.targetReps,
+                  'duration_sec': i.targetDurationSec,
+                },
+            ],
           },
       ],
     });
+  }
+
+  /// 最近的训练记录明细（改/删训练前先查这个拿 workout_id）
+  Future<String> _queryWorkouts(int count) async {
+    final workouts = await repos.workout.getAll();
+    final sorted = [...workouts]..sort((a, b) => b.date.compareTo(a.date));
+    final recent = sorted.take(count).toList();
+    final exercises = await repos.exercise.getAll();
+    final exName = {for (final e in exercises) e.id: e.name};
+    return jsonEncode({
+      'ok': true,
+      'count': recent.length,
+      'workouts': [
+        for (final w in recent)
+          {
+            'id': w.id,
+            'date': AiToolFormat.ymd(w.date),
+            'type': _workoutTypeLabel(w.type),
+            'minutes': ((w.durationSec ?? 0) / 60).round(),
+            'note': w.note,
+            'exercises': _groupWorkoutSets(w.sets, exName),
+          },
+      ],
+    });
+  }
+
+  /// 把一组 set 按动作聚合回「动作 × 组数 × 次数/重量」的紧凑形态
+  List<Map<String, dynamic>> _groupWorkoutSets(
+      List<WorkoutSetEntity> sets, Map<int, String> exName) {
+    final byEx = <int, List<WorkoutSetEntity>>{};
+    for (final s in sets) {
+      byEx.putIfAbsent(s.exerciseId, () => []).add(s);
+    }
+    return [
+      for (final e in byEx.entries)
+        {
+          'name': exName[e.key] ?? '动作 #${e.key}',
+          'sets': e.value.length,
+          'reps': e.value.first.reps,
+          'weight_kg': e.value.first.weightKg,
+          'duration_sec': e.value.first.durationSec,
+        },
+    ];
+  }
+
+  /// 内部 type（free / plan / log / 力量…）→ 给人看的类型
+  ///
+  /// `log`（事后补记）要说成「补记」：模型看到 log 会自己发挥，看到补记才知道
+  /// "这条没有计时、可能是回忆的"。
+  String _workoutTypeLabel(String type) {
+    if (type == 'log') return '补记';
+    const known = {'力量', '有氧', '拉伸', '其他'};
+    return known.contains(type) ? type : '训练';
   }
 }

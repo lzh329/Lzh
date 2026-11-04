@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:fittrack/core/services/ai_service.dart' show AiService;
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiService;
 
 /// 一条联网搜索结果（摘要已裁剪，正文不回传给模型）
 class WebSearchResult {

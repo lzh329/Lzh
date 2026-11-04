@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fittrack/core/database/coach_proactive_repository.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
-import 'package:fittrack/core/services/coach_workout_recap.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
+import 'package:fittrack/features/ai/data/coach_workout_recap.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 
 /// 首页「教练说」气泡（W11）

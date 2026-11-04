@@ -4,8 +4,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
+import 'package:fittrack/core/services/ai_providers.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
+
+export 'package:fittrack/core/services/ai_providers.dart';
 
 /// 聊天消息（OpenAI 兼容格式，支持工具调用与多模态内容）
 ///
@@ -105,15 +108,16 @@ class AiStreamResult {
 class AiService {
   AiService._();
 
-  static const _baseUrl = String.fromEnvironment('DEEPSEEK_BASE_URL',
-      defaultValue: 'https://api.deepseek.com');
-  static const _model =
-      String.fromEnvironment('DEEPSEEK_MODEL', defaultValue: 'deepseek-flash');
+  static const _envBaseUrl = String.fromEnvironment('DEEPSEEK_BASE_URL',
+      defaultValue: '');
+  static const _envModel =
+      String.fromEnvironment('DEEPSEEK_MODEL', defaultValue: '');
 
   /// 当前生效的模型名（设置页「模型配置」信息卡展示用）。
   ///
-  /// 如实展示编译期注入值；不存在"Pro 档位"这种东西，UI 不要发明。
-  static String get modelName => _model;
+  /// 默认展示 DeepSeek 的模型；实际请求模型由所选服务商决定（见 [AiProvider]）。
+  static String get modelName =>
+      aiProviderById(null).defaultModel;
   static const _envKey = String.fromEnvironment('DEEPSEEK_API_KEY');
 
   /// 默认温度：偏高一点让语气更活（用户可在「教练设定」里调，范围 0.3~1.0）
@@ -154,6 +158,9 @@ class AiService {
   }
 
   /// 流式对话：返回正文与工具调用（同时通过 [onDelta] 逐段回调正文）
+  ///
+  /// [provider] 指定服务商（默认 DeepSeek）；baseUrl / model 按服务商解析，
+  /// DeepSeek 额外支持 `--dart-define` 编译期覆盖。
   static Future<AiStreamResult> streamChat({
     required String apiKey,
     required List<AiMessage> messages,
@@ -161,13 +168,24 @@ class AiService {
     List<Map<String, dynamic>>? tools,
     double temperature = defaultTemperature,
     int maxTokens = 2048,
+    AiProvider? provider,
     http.Client? client,
   }) async {
     final httpClient = client ?? http.Client();
+    final p = provider ?? aiProviders.first;
+    final baseUrl = p.id == 'deepseek' && _envBaseUrl.isNotEmpty
+        ? _envBaseUrl
+        : p.baseUrl;
+    final model = p.id == 'deepseek' && _envModel.isNotEmpty
+        ? _envModel
+        : p.defaultModel;
     try {
       return await _sendOnce(
         httpClient: httpClient,
         apiKey: apiKey,
+        baseUrl: baseUrl,
+        model: model,
+        supportsThinking: p.supportsThinking,
         messages: messages,
         onDelta: onDelta,
         tools: tools,
@@ -182,6 +200,9 @@ class AiService {
         return await _sendOnce(
           httpClient: httpClient,
           apiKey: apiKey,
+          baseUrl: baseUrl,
+          model: model,
+          supportsThinking: p.supportsThinking,
           messages: messages,
           onDelta: onDelta,
           tools: tools,
@@ -202,6 +223,9 @@ class AiService {
   static Future<AiStreamResult> _sendOnce({
     required http.Client httpClient,
     required String apiKey,
+    required String baseUrl,
+    required String model,
+    required bool supportsThinking,
     required List<AiMessage> messages,
     required void Function(String delta) onDelta,
     required List<Map<String, dynamic>>? tools,
@@ -210,21 +234,22 @@ class AiService {
   }) async {
     try {
       final body = <String, dynamic>{
-        'model': _model,
+        'model': model,
         'messages': messages.map((m) => m.toJson()).toList(),
         'stream': true,
         'temperature': temperature,
         'max_tokens': maxTokens,
         // 关掉 thinking：它要求每次请求都回传 reasoning_content，否则工具回合 400
-        // （详细说明见 [AiService.disabledThinking]）
-        'thinking': disabledThinking,
+        // （详细说明见 [AiService.disabledThinking]）。只有 DeepSeek 认这个字段，
+        // 其它家是标准 OpenAI 兼容，带了可能被拒收。
+        if (supportsThinking) 'thinking': disabledThinking,
       };
       if (tools != null && tools.isNotEmpty) {
         body['tools'] = tools;
         body['tool_choice'] = 'auto';
       }
 
-      final req = http.Request('POST', Uri.parse('$_baseUrl/chat/completions'))
+      final req = http.Request('POST', Uri.parse('$baseUrl/chat/completions'))
         ..headers['Authorization'] = 'Bearer $apiKey'
         ..headers['Content-Type'] = 'application/json'
         ..body = jsonEncode(body);
@@ -296,13 +321,13 @@ class AiService {
       case 401:
         return 'API Key 无效或已过期，请重新填写$suffix';
       case 402:
-        return '账户余额不足，请到 DeepSeek 平台充值$suffix';
+        return '账户余额不足，请到所选服务商平台充值$suffix';
       case 429:
         return '请求太频繁，稍等几秒再试$suffix';
       case 500:
       case 502:
       case 503:
-        return 'DeepSeek 服务暂时不可用，稍后再试$suffix';
+        return 'AI 服务暂时不可用，稍后再试$suffix';
       default:
         return serverMsg == null
             ? 'AI 接口出错（$status），稍后再试'

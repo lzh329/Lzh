@@ -103,10 +103,10 @@ class AiWebSearchTile extends StatelessWidget {
       onChanged: onChanged,
       contentPadding: EdgeInsets.zero,
       activeThumbColor: AppColors.primary,
-      title: const Text('联网搜索',
+      title: const Text('联网',
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       subtitle: const Text(
-        '关闭后不产生搜索费用（¥5 / 1000 次成功请求）',
+        '读网页：所有服务商可用；联网搜索：仅 DeepSeek（按次计费 ¥5 / 1000 次）',
         style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
       ),
       secondary: Icon(

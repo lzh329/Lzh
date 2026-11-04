@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/settings/domain/entities/user_settings_entity.dart';
 import 'package:fittrack/features/trends/presentation/trends_providers.dart';

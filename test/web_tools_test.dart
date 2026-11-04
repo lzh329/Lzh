@@ -4,9 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
+import 'package:fittrack/core/services/character_catalog.dart';
 import 'fake_database.dart';
-import 'package:fittrack/core/services/web_tools_service.dart';
+import 'package:fittrack/features/ai/data/web_tools_service.dart';
 import 'package:fittrack/features/ai/data/ai_tool_repos.dart';
 import 'package:fittrack/features/ai/data/ai_tool_web_readers.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
@@ -314,13 +315,13 @@ void main() {
   // ═══════════ 4. 工具集合与预览层 ═══════════
 
   group('两个新工具都是只读、自动执行', () {
-    test('25 个工具、唯一、写/只读互斥并集全覆盖，危险 = 四个删除类', () {
+    test('28 个工具、唯一、写/只读互斥并集全覆盖，危险 = 五个删除类', () {
       final registered = AiToolSpecs.defs
           .map((d) => (d['function'] as Map)['name'] as String)
           .toList();
 
-      expect(registered, hasLength(25), reason: '工具总数应为 24');
-      expect(registered.toSet(), hasLength(25), reason: '工具名不能重复');
+      expect(registered, hasLength(28), reason: '工具总数没同步');
+      expect(registered.toSet(), hasLength(28), reason: '工具名不能重复');
       expect({
         ...AiToolSpecs.writeTools,
         ...AiToolSpecs.readOnlyTools
@@ -334,9 +335,10 @@ void main() {
             AiToolSpecs.deleteRecords,
             AiToolSpecs.deleteMeasurement,
             AiToolSpecs.deleteTemplate,
+            AiToolSpecs.deleteWorkout,
             AiToolSpecs.wipeAllData,
           },
-          reason: '24 个里有三个危险操作：删记录 / 删身体记录 / 清空全部数据');
+          reason: '危险操作：删记录 / 删身体记录 / 删模板 / 删训练 / 清空全部数据');
       expect(AiToolSpecs.destructiveTools.difference(AiToolSpecs.writeTools),
           isEmpty);
 
@@ -627,6 +629,7 @@ class _StubSettingsRepo implements UserSettingsRepository {
     double? speechRate,
     double? speechPitch,
     String? ttsVoice,
+    String? ttsConfig,
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
@@ -637,6 +640,7 @@ class _StubSettingsRepo implements UserSettingsRepository {
     int? restLongSec,
     bool? autoBackupEnabled,
     String? aiApiKey,
+    String? aiProviderId,
     String? aiStyle,
     String? aiConstraints,
     String? aiReplyLength,
@@ -675,6 +679,10 @@ class _StubSettingsRepo implements UserSettingsRepository {
     bool? proactiveEnabled,
   }) async =>
       throw UnimplementedError('联网工具不该改教练主动性开关');
+
+  @override
+  Future<void> saveCharacterId(CharacterId id) async =>
+      throw UnimplementedError('联网工具不该切角色');
 }
 
 // ═══════════ 不该被碰到的仓储 ═══════════

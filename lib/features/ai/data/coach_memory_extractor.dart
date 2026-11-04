@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
-import 'package:fittrack/core/services/ai_oneshot_service.dart';
-import 'package:fittrack/core/services/coach_memory_prompt.dart';
+import 'package:fittrack/features/ai/data/ai_oneshot_service.dart';
+import 'package:fittrack/features/ai/data/coach_memory_prompt.dart';
 import 'package:fittrack/features/ai/domain/coach_memory.dart';
 
 /// 一次轻量模型调用：把「最近几轮用户原话」压成结构化候选。

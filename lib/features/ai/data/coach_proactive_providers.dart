@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/database/coach_proactive_repository.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/coach_proactive_scheduler.dart';
-import 'package:fittrack/core/services/coach_weekly_facts.dart';
-import 'package:fittrack/core/services/coach_workout_recap.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_scheduler.dart';
+import 'package:fittrack/features/ai/data/coach_weekly_facts.dart';
+import 'package:fittrack/features/ai/data/coach_workout_recap.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 
 /// 通知落点（生产走 [NotificationService]；单测注入假实现）

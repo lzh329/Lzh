@@ -17,8 +17,8 @@ import 'package:fittrack/core/database/database.dart';
 ///
 /// 用原生 sqlite3 造老库（drift 一打开就 onCreate，造不出旧库）。
 void main() {
-  test('kSchemaVersion 已推进到 24', () {
-    expect(kSchemaVersion, 24);
+  test('kSchemaVersion 已推进到 26', () {
+    expect(kSchemaVersion, 27);
   });
 
   test('空库安装：两张新表 + 三个新列 + 一条新索引都在，唯一约束由 CREATE TABLE 落地', () async {
@@ -73,7 +73,7 @@ void main() {
     final db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
     await db.customSelect('SELECT 1').get();
 
-    expect(await _userVersion(db), 24);
+    expect(await _userVersion(db), kSchemaVersion);
     expect(await _tableNames(db), containsAll([
       'coach_memories',
       'coach_proactive_messages',
@@ -203,7 +203,7 @@ void main() {
     final db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
     await db.customSelect('SELECT 1').get();
 
-    expect(await _userVersion(db), 24);
+    expect(await _userVersion(db), kSchemaVersion);
     // v22
     expect(await _columns(db, 'user_settings'), containsAll(['nickname', 'avatar_path']));
     // v23
@@ -284,7 +284,8 @@ void main() {
 
     final db = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
     await db.customSelect('SELECT 1').get();
-    expect(await _userVersion(db), 24, reason: '重跑必须能收敛到 24，不能启动即死');
+    expect(await _userVersion(db), kSchemaVersion,
+        reason: '重跑必须能收敛到当前版本，不能启动即死');
 
     // 收敛后功能可用
     await db.into(db.coachMemories).insert(CoachMemoriesCompanion.insert(

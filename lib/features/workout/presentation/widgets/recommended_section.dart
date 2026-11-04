@@ -9,12 +9,14 @@ class RecommendedSection extends StatefulWidget {
   final List<WorkoutTemplateEntity> templates;
   final bool starting;
   final ValueChanged<WorkoutTemplateEntity> onStart;
+  final ValueChanged<WorkoutTemplateEntity> onDelete;
 
   const RecommendedSection({
     super.key,
     required this.templates,
     required this.starting,
     required this.onStart,
+    required this.onDelete,
   });
 
   @override
@@ -70,6 +72,7 @@ class RecommendedSectionState extends State<RecommendedSection> {
               starting: widget.starting,
               coverHeight: 132,
               onStart: () => widget.onStart(t),
+              onDelete: () => widget.onDelete(t),
             ),
           ),
       ],

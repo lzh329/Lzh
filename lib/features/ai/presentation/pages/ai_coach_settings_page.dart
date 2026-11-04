@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_service.dart';
-import 'package:fittrack/core/services/web_tools_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
+import 'package:fittrack/features/ai/data/web_tools_service.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/ai_coach_options.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
@@ -99,7 +99,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(value ? '已开启联网搜索' : '已关闭联网搜索'),
+          content: Text(value ? '已开启联网' : '已关闭联网'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -176,7 +176,7 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const AiCoachSectionTitle('联网搜索'),
+                const AiCoachSectionTitle('联网'),
                 AiWebSearchTile(
                   value: _webSearch,
                   onChanged: _toggleWebSearch,

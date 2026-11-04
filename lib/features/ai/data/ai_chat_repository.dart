@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'package:fittrack/core/database/database.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 
 /// AI 教练聊天记录仓库（Drift）

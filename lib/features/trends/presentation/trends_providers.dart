@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/weight_analysis.dart';
+import 'package:fittrack/features/body_log/domain/weight_analysis.dart';
 import 'package:fittrack/features/body_log/domain/entities/body_metric_entity.dart';
 
 /// 趋势页聚合数据

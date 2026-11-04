@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_tool_context.dart';
@@ -71,7 +71,7 @@ void main() {
 
     test('tools 与 tool_choice 仍在（关 thinking 不影响工具能力）', () {
       final tools = decoded['tools'] as List<dynamic>;
-      expect(tools, hasLength(25));
+      expect(tools, hasLength(28));
       expect(decoded['tool_choice'], 'auto');
     });
 

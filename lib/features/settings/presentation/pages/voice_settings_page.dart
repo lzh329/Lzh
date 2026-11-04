@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
+import 'package:fittrack/core/services/cloud_voice_config.dart';
 import 'package:fittrack/core/services/workout_coach.dart';
+import 'package:fittrack/features/settings/presentation/widgets/voice_source_card.dart';
 
 import 'package:fittrack/core/theme/app_colors.dart';
 
@@ -45,6 +47,8 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
       pitch: s?.speechPitch ?? 1.0,
       voiceName: s?.ttsVoice,
     );
+    // 云端配好了就试听云端；没配/失败会由 coach 内部回落系统 TTS（总有声音）
+    CloudVoiceConfig.fromJsonString(s?.ttsConfig).applyTo(coach);
     coach.enabled = true;
     await coach.speak('你好，这是试听效果');
   }
@@ -57,6 +61,9 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
     final pitch = s?.speechPitch ?? 1.0;
     final voice = s?.ttsVoice ?? '';
     final enabled = rate > 0;
+    // 选了 Edge/MiniMax 且可用：系统音色的语速/音调/音色对他无效，置灰但不隐藏
+    // （隐藏会让用户以为设置丢了；置灰能看懂"现在归上面的通道管"）
+    final cloudReady = CloudVoiceConfig.fromJsonString(s?.ttsConfig).ready;
 
     return Scaffold(
       appBar: AppBar(title: const Text('语音教练'), centerTitle: false),
@@ -87,7 +94,11 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          Opacity(
+            opacity: cloudReady ? 0.45 : 1,
+            child: IgnorePointer(
+              ignoring: cloudReady,
+              child: Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Column(
@@ -171,7 +182,10 @@ class _VoiceSettingsPageState extends ConsumerState<VoiceSettingsPage> {
                 ],
               ),
             ),
+              ),
+            ),
           ),
+          const VoiceSourceCard(),
           const SizedBox(height: 16),
           SizedBox(
             height: 48,

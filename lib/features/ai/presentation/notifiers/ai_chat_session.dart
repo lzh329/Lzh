@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_image_flow.dart';
 import 'package:fittrack/features/ai/presentation/notifiers/ai_chat_state.dart';
 
@@ -57,7 +57,7 @@ class AiChatSession {
     if ((trimmed.isEmpty && image == null) || state.isBusy) return;
     if (!state.hasKey) {
       _write(state.copyWith(
-          error: '请先点右上角钥匙图标，配置 DeepSeek API Key'));
+          error: '请先点右上角钥匙图标，选择服务商并配置 API Key'));
       return;
     }
     final prepared = await AiUserPayloadResult.load(text: trimmed, image: image);
@@ -97,6 +97,14 @@ class AiChatSession {
     await _ref.read(userSettingsRepoProvider).save(aiApiKey: trimmed);
     _ref.invalidate(userSettingsProvider);
     _write(_read().copyWith(hasKey: AiService.resolveKey(trimmed) != null));
+  }
+
+  /// 保存所选服务商（id，空 = DeepSeek）
+  Future<void> saveAiProvider(String id) async {
+    await _ref
+        .read(userSettingsRepoProvider)
+        .save(aiProviderId: id.trim().isEmpty ? 'deepseek' : id.trim());
+    _ref.invalidate(userSettingsProvider);
   }
 
   /// 清空聊天记录（同时丢弃工具上下文与未执行的「开始训练」）

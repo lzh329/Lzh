@@ -95,14 +95,25 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   Future<void> updateWorkout({
     required int id,
     String? note,
-    required List<NewSetData> sets,
+    int? durationSec,
+    List<NewSetData>? sets,
   }) async {
     await _db.transaction(() async {
-      // 更新备注
-      if (note != null) {
-        await (_db.update(_db.workouts)..where((t) => t.id.equals(id)))
-            .write(WorkoutsCompanion(note: Value(note)));
+      // 备注 / 时长：两者都是"可选覆盖"，只写调用方真的给了的字段
+      // （用 Value.absent 而不是 Value(null)：后者会把备注清空）
+      if (note != null || durationSec != null) {
+        await (_db.update(_db.workouts)..where((t) => t.id.equals(id))).write(
+          WorkoutsCompanion(
+            note: note == null ? const Value.absent() : Value(note),
+            durationSec: durationSec == null
+                ? const Value.absent()
+                : Value(durationSec),
+          ),
+        );
       }
+      // sets == null ⇒ 只改备注/时长，**一个动作都不许动**
+      // （以前的写法无条件先删再插，于是"只改时长"的调用会把动作全删光）
+      if (sets == null) return;
       // 删除旧组
       await (_db.delete(_db.workoutSets)..where((t) => t.workoutId.equals(id)))
           .go();
@@ -123,7 +134,14 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<void> delete(int id) async {
-    await (_db.delete(_db.workouts)..where((t) => t.id.equals(id))).go();
+    await _db.transaction(() async {
+      // 先删组再删训练：本库没开 `PRAGMA foreign_keys=ON`，外键级联不生效，
+      // 只删 workout 会把 workout_sets 留在库里成孤儿（记录页统计会虚高）。
+      await (_db.delete(_db.workoutSets)
+            ..where((t) => t.workoutId.equals(id)))
+          .go();
+      await (_db.delete(_db.workouts)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   Future<List<WorkoutSetEntity>> _getSets(int workoutId) async {

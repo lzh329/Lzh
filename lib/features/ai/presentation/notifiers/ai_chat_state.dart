@@ -1,4 +1,4 @@
-import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiMessage;
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
 import 'package:fittrack/features/workout/presentation/notifiers/workout_session_notifier.dart'
     show ExerciseSlot;

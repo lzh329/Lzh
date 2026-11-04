@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:fittrack/core/services/ai_service.dart' show AiMessage;
+import 'package:fittrack/features/ai/data/ai_service.dart' show AiMessage;
 import 'package:fittrack/core/theme/app_colors.dart';
 import 'package:fittrack/features/ai/domain/coach_chip.dart';
 import 'package:fittrack/features/ai/presentation/widgets/ai_chip_bar.dart';

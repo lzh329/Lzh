@@ -12,6 +12,7 @@ class AiToolAdminWriters extends AiToolHandler {
         AiToolSpecs.manageGoal,
         AiToolSpecs.deleteRecords,
         AiToolSpecs.deleteTemplate,
+        AiToolSpecs.deleteWorkout,
       };
 
   @override
@@ -67,6 +68,19 @@ class AiToolAdminWriters extends AiToolHandler {
           isDestructive: true,
         );
 
+      case AiToolSpecs.deleteWorkout:
+        final id = AiToolArgs.workoutId(call.arguments);
+        final w = await repos.workout.getById(id);
+        if (w == null) throw AiToolException('找不到训练记录 #$id');
+        return AiToolPreview(
+          call: call,
+          label: '删除训练记录',
+          detail: '删除 ${AiToolFormat.ymd(w.date)} 的训练'
+              '（${w.sets.length} 组动作）',
+          needsConfirm: true,
+          isDestructive: true,
+        );
+
       default:
         unsupported(call);
     }
@@ -81,6 +95,8 @@ class AiToolAdminWriters extends AiToolHandler {
         return _deleteRecords(call.arguments);
       case AiToolSpecs.deleteTemplate:
         return _deleteTemplate(call.arguments);
+      case AiToolSpecs.deleteWorkout:
+        return _deleteWorkout(call.arguments);
       default:
         unsupported(call);
     }
@@ -153,6 +169,16 @@ class AiToolAdminWriters extends AiToolHandler {
     if (t == null) throw AiToolException('找不到模板 #$id');
     await repos.template.delete(id);
     return jsonEncode({'ok': true, 'template_id': id, 'name': t.name});
+  }
+
+  // ───────────── delete_workout ─────────────
+
+  Future<String> _deleteWorkout(Map<String, dynamic> args) async {
+    final id = AiToolArgs.workoutId(args);
+    final w = await repos.workout.getById(id);
+    if (w == null) throw AiToolException('找不到训练记录 #$id');
+    await repos.workout.delete(id);
+    return jsonEncode({'ok': true, 'workout_id': id});
   }
 
   // ───────────── delete_records ─────────────

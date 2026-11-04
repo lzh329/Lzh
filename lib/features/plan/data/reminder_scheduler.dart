@@ -1,5 +1,5 @@
 import 'package:fittrack/core/services/notification_service.dart';
-import 'package:fittrack/core/services/sick_day_gate.dart';
+import 'package:fittrack/features/ai/data/sick_day_gate.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_day_entity.dart';
 import 'package:fittrack/features/plan/domain/entities/plan_entity.dart';
 

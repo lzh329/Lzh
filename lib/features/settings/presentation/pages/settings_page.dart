@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/coach_proactive_providers.dart';
+import 'package:fittrack/features/ai/data/coach_proactive_providers.dart';
+import 'package:fittrack/core/services/character_providers.dart';
 import 'package:fittrack/core/services/notification_service.dart';
 import 'package:fittrack/features/settings/presentation/settings_actions.dart';
 import 'package:fittrack/features/settings/presentation/widgets/profile_header_card.dart';
@@ -73,6 +74,32 @@ class SettingsPage extends ConsumerWidget {
                 title: '身体相册',
                 subtitle: '查看和管理身体照片',
                 onTap: () => context.push('/body/album'),
+              ),
+              // 「我的形象」放这里而不是教练设定下：换形象是身份类设置，
+              // 和「个人档案」「身体相册」同一层。挂教练设定的话路径是
+              // 点角色 → 进聊天 → 右上角设置 → 往下滚（3 层且语义错位）。
+              SettingsTile(
+                icon: Icons.emoji_emotions_outlined,
+                color: _orange,
+                title: '我的形象',
+                subtitle: _characterSubtitle(ref),
+                onTap: () => context.push('/settings/character'),
+              ),
+              // 训练记录的第二个显性入口（另一个在训练页右上角），两个都 push
+              SettingsTile(
+                icon: Icons.event_note,
+                color: _green,
+                title: '训练记录',
+                subtitle: '练了几次、哪些天练的',
+                onTap: () => context.push('/workout/records'),
+              ),
+              // 饮食日记入口：之前只在教练的「记饮食」芯片里能进，用户找不到
+              SettingsTile(
+                icon: Icons.restaurant_outlined,
+                color: _orange,
+                title: '饮食日记',
+                subtitle: '记录每天吃了什么、喝了多少水',
+                onTap: () => context.push('/diet'),
               ),
             ],
           ),
@@ -188,6 +215,12 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 「我的形象」的副标题：当前选了谁（名字来自注册表，不写死）
+  String _characterSubtitle(WidgetRef ref) {
+    final spec = ref.watch(currentCharacterProvider);
+    return '当前：${spec.name}';
   }
 
   String _bodyInfoSubtitle(WidgetRef ref) {
