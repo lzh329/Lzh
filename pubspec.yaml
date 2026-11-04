@@ -1,7 +1,7 @@
 name: fittrack
 description: 简瘦 - 个人减肥锻炼记录 App
 publish_to: 'none'
-version: 1.2.2+9
+version: 1.2.3+10
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -23,6 +23,8 @@ dependencies:
   image_picker: ^1.1.2
   intl: ^0.20.2
   flutter_tts: ^4.0.2
+  # 云端音色（MiniMax T2A）返回 MP3 字节，用 audioplayers 直接播 BytesSource
+  audioplayers: ^6.1.0
   timezone: ^0.10.1
   wakelock_plus: ^1.5.2
   http: ^1.2.2
@@ -32,6 +34,16 @@ dependencies:
   archive: ^3.6.1
   # manifest 里的 dbSha256（校验包内数据库是否损坏/被替换）
   crypto: ^3.0.3
+  # 角色动效（可选增强，缺 .riv 就走程序化降级）。
+  # ⚠️ 精确版本，不要加 ^：0.14.x 起改用 rive_native（native assets hook 要从
+  # GitHub 拉预编译库），本机网络已为 sqlite3 打过 hooks 补丁，不再引第二条网络依赖。
+  # package:rive 全库只允许被 character_rive_adapter.dart 一个文件 import。
+  rive: 0.13.20
+  # Edge TTS：vendor 本地副本（微软 2026-10 迁移了合成端点，pub 上的旧包仍写死
+  # 旧地址 speech.platform.bing.com → 一律 403）。这里改用本地修补版，把端点切到
+  # api.msedgeservices.com。
+  edge_tts:
+    path: packages/edge_tts
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +75,11 @@ flutter:
     - assets/guga/
     - assets/guga2d/
     - assets/guga3d/
+    # 目录声明而不是逐文件（R3）：用户替换同名文件即生效，不改代码。
+    # ⚠️ 两个目录内必须有占位文件 —— 空目录会让构建报
+    # "unable to find directory entry"。assets/rive/ 目前只有一个 PROVENANCE.md。
+    - assets/characters/
+    - assets/rive/
 
 flutter_launcher_icons:
   image_path: "assets/js.jpg"
