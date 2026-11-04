@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fittrack/core/providers.dart';
-import 'package:fittrack/core/services/ai_prompt_builder.dart';
-import 'package:fittrack/core/services/ai_service.dart';
+import 'package:fittrack/features/ai/data/ai_prompt_builder.dart';
+import 'package:fittrack/features/ai/data/ai_service.dart';
 import 'package:fittrack/features/ai/data/ai_chat_memory_flow.dart';
 import 'package:fittrack/features/ai/data/ai_tool_executor.dart';
 import 'package:fittrack/features/ai/domain/ai_stall_promise.dart';
@@ -30,7 +30,9 @@ typedef AiChatRoundRunner = Future<AiChatRoundResult> Function({
   required List<AiMessage> messages,
   required void Function(String delta) onDelta,
   double temperature,
-  bool webEnabled,
+  bool searchEnabled,
+  bool fetchEnabled,
+  AiProvider? provider,
 });
 
 /// 嘎教练对话状态机：流式回复 + 工具回合（写操作必须由用户点头）
@@ -186,8 +188,13 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       // 教练记得的事（≤4 行）。失败一律返回空列表，绝不让它打断对话
       final memoryLines = _memoryLinesCache ??=
           await _ref.read(coachMemoryServiceProvider).promptLines();
-      // 联网开关：没设置过（老库 / 首启）一律按开启处理
-      final webEnabled = settings?.aiWebSearchEnabled ?? true;
+      // 联网总开关：没设置过（老库 / 首启）一律按开启处理。
+      final userWebOn = settings?.aiWebSearchEnabled ?? true;
+      final provider = aiProviderById(settings?.aiProviderId);
+      // 搜索只有 DeepSeek 有服务端接口（且按次计费）→ 非 DeepSeek 一律关；
+      // 读网页有**本地抓取兜底**，任何服务商都能用，只受总开关控制。
+      final searchEnabled = userWebOn && provider.id == 'deepseek';
+      final fetchEnabled = userWebOn;
       state = state.copyWith(
           isStreaming: true, clearStreaming: true, clearError: true);
 
@@ -195,7 +202,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         apiKey: AiService.resolveKey(settings?.aiApiKey) ?? '',
         temperature: (settings?.aiTemperature ?? AiService.defaultTemperature)
             .clamp(0.3, 1.0),
-        webEnabled: webEnabled,
+        searchEnabled: searchEnabled,
+        fetchEnabled: fetchEnabled,
+        provider: provider,
         messages: [
           AiMessage(
             role: 'system',
@@ -233,12 +242,28 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         await _handleToolCalls(round.toolCalls);
         return;
       }
+      // ── 假完成拦截 ──
+      // 模型宣称"已记录/已补记"，但本轮**没有任何工具调用** → 数据根本没写。
+      // 比空承诺更危险：用户会以为已经记上了。拦下来：不落库、不显示，
+      // 用 system 指令逼它真的调工具。（与空承诺共用一次补发上限，防死循环）
+      if (claimsCompletedAction(round.content)) {
+        _stallNudgeCount++;
+        if (_stallNudgeCount <= 1) {
+          _tool.appendSystem('系统提示：你刚才声称操作已完成，但本轮没有任何'
+              '工具调用，等于没做。请立刻调用对应工具执行（记录训练用 '
+              'log_workout，改记录用 update_workout，其余同理），'
+              '不要再用文字声称完成。');
+          await _request();
+          return;
+        }
+        // 已补发过一轮仍如此 → 放弃拦截，如实显示模型原文
+      }
       // ── 空承诺拦截 ──
       // 模型回了「我去搜一下」这类纯文本、却没带任何工具调用 → 这句就是
       // 本轮最终答复，用户得再催一次才会真的搜。这里拦截：不把空承诺落库，
       // 追加一条 system 内部指令让模型立刻执行工具，重新请求一轮。
       // （联网已关闭时不拦：没工具可调，拦了只会死循环）
-      if (webEnabled && isStallPromise(round.content, _tool.messages)) {
+      if (searchEnabled && isStallPromise(round.content, _tool.messages)) {
         _stallNudgeCount++;
         if (_stallNudgeCount <= 1) {
           // 把空承诺当作 assistant 历史带上，再用 system 指令逼它真的搜
@@ -347,6 +372,9 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
   /// 保存用户填写的 API Key
   Future<void> saveApiKey(String key) => _session.saveApiKey(key);
+
+  /// 保存所选服务商（id）
+  Future<void> saveAiProvider(String id) => _session.saveAiProvider(id);
 
   /// 清空聊天记录（同时丢弃工具上下文）
   Future<void> clearHistory() => _session.clearHistory();
