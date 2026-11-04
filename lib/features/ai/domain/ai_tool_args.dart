@@ -206,6 +206,13 @@ class AiToolArgs {
   };
 
   /// 训练类型：兼容中英文，未知归为"其他"
+  /// 可选文本参数：null / 空白串 → null（调用方据此判断"没给"）
+  static String? optionalString(Object? raw) {
+    if (raw is! String) return null;
+    final t = raw.trim();
+    return t.isEmpty ? null : t;
+  }
+
   static String workoutType(Map<String, dynamic> args) {
     final raw = args['workout_type'];
     final v = raw is String ? raw.trim() : '';

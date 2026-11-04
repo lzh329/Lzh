@@ -239,6 +239,13 @@ class AiToolSpecs {
               'type': 'string',
               'description': '日期 YYYY-MM-DD，默认今天；补记过去几天时给日期',
             },
+            'template_name': {
+              'type': 'string',
+              'description': '按模板补记时给模板名（与 query_stats 的 templates '
+                  '一致）。给了它就不用再列 exercises —— 组次/时长由模板决定。'
+                  '用户说"用 XX 模板补记"时**优先用它，不要自己把模板翻译成 '
+                  'exercises**（翻译会丢组次）',
+            },
             'exercises': {
               'type': 'array',
               'description': '动作清单（可空）。动作名必须是动作库里的名字，'

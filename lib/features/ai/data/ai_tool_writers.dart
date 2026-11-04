@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:fittrack/features/ai/data/ai_tool_handler.dart';
 import 'package:fittrack/features/ai/domain/ai_tool.dart';
+import 'package:fittrack/features/workout/domain/entities/workout_template_entity.dart';
+import 'package:fittrack/features/workout/domain/template_expansion.dart';
 import 'package:fittrack/features/workout/domain/repositories/workout_repository.dart'
     show NewSetData;
 
@@ -202,11 +204,39 @@ class AiToolWriters extends AiToolHandler {
 
   Future<String> _logWorkout(AiToolCall call) async {
     final args = call.arguments;
-    final type = AiToolArgs.workoutType(args);
-    final minutes = AiToolArgs.minutes(args);
+    var type = AiToolArgs.workoutType(args);
+    var minutes = AiToolArgs.minutes(args);
     final note = AiToolArgs.workoutNote(args);
     final date = AiToolArgs.date(args);
-    final sets = await _resolveSets(AiToolArgs.workoutExercises(args));
+    final templateName = AiToolArgs.optionalString(args['template_name']);
+
+    // ── 按模板补记（优先路径）──
+    // 组次/时长只有模板里是准的；让模型把模板口述成 exercises 会丢 targetReps/
+    // targetDurationSec，真机上每组就变成"未记录"。
+    String? matchedTemplate;
+    List<NewSetData> sets;
+    if (templateName != null) {
+      final tpl = await _findTemplate(templateName);
+      if (tpl == null) {
+        throw AiToolException('没找到模板「$templateName」，先用 query_stats 看 templates 列表');
+      }
+      try {
+        sets = expandTemplateSets(tpl);
+      } on TemplateEmptyException catch (e) {
+        throw AiToolException('$e，先编辑模板加点动作');
+      }
+      minutes = tpl.minutes;
+      type = tpl.isCardio
+          ? '有氧'
+          : (tpl.items.any((i) => i.category == 'stretch') &&
+                  !tpl.items.any((i) => i.category == 'strength')
+              ? '拉伸'
+              : '力量');
+      matchedTemplate = tpl.name;
+    } else {
+      sets = await _resolveSets(AiToolArgs.workoutExercises(args));
+    }
+
     final w = await repos.workout.createWorkout(
       date: date,
       type: type,
@@ -214,14 +244,46 @@ class AiToolWriters extends AiToolHandler {
       durationSec: minutes * 60,
       sets: sets,
     );
+    // 按动作聚合，让模型能原样复述"深蹲 4 组 × 12 次"
+    final grouped = <int, Map<String, Object?>>{};
+    for (final s in sets) {
+      final e = grouped.putIfAbsent(
+          s.exerciseId, () => {'name': null, 'sets': 0, 'reps': s.reps});
+      e['sets'] = (e['sets'] as int) + 1;
+    }
+    if (matchedTemplate != null) {
+      // 补上动作名，让模型能原样复述"深蹲 4 组 × 12 次"
+      final tpl = await _findTemplate(matchedTemplate);
+      if (tpl != null) {
+        for (final item in tpl.items) {
+          grouped[item.exerciseId]?['name'] = item.exerciseName;
+        }
+      }
+      for (final e in grouped.values) {
+        e['name'] ??= '动作';
+      }
+    }
     return jsonEncode({
       'ok': true,
       'workout_id': w.id,
       'type': type,
       'minutes': minutes,
       'date': AiToolFormat.ymd(date),
+      'set_count': sets.length,
       'exercise_count': sets.map((s) => s.exerciseId).toSet().length,
+      if (matchedTemplate != null) 'template': matchedTemplate,
+      if (matchedTemplate != null) 'exercises': grouped.values.toList(),
     });
+  }
+
+  /// 按名字找模板：忽略大小写与首尾空格；找不到返回 null
+  Future<WorkoutTemplateEntity?> _findTemplate(String name) async {
+    final target = name.trim().toLowerCase();
+    final all = await repos.template.getAll();
+    for (final t in all) {
+      if (t.name.trim().toLowerCase() == target) return t;
+    }
+    return null;
   }
 
   /// 修改一条训练记录（按 id）：整体替换动作清单，备注可留空保留原值

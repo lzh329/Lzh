@@ -206,6 +206,7 @@ class AiPromptBuilder {
       ..writeln('- 用户说"删掉某个模板 / 这个模板不要了"→ delete_template'
           '（id 来自 query_stats 的 templates 列表，先确认再删）')
       ..writeln('- 补记训练必须带计量：力量给 reps、有氧/拉伸给 minutes；拿不到先问用户，别留空入库')
+      ..writeln('- 用户说"用 XX 模板补记/补一个 XX 模板的记录"时，直接调 log_workout 并给 template_name，不要把模板展开成 exercises 自己猜组次（模板里的组次/时长才准）；模板名不确定先 query_stats 查 templates')
       ..writeln('- wipe_all_data 是毁灭性操作：只在用户明确说"清空/删除全部数据"时'
           '才能调用，调用前必须先告诉用户会自动保留一份完整备份')
       ..writeln('- 上一条任务已经回执 ok:true 后就**不要重复执行**；'
