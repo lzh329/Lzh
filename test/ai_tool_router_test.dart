@@ -25,7 +25,8 @@ void main() {
       ['workout', 'start', {'template_name': '胸腿日'}, 'start_workout'],
       ['body', 'weight', {'weight_jin': 150}, 'log_weight'],
       ['body', 'measurements', {'waist_cm': 80}, 'log_measurements'],
-      ['body', 'update_measurement', {'measurement_id': 3}, 'update_measurement'],
+      ['body', 'update_measurement', {'id': 3}, 'update_measurement'],
+      ['body', 'delete_measurement', {'id': 3}, 'delete_measurement'],
       ['diet', 'food', {'food_name': '牛肉面'}, 'log_food'],
       ['diet', 'water', {'cups': 6}, 'log_water'],
       ['settings', 'target_weight', {'target_weight_jin': 140}, 'set_target_weight'],
@@ -89,7 +90,9 @@ void main() {
       expect(isMergedDestructive('workout', 'delete'), isTrue);
       expect(isMergedDestructive('template', 'delete'), isTrue);
       expect(isMergedDestructive('goal', 'delete'), isTrue);
-      expect(isMergedDestructive('body', 'update_measurement'), isTrue);
+      // 改数值不危险（80→79 不该弹红卡）；删围度才危险
+      expect(isMergedDestructive('body', 'update_measurement'), isFalse);
+      expect(isMergedDestructive('body', 'delete_measurement'), isTrue);
     });
 
     test('普通写操作不危险', () {

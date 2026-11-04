@@ -75,15 +75,20 @@ const List<Map<String, dynamic>> mergedWriteDefs = [
     'function': {
       'name': AiMergedTools.body,
       'description': '身体数据：weight 记体重 / measurements 记围度 / '
-          'update_measurement 改或删一条围度。',
+          'update_measurement 改一条围度 / delete_measurement 删一条围度。',
       'parameters': {
         'type': 'object',
         'properties': {
           'action': {
             'type': 'string',
-            'enum': ['weight', 'measurements', 'update_measurement'],
+            'enum': [
+              'weight',
+              'measurements',
+              'update_measurement',
+              'delete_measurement'
+            ],
             'description': 'weight 记体重 / measurements 记围度 / '
-                'update_measurement 改围度（action=delete 时删除）',
+                'update_measurement 改围度 / delete_measurement 删围度',
           },
           'weight_jin': {
             'type': 'number',
@@ -93,9 +98,10 @@ const List<Map<String, dynamic>> mergedWriteDefs = [
           'waist_cm': {'type': 'number', 'description': '腰围（cm），measurements 用'},
           'hip_cm': {'type': 'number', 'description': '臀围（cm）'},
           'chest_cm': {'type': 'number', 'description': '胸围（cm）'},
-          'measurement_id': {
+          'id': {
             'type': 'integer',
-            'description': '围度记录 id（update_measurement 必填）',
+            'description': '围度记录 id（update_measurement / delete_measurement 必填，'
+                '先用 query_measurements 查）',
           },
           'part': {
             'type': 'string',

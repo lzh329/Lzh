@@ -29,7 +29,7 @@ class AiMergedTools {
   /// 每个工具允许的 action（也是 schema 的 enum 来源）
   static const actions = <String, List<String>>{
     workout: ['log', 'update', 'delete', 'start'],
-    body: ['weight', 'measurements', 'update_measurement'],
+    body: ['weight', 'measurements', 'update_measurement', 'delete_measurement'],
     diet: ['food', 'water'],
     settings: ['target_weight', 'diet_target', 'profile', 'reminder'],
     template: ['create', 'delete'],
@@ -54,6 +54,7 @@ const Map<String, Map<String, String>> _routeTable = {
     'weight': AiToolSpecs.logWeight,
     'measurements': AiToolSpecs.logMeasurements,
     'update_measurement': AiToolSpecs.updateMeasurement,
+    'delete_measurement': AiToolSpecs.deleteMeasurement,
   },
   AiMergedTools.diet: {
     'food': AiToolSpecs.logFood,
@@ -126,7 +127,9 @@ bool isMergedDestructive(String name, String action) {
     case AiMergedTools.workout:
       return action == 'delete';
     case AiMergedTools.body:
-      return action == 'update_measurement';
+      // 只有"删围度"是危险操作；改数值（80→79）不该弹红卡，
+      // 红卡用多了用户会脱敏，真危险的时候就不看了
+      return action == 'delete_measurement';
     case AiMergedTools.template:
       return action == 'delete';
     case AiMergedTools.goal:
