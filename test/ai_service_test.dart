@@ -1375,13 +1375,14 @@ void main() {
       for (final entry in cases.entries) {
         expect(AiToolArgs.templateFocus({'focus': entry.key}), entry.value);
       }
-      for (final bad in ['', '增肌', 'bulk']) {
+      for (final bad in ['增肌', 'bulk']) {
         expect(() => AiToolArgs.templateFocus({'focus': bad}),
             throwsA(isA<AiToolException>()),
             reason: '非法侧重 "$bad" 必须拒绝');
       }
-      expect(
-          () => AiToolArgs.templateFocus({}), throwsA(isA<AiToolException>()));
+      // focus 已从模型可见 schema 删除（产品决策），缺省/空串给「全身」而不是报错
+      expect(AiToolArgs.templateFocus({}), '全身');
+      expect(AiToolArgs.templateFocus({'focus': ''}), '全身');
     });
 
     test('模板时长 5~180 含端点，4 与 181 拒绝', () {

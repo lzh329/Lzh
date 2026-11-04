@@ -99,9 +99,12 @@ class AiToolArgs {
     return jin == null ? null : jin / 2;
   }
 
-  /// 目标体重（斤）→ 公斤，校验 40~600 斤（set_target_weight 用 target_jin 字段）
+  /// 目标体重（斤）→ 公斤，校验 40~600 斤（接受 target_weight_jin / target_jin）
   static double targetWeightKg(Map<String, dynamic> args) {
-    final jin = numOf(args['target_jin']);
+    // 兼容双名：合并工具的 schema 对外用 `target_weight_jin`（对模型更明确），
+    // 旧工具/老调用用 `target_jin`。两个都收，schema 名优先。
+    final jin =
+        numOf(args['target_weight_jin']) ?? numOf(args['target_jin']);
     if (jin == null) throw const AiToolException('缺少目标体重数值');
     if (jin < 40 || jin > 600) {
       throw const AiToolException('目标体重数值不合理（应在 40~600 斤）');
@@ -466,21 +469,28 @@ class AiToolArgs {
   }
 
   /// 必填布尔（开关类参数）：缺失或无法解析直接抛异常
+  ///
+  /// 兼容双名：合并工具的 schema 对外用 `reminder_enabled`，旧名是 `enabled`。
   static bool boolArg(Map<String, dynamic> args, String key, String label) {
-    final b = boolOf(args[key]);
+    final b = boolOf(args[key]) ??
+        (key == 'enabled' ? boolOf(args['reminder_enabled']) : null);
     if (b == null) throw AiToolException('缺少$label设置（需要 true 或 false）');
     return b;
   }
 
   /// 小时 0~23，缺失返回 null
   static int? optionalHour(Map<String, dynamic> args) {
-    final h = _optionalRange(args, 'hour', '小时', min: 0, max: 23);
+    // 兼容双名：合并工具 schema 用 reminder_hour，旧名是 hour
+    final h = _optionalRange(args, 'hour', '小时', min: 0, max: 23) ??
+        _optionalRange(args, 'reminder_hour', '小时', min: 0, max: 23);
     return h?.round();
   }
 
   /// 分钟 0~59，缺失返回 null
   static int? optionalMinute(Map<String, dynamic> args) {
-    final m = _optionalRange(args, 'minute', '分钟', min: 0, max: 59);
+    // 兼容双名：合并工具 schema 用 reminder_minute，旧名是 minute
+    final m = _optionalRange(args, 'minute', '分钟', min: 0, max: 59) ??
+        _optionalRange(args, 'reminder_minute', '分钟', min: 0, max: 59);
     return m?.round();
   }
 
@@ -683,9 +693,9 @@ class AiToolArgs {
   static String templateFocus(Map<String, dynamic> args) {
     final raw = args['focus'];
     final v = raw is String ? raw.trim() : '';
-    if (v.isEmpty) {
-      throw const AiToolException('缺少模板侧重（只能是 全身 / 放松 / 碎片）');
-    }
+    // focus（场景）已从模型可见的 schema 里删除（产品决策），合并工具不会传。
+    // 缺省给「全身」：focus 不再参与展示与筛选，缺省不会造成信息丢失。
+    if (v.isEmpty) return '全身';
     final f = AiTemplateCommand.focusOf(v);
     if (f == null) {
       throw AiToolException('不支持的侧重"$v"（只能是 全身 / 放松 / 碎片）');
