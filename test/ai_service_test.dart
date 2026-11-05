@@ -1354,13 +1354,14 @@ void main() {
         expect(AiToolArgs.templateDifficulty({'difficulty': entry.key}),
             entry.value);
       }
-      for (final bad in ['', '  ', '大师', 'expert']) {
+      for (final bad in ['大师', 'expert']) {
         expect(() => AiToolArgs.templateDifficulty({'difficulty': bad}),
             throwsA(isA<AiToolException>()),
             reason: '非法难度 "$bad" 必须拒绝');
       }
-      expect(() => AiToolArgs.templateDifficulty({}),
-          throwsA(isA<AiToolException>()));
+      // schema 把 difficulty 标成可选（描述写"默认入门"）→ 缺省必须给入门
+      expect(AiToolArgs.templateDifficulty({}), '入门');
+      expect(AiToolArgs.templateDifficulty({'difficulty': ''}), '入门');
     });
 
     test('侧重归一化：中文 + 英文兼容，非法拒绝', () {
@@ -1410,15 +1411,17 @@ void main() {
           'x' * 100);
     });
 
-    test('动作数量 1~12：0 与 13 拒绝', () {
+    test('动作数量 1~40：0 与 41 拒绝', () {
       List<Map<String, dynamic>> build(int n) => [
             for (var i = 0; i < n; i++) {'exercise_name': '深蹲'},
           ];
       expect(AiToolArgs.templateItems({'items': build(1)}), hasLength(1));
       expect(AiToolArgs.templateItems({'items': build(12)}), hasLength(12));
+      expect(AiToolArgs.templateItems({'items': build(40)}), hasLength(40),
+          reason: '30 个动作的模板很常见，12 太小');
       expect(() => AiToolArgs.templateItems({'items': const []}),
           throwsA(isA<AiToolException>()));
-      expect(() => AiToolArgs.templateItems({'items': build(13)}),
+      expect(() => AiToolArgs.templateItems({'items': build(41)}),
           throwsA(isA<AiToolException>()));
       expect(
           () => AiToolArgs.templateItems({}), throwsA(isA<AiToolException>()));

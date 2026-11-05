@@ -300,11 +300,16 @@ class AiToolArgs {
       final sets = lenientIntOf(item['sets']) ?? 1;
       final reps = lenientIntOf(item['reps']);
       final weight = lenientDoubleOf(item['weight_kg']);
+      // 时长三选一：seconds（最直接，优先）> duration_sec（模板口径兼容）> minutes
+      final seconds = lenientIntOf(item['seconds']) ??
+          lenientIntOf(item['duration_sec']);
       final minutes = lenientDoubleOf(item['minutes']);
-      // 分钟 → 秒（支持小数，四舍五入）；0 或负数视为没给
-      final durationSec = (minutes != null && minutes > 0 && minutes <= 600)
-          ? (minutes * 60).round()
-          : null;
+      int? durationSec;
+      if (seconds != null && seconds > 0) {
+        durationSec = seconds;
+      } else if (minutes != null && minutes > 0 && minutes <= 600) {
+        durationSec = (minutes * 60).round();
+      }
       out.add(AiWorkoutExerciseInput(
         name: name.trim(),
         sets: sets < 1 ? 1 : (sets > 50 ? 50 : sets),
@@ -679,9 +684,9 @@ class AiToolArgs {
   static String templateDifficulty(Map<String, dynamic> args) {
     final raw = args['difficulty'];
     final v = raw is String ? raw.trim() : '';
-    if (v.isEmpty) {
-      throw const AiToolException('缺少模板难度（只能是 入门 / 中阶 / 高阶）');
-    }
+    // schema 把 difficulty 标成可选（描述里写"默认入门"），这里必须跟着缺省，
+    // 否则模型不传就必然失败
+    if (v.isEmpty) return '入门';
     final d = AiTemplateCommand.difficultyOf(v);
     if (d == null) {
       throw AiToolException('不支持的难度"$v"（只能是 入门 / 中阶 / 高阶）');
@@ -722,13 +727,17 @@ class AiToolArgs {
     return d.length > 100 ? d.substring(0, 100) : d;
   }
 
-  /// 模板动作列表：1~12 项
+  /// 模板动作列表：1~40 项（30 个动作的模板很常见，12 太小）
   static List<AiTemplateItemInput> templateItems(Map<String, dynamic> args) {
     final raw = args['items'];
     if (raw is! List || raw.isEmpty) {
       throw const AiToolException('模板至少要包含 1 个动作');
     }
-    if (raw.length > 12) throw const AiToolException('模板最多 12 个动作');
+    // 超限必须**抛错**（ok:false 回执），不能静默截断：
+    // 静默截断会让模型以为全建好了，实际少了一半
+    if (raw.length > 40) {
+      throw const AiToolException('一次最多 40 个动作，超过请分两次建');
+    }
     final items = <AiTemplateItemInput>[];
     for (final entry in raw) {
       if (entry is! Map) throw const AiToolException('模板动作格式不正确');
@@ -750,8 +759,11 @@ class AiToolArgs {
 
     final sets = _optionalRange(args, 'sets', '组数', min: 1, max: 10)?.round();
     final reps = _optionalRange(args, 'reps', '次数', min: 1, max: 100)?.round();
-    final duration =
-        _optionalRange(args, 'duration_sec', '时长', min: 5, max: 600)?.round();
+    // 时长：seconds（对外统一名）优先，duration_sec 兼容老口径
+    final duration = _optionalRange(args, 'seconds', '时长', min: 5, max: 600)
+            ?.round() ??
+        _optionalRange(args, 'duration_sec', '时长', min: 5, max: 600)
+            ?.round();
 
     return AiTemplateItemInput(
       exerciseName: name,

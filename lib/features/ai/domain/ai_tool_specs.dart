@@ -674,7 +674,7 @@ class AiToolSpecs {
             },
             'items': {
               'type': 'array',
-              'description': '动作列表，1~12 项',
+              'description': '动作列表，1~40 项（超过 40 会拒绝，请分两次建）',
               'items': {
                 'type': 'object',
                 'properties': {

@@ -342,7 +342,11 @@ class AiToolWriters extends AiToolHandler {
       // 兜底链：模型给的值 → 动作库默认值 → null（**不瞎编**）
       // 之前力量动作没传 reps 时直接写 null，有氧只看动作库默认（多为 null），
       // 用户补记后详情页每组的次数/时长全是"未记录"。
-      final timed = ex.category == 'cardio' || ex.category == 'stretch';
+      // 计时类：有氧 / 拉伸，**或者模型显式给了秒级时长**（平板支撑 30 秒
+      // 这种力量静力动作也是按时间做的，不能因为分类是 strength 就把时长丢了）
+      final timed = ex.category == 'cardio' ||
+          ex.category == 'stretch' ||
+          input.durationSec != null;
       final reps = timed ? null : (input.reps ?? ex.defaultReps);
       final durationSec =
           timed ? (input.durationSec ?? ex.defaultDurationSec) : null;

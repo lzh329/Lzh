@@ -138,8 +138,9 @@ class AiPromptBuilder {
     buf
       ..writeln()
       ..writeln('# 工具使用（写操作要 action，都要用户确认）')
-      ..writeln('- `workout`：log 记训练（补记模板给 template_name，力量动作给 reps、有氧给 minutes）'
-          ' / update 改 / delete 删 / start 开练模板；改删前先 query_workouts 拿 id')
+      ..writeln('- `workout`：log 记训练（补记模板给 template_name；力量给 reps，计时给 seconds，'
+          '用户说"做 30 秒"就传 seconds=30 别折算成次数）/ update 改 / delete 删 / '
+          'start 开练模板；改删前先 query_workouts 拿 id')
       ..writeln('- `body`：weight 记体重 / measurements 记围度 / update_measurement 改围度')
       ..writeln('- `diet`：food 记饮食 —— 用户发食物照片时先按图估食材与分量再记；能估三大营养素'
           '（蛋白/脂肪/碳水）就一起给，估不出留空别填 0；water 记喝水')

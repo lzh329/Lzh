@@ -54,7 +54,13 @@ const List<Map<String, dynamic>> mergedWriteDefs = [
                 'reps': {'type': 'integer', 'description': '每组次数（力量必填）'},
                 'minutes': {
                   'type': 'number',
-                  'description': '每组时长分钟（有氧/拉伸必填，可小数）',
+                  'description': '每组时长分钟（有氧/拉伸用，可小数，如 0.5 = 30 秒）',
+                },
+                'seconds': {
+                  'type': 'integer',
+                  'description': '每组时长秒（有氧/静力用，5~600）。用户说'
+                      '"做 30 秒"就直接传 30，不要折算成次数；'
+                      '与 minutes 同时给时以 seconds 为准',
                 },
                 'weight_kg': {'type': 'number'},
               },
@@ -193,14 +199,18 @@ const List<Map<String, dynamic>> mergedWriteDefs = [
           'minutes': {'type': 'integer', 'description': '预计时长（分钟）'},
           'items': {
             'type': 'array',
-            'description': '动作清单（create 用）',
+            'description': '动作清单（create 用，1~40 项）',
             'items': {
               'type': 'object',
               'properties': {
                 'exercise_name': {'type': 'string'},
                 'sets': {'type': 'integer'},
                 'reps': {'type': 'integer'},
-                'minutes': {'type': 'number', 'description': '每组分钟（有氧/拉伸）'},
+                'minutes': {'type': 'number', 'description': '每组分钟（有氧/拉伸，可小数）'},
+                'seconds': {
+                  'type': 'integer',
+                  'description': '每组秒（计时类动作，5~600）；用户说"做 30 秒"就传 30',
+                },
               },
               'required': ['exercise_name'],
             },

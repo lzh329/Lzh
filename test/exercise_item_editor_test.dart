@@ -54,7 +54,8 @@ void main() {
       item(category: 'cardio', reps: null, durationSec: 600),
       interact: (t) async {
         expect(find.text('每组次数'), findsNothing);
-        expect(find.text('时长（分钟）'), findsOneWidget);
+        expect(find.text('每组时长（分钟）'), findsOneWidget,
+            reason: '有氧默认按分钟填');
         expect(find.textContaining('有氧'), findsOneWidget);
         await t.enterText(find.byType(TextField).last, '5');
         await t.tap(find.text('确定'));
@@ -110,5 +111,45 @@ void main() {
 
     expect(r!.reps, isNull);
     expect(r.durationSec, 60);
+  });
+
+  testWidgets('计时类动作切到「秒」填 30 → 保存 durationSec=30', (tester) async {
+    final r = await open(
+      tester,
+      item(category: 'stretch', reps: null, durationSec: 60),
+      interact: (t) async {
+        // 拉伸默认就是「秒」
+        await t.enterText(find.byType(TextField).last, '30');
+        await t.tap(find.text('确定'));
+      },
+    );
+    expect(r!.durationSec, 30);
+    expect(r.reps, isNull);
+  });
+
+  testWidgets('有氧切到「秒」/ 保持在「分」时按分钟换算', (tester) async {
+    // 默认分钟：填 5 → 300 秒
+    final minutes = await open(
+      tester,
+      item(category: 'cardio', reps: null, durationSec: 600),
+      interact: (t) async {
+        await t.enterText(find.byType(TextField).last, '5');
+        await t.tap(find.text('确定'));
+      },
+    );
+    expect(minutes!.durationSec, 300);
+
+    // 切到秒：填 45 → 45 秒
+    final seconds = await open(
+      tester,
+      item(category: 'cardio', reps: null, durationSec: 600),
+      interact: (t) async {
+        await t.tap(find.widgetWithText(ChoiceChip, '秒'));
+        await t.pumpAndSettle();
+        await t.enterText(find.byType(TextField).last, '45');
+        await t.tap(find.text('确定'));
+      },
+    );
+    expect(seconds!.durationSec, 45, reason: '切到秒后按秒存，不再 ×60');
   });
 }

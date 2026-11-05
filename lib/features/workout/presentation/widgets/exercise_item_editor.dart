@@ -20,6 +20,9 @@ Future<EditItem?> showExerciseItemEditor(
   final repsCtrl = TextEditingController(text: item.reps?.toString() ?? '');
   // 有氧按分钟展示，静力按秒展示 —— 单位不同，初值也要各自换算
   final seconds = item.durationSec ?? 0;
+  final isTimed = mode != _EditorMode.reps;
+  // 计时类动作可以在「分 / 秒」之间切换：有氧默认分、拉伸/静力默认秒
+  var useSeconds = mode == _EditorMode.seconds;
   final valueCtrl = TextEditingController(
     text: mode == _EditorMode.cardioMinutes
         ? '${(seconds / 60).round()}'
@@ -28,7 +31,8 @@ Future<EditItem?> showExerciseItemEditor(
 
   final result = await showDialog<EditItem>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
       title: Text('${item.name} · ${mode.label}'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -42,11 +46,44 @@ Future<EditItem?> showExerciseItemEditor(
             ),
           ),
           const SizedBox(height: 12),
+          if (isTimed) ...[
+            Row(
+              children: [
+                const Text('单位', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 8),
+                for (final unit in const ['分', '秒'])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(unit, style: const TextStyle(fontSize: 11)),
+                      selected: (unit == '秒') == useSeconds,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setLocal(() {
+                        final toSeconds = unit == '秒';
+                        if (toSeconds == useSeconds) return;
+                        // 切换单位时保留"真实时长"：先按旧单位解析，再换算显示
+                        final v = int.tryParse(valueCtrl.text);
+                        final secs = v == null
+                            ? seconds
+                            : (useSeconds ? v : v * 60);
+                        useSeconds = toSeconds;
+                        valueCtrl.text = toSeconds
+                            ? '$secs'
+                            : '${(secs / 60).round()}';
+                      }),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
           TextField(
             controller: mode == _EditorMode.reps ? repsCtrl : valueCtrl,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: mode.fieldLabel,
+              labelText: mode == _EditorMode.reps
+                  ? mode.fieldLabel
+                  : (useSeconds ? '每组时长（秒）' : '每组时长（分钟）'),
               border: const OutlineInputBorder(),
             ),
           ),
@@ -68,15 +105,13 @@ Future<EditItem?> showExerciseItemEditor(
                     reps: int.tryParse(repsCtrl.text) ?? item.reps,
                     durationSec: null,
                   ),
-                _EditorMode.cardioMinutes => item.copyWith(
+                _EditorMode.cardioMinutes || _EditorMode.seconds =>
+                  item.copyWith(
                     sets: sets,
                     reps: null,
-                    durationSec: cardioSeconds(raw ?? (seconds / 60).round()),
-                  ),
-                _EditorMode.seconds => item.copyWith(
-                    sets: sets,
-                    reps: null,
-                    durationSec: raw ?? item.durationSec,
+                    // 一律落秒：分 -> ×60；秒 -> 原值
+                    durationSec:
+                        raw == null ? item.durationSec : (useSeconds ? raw : cardioSeconds(raw)),
                   ),
               },
             );
@@ -84,6 +119,7 @@ Future<EditItem?> showExerciseItemEditor(
           child: const Text('确定'),
         ),
       ],
+        ),
     ),
   );
   return result;
