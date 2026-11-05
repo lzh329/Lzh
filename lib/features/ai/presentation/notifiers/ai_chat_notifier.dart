@@ -327,10 +327,20 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   Future<void> _handleToolCalls(List<AiToolCall> calls) async {
     for (final call in calls) {
       if (_tool.round >= AiToolLimits.maxCallsPerRound) {
-        // 超限：把回执留给模型（下次用户发消息时它知道为什么中断），本轮终止
+        // 超限：把回执留给模型（下次用户发消息时它知道为什么中断），
+        // **并且必须告诉用户**——否则界面既不转圈也不回话，看起来像卡死
         _tool.append(
             call, AiToolContext.failureReceipt(AiToolLimits.overLimitMessage));
-        state = state.copyWith(isStreaming: false, clearStreaming: true);
+        final notice = AiToolLimits.userLimitNotice(_tool.round);
+        await _ref.read(aiChatRepoProvider).add('assistant', notice);
+        state = state.copyWith(
+          messages: [
+            ...state.messages,
+            AiMessage(role: 'assistant', content: notice),
+          ],
+          isStreaming: false,
+          clearStreaming: true,
+        );
         return;
       }
       _tool.round++;

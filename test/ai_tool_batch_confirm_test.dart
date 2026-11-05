@@ -338,9 +338,9 @@ void main() {
 
   // ═══════════ 6. 轮次上限常量 ═══════════
 
-  group('工具轮次上限 = 8', () {
+  group('工具轮次上限 = 12', () {
     test('常量值与文案同步，且提示引导用户分两步说', () {
-      expect(AiToolLimits.maxCallsPerRound, 8);
+      expect(AiToolLimits.maxCallsPerRound, 12);
       expect(AiToolLimits.overLimitMessage, contains('操作次数过多'));
       expect(AiToolLimits.overLimitMessage, contains('分两步说'),
           reason: '提示要告诉用户怎么说，而不是只报错');

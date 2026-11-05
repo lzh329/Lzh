@@ -1104,7 +1104,8 @@ void main() {
       expect(AiToolSpecs.writeTools.length, 21);
       expect(AiToolSpecs.readOnlyTools.length, 7);
       expect(AiToolSpecs.destructiveTools.length, 5);
-      expect(AiToolLimits.maxCallsPerRound, 8, reason: 'maxCallsPerRound 未动');
+      expect(AiToolLimits.maxCallsPerRound, 12,
+          reason: '8 → 12：覆盖建模板 + 批量补建动作');
       // 写操作仍逐次确认：写集合与只读集合不相交，且 start_workout 在写集合里
       expect(
         AiToolSpecs.writeTools.intersection(AiToolSpecs.readOnlyTools).isEmpty,

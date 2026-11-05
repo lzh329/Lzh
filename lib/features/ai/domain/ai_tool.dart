@@ -52,13 +52,21 @@ class AiToolLimits {
 
   /// 一轮对话里最多允许的工具调用次数
   ///
-  /// 放开到 8 是为了让模型能在一次确认里把多个动作 + 模板一起提交；
+  /// 12 = 一次建模板（1）+ 批量补建动作（最多 10）+ 余量，覆盖正常上限；
   /// **写操作的确认闸门没有放宽**：每个写工具依旧逐次弹确认卡，
   /// 这里的次数限制只防止模型自己绕圈刷工具。
-  static const maxCallsPerRound = 8;
+  static const maxCallsPerRound = 12;
 
-  /// 超过上限时的提示
-  static const overLimitMessage = '一次对话里操作次数过多，请分两步说';
+  /// 超限时给**用户**看的话（必须说清"为什么停"和"下一步怎么做"）
+  ///
+  /// 之前超限只把 isStreaming 置 false 就 return —— 用户看到的是
+  /// "不转圈也不回话"，像卡死了。30 个动作的模板很容易触发。
+  static String userLimitNotice(int executed) =>
+      '这轮操作有点多（已经执行 $executed 次），我先停一下。'
+      '你说「继续」，我接着做。';
+
+  /// 超过上限时给**模型**的回执（已告知用户，别重复解释）
+  static const overLimitMessage = '一次对话里操作次数过多，请分两步说（已告知用户）';
 }
 
 /// 统一的展示格式化（只做字符串，不做校验）

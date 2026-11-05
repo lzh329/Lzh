@@ -1761,9 +1761,9 @@ void main() {
 
   // ═══════════ 批量：create_missing_exercises / create_exercises ═══════════
 
-  group('工具轮次上限放开到 8', () {
-    test('常量 = 8，文案改成"请分两步说"', () {
-      expect(AiToolLimits.maxCallsPerRound, 8);
+  group('工具轮次上限（8 → 12）', () {
+    test('常量 = 12，文案改成"请分两步说"', () {
+      expect(AiToolLimits.maxCallsPerRound, 12);
       expect(AiToolLimits.overLimitMessage, contains('请分两步说'));
       expect(AiToolLimits.overLimitMessage, contains('操作次数过多'));
     });
