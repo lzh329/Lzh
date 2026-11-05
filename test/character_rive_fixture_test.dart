@@ -134,7 +134,7 @@ void main() {
       final paths = <String>{
         for (final def in CharacterCatalog.all)
           for (final form in def.forms)
-            CharacterCatalog.resolve(def.id.wire, form.minLossJin).rivPath,
+            CharacterCatalog.resolve(def.id.wire, form.minCheckinDays).rivPath,
       };
       // 咕嘎 3 档 + 糯糯 3 档 + 菲比 1 档 = 7 个文件。
       // 如果将来给菲比加档位，这里会红 —— 那正是"新档位必须配 .riv 规则"的提醒。

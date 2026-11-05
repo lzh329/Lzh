@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/services/character_catalog.dart';
 import 'package:fittrack/core/services/character_lines.dart';
 import 'package:fittrack/core/services/character_providers.dart';
-import 'package:fittrack/core/services/guga_level.dart';
 import 'package:fittrack/core/theme/app_colors.dart';
 
 /// 我的○○卡 —— 趋势页顶部
@@ -114,7 +113,7 @@ class CompanionCard extends ConsumerWidget {
                       spec.isMaxForm
                           ? kAllFormsUnlocked
                           : kRemainToNextForm(
-                              spec.remainToNextJin ?? 0,
+                              spec.remainToNextDays ?? 0,
                               spec.nextFormName ?? '',
                             ),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -158,15 +157,19 @@ class CompanionCard extends ConsumerWidget {
 
   /// 进度 = （已达档位 + 当前档内进度）÷ 最高档。
   ///
-  /// 档内进度直接复用 `GugaLevelService` 的 0/2/5 阈值计算，不在这里复制常量
-  /// （设计 §9-修正 3：阈值只能有一处定义）。
-  /// 菲比只有 1 档 → 恒 1（她不会"变样子"，进度条不该有变化感）。
+  /// 档内进度按**打卡天数**在本档区间里的位置算（阈值只从注册表读，
+  /// 不在这里复制常量）。菲比只有 1 档 → 恒 1（她不会"变样子"）。
   double _progressOf(CharacterRenderSpec spec) {
-    final maxForm = CharacterCatalog.defOf(spec.id).maxForm;
+    final def = CharacterCatalog.defOf(spec.id);
+    final maxForm = def.maxForm;
     if (maxForm <= 1) return 1;
-    final inForm = GugaLevelService.resolve(spec.historyMaxLossJin).progress;
-    // clamp：满档时 inForm 仍是 1，公式会算出 (2+1)/2 = 1.5。
-    // LinearProgressIndicator 内部会兜住，但"值本身 >1"是错的（QA 记的 D1）。
+    final cur = def.forms[spec.form - 1].minCheckinDays;
+    final next = spec.form >= maxForm ? cur : def.forms[spec.form].minCheckinDays;
+    final span = next - cur;
+    final inForm = (spec.form >= maxForm || span <= 0)
+        ? 1.0
+        : ((spec.checkinDays - cur) / span).clamp(0.0, 1.0);
+    // clamp：满档时公式会算出 (2+1)/2 = 1.5，值本身 >1 是错的（QA 记的 D1）
     return (((spec.form - 1) + inForm) / (maxForm - 1)).clamp(0.0, 1.0);
   }
 }

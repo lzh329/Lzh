@@ -204,9 +204,9 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> with RouteAware 
             streakDays: streak,
             avatarAsset: characterKnown ? spec.avatarAsset : null,
             characterName: characterKnown ? spec.name : null,
-            // 解锁提示用「再减 X 斤」，与趋势页的「累计减重」措辞区分（风险 3）
+            // 解锁提示改打卡口径（形态由累计打卡天数决定，减重不参与档位）
             upgradeHint: characterKnown && !spec.isMaxForm
-                ? '再减 ${spec.remainToNextJin!.toStringAsFixed(1)} 斤换下一个样子'
+                ? '再打卡 ${spec.remainToNextDays} 天解锁下一个样子'
                 : null,
           ),
           const SizedBox(height: 10),

@@ -59,7 +59,7 @@ void main() {
       kMissingAssetPlaceholder,
       kMissingAssetShort,
       kAllFormsUnlocked,
-      kRemainToNextForm(1.4, '普通咕嘎'),
+      kRemainToNextForm(9, '普通咕嘎'),
       kGugaIntroLine,
       kNuonuoIntroLine,
       kPhoebeIntroLine,

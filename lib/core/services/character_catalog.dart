@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' show Color;
 
 import 'package:fittrack/core/services/character_registry.dart';
-import 'package:fittrack/core/services/guga_level.dart';
 
 /// 角色白名单（C1）：只有这三个值。
 ///
@@ -49,8 +48,11 @@ class CharacterFormSpec {
   /// 形态名（用户可见）：只描述外观，禁止身材评价词（C9）
   final String displayName;
 
-  /// 进入该档所需的**历史最大减重**（斤）
-  final double minLossJin;
+  /// 进入该档所需的**累计打卡天数**（中间断了不清零）
+  ///
+  /// 曾经用"历史最大减重"决定形态，但减重受水分/聚餐影响会回弹，
+  /// 用户会因为"明明练了却退回上一档"而困惑。改按打卡天数后，档位只升不降。
+  final int minCheckinDays;
 
   /// 单图立绘（糯糯/菲比只有这个）
   final String? imageAsset;
@@ -64,7 +66,7 @@ class CharacterFormSpec {
   const CharacterFormSpec({
     required this.form,
     required this.displayName,
-    required this.minLossJin,
+    required this.minCheckinDays,
     this.imageAsset,
     this.headAsset,
     this.bodyAsset,
@@ -123,12 +125,18 @@ class CharacterDef {
     return forms[i];
   }
 
-  /// 台词档位：三角色共用 0/2/5 斤阈值，只在 `GugaLevelService` 定义一次（§9-修正 3）
-  int tierForLoss(double lossJin) =>
-      GugaLevelService.resolve(lossJin).stage.level;
-
-  /// 形态档位：由历史最大减重算，夹到该角色的最大档（菲比恒 1，C11）。
-  int formForLoss(double lossJin) => tierForLoss(lossJin).clamp(1, maxForm);
+  /// 形态档位：由**累计打卡天数**算 —— 取「满足 minCheckinDays <= 天数」的最大档，
+  /// 夹到该角色的最大档（菲比恒 1，C11）。
+  ///
+  /// 只升不降：打卡天数只增不减，所以档位永不回退。
+  int formForCheckinDays(int totalDays) {
+    final days = totalDays < 0 ? 0 : totalDays;
+    var form = 1;
+    for (final f in forms) {
+      if (days >= f.minCheckinDays) form = f.form;
+    }
+    return form.clamp(1, maxForm);
+  }
 
   // 刻意**没有** def 级 remainToNextJin / nextFormName：与 `_build` 同算法，
   // 两处实现必然漂。要这两个值请读 `CharacterRenderSpec`。
@@ -163,11 +171,11 @@ class CharacterRenderSpec {
   /// 当前档位的台词池（日常台词，随机轮换不重复上一句）
   final List<String> linePool;
 
-  /// 历史最大减重（形态口径）
-  final double historyMaxLossJin;
+  /// 累计打卡天数（形态口径）
+  final int checkinDays;
 
-  /// 距下一档还差多少斤；已满档 null
-  final double? remainToNextJin;
+  /// 距下一档还要打卡多少天；已满档 null
+  final int? remainToNextDays;
 
   /// 下一档的形态名；已满档 null
   final String? nextFormName;
@@ -189,8 +197,8 @@ class CharacterRenderSpec {
     required this.bodyAsset,
     required this.rivPath,
     required this.linePool,
-    required this.historyMaxLossJin,
-    required this.remainToNextJin,
+    required this.checkinDays,
+    required this.remainToNextDays,
     required this.nextFormName,
     required this.accent,
     required this.introLine,
@@ -240,40 +248,41 @@ abstract final class CharacterCatalog {
     return guga;
   }
 
-  /// 角色 + 历史最大减重 → 渲染描述。**纯函数**：无 DB、无 IO、无缓存。
+  /// 角色 + 累计打卡天数 → 渲染描述。**纯函数**：无 DB、无 IO、无缓存。
   ///
   /// [rawId] 是 `user_settings.character_id` 的**原始字符串**，可以做脏：
   /// 空串 / 大写 / 中文 / 未来版本的角色名一律按咕嘎渲染，且**不回写库**（C1/C4）。
-  static CharacterRenderSpec resolve(String? rawId, double historyMaxLossJin) =>
-      specOf(defOf(CharacterId.parse(rawId)), historyMaxLossJin);
+  static CharacterRenderSpec resolve(String? rawId, int checkinDays) =>
+      specOf(defOf(CharacterId.parse(rawId)), checkinDays);
 
   /// 从一个**具体的角色定义**算渲染描述。
   ///
   /// `resolve()` 走白名单（脏值回落咕嘎）；这个入口直接吃定义对象，
   /// 让"注入一个立绘缺失的定义"这种测试也能走同一条计算（C15 的可测形式）。
-  static CharacterRenderSpec specOf(
-      CharacterDef def, double historyMaxLossJin) {
-    final loss = _saneLoss(historyMaxLossJin);
-    return _build(def, def.formForLoss(loss), loss);
+  static CharacterRenderSpec specOf(CharacterDef def, int checkinDays) {
+    final days = _saneDays(checkinDays);
+    return _build(def, def.formForCheckinDays(days), days);
   }
 
   /// 指定角色 + **指定档位**的规格：素材缺失时"换角色但不换档"用（C15 层 2）。
   /// 不按减重重算：回落时不该让形象**跳档**（菲比图丢了却冒出第 3 档咕嘎 = 像 bug）。
-  static CharacterRenderSpec specOfForm(CharacterId id, int form, double loss) =>
-      _build(defOf(id), form, _saneLoss(loss));
+  static CharacterRenderSpec specOfForm(
+          CharacterId id, int form, int checkinDays) =>
+      _build(defOf(id), form, _saneDays(checkinDays));
 
-  static double _saneLoss(double raw) => raw.isNaN || raw.isInfinite ? 0.0 : (raw < 0 ? 0.0 : raw);
+  static int _saneDays(int raw) => raw < 0 ? 0 : raw;
 
   /// 唯一的构造点：`form` 由外部决定（正常路径来自 loss，回落路径来自当前档）
   static CharacterRenderSpec _build(
-      CharacterDef def, int rawForm, double loss) {
+      CharacterDef def, int rawForm, int days) {
     final form = rawForm.clamp(1, def.maxForm);
     final formSpec = def.formSpec(form);
-    final tier = def.tierForLoss(loss);
-    // 档内还剩多少：下一档阈值 − 当前 loss（已满档 → null）
+    // 台词档位与形态同档：形态只升不降，台词也就只升不降
+    final tier = form;
+    // 还差多少天：下一档阈值 − 当前天数（已满档 → null）
     final remain = form >= def.maxForm
         ? null
-        : (def.forms[form].minLossJin - loss).clamp(0.0, 999.0);
+        : (def.forms[form].minCheckinDays - days).clamp(0, 9999);
 
     return CharacterRenderSpec(
       id: def.id,
@@ -287,8 +296,8 @@ abstract final class CharacterCatalog {
       // .riv 路径按规则拼（该目录本轮为空，规则可硬编码；立绘路径则由注册表声明）
       rivPath: 'assets/rive/${def.id.wire}_${formSpec.form}.riv',
       linePool: def.linesByTier[tier] ?? def.linesByTier[1] ?? const <String>[],
-      historyMaxLossJin: loss,
-      remainToNextJin: remain,
+      checkinDays: days,
+      remainToNextDays: remain,
       nextFormName: form >= def.maxForm ? null : def.forms[form].displayName,
       accent: def.accent,
       introLine: def.introLine,

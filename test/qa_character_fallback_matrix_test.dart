@@ -12,11 +12,7 @@ import 'fake_database.dart';
 
 /// QA 补充：C-15 / C-16 的**回落矩阵**（层 2 的边界，不是"全缺"这一种情况）
 ///
-/// 工程师已有测试只覆盖了"糯糯三张全缺"和"咕嘎缺一半"。这里补四类更容易漏的：
-///   ① 单图角色的**同角色不同档**缺图（form 1 在、form 2 不在）→ 必须回落
-///   ② 只缺 head / 只缺 body（分层角色）→ 必须判缺，不许画"没头的人"
-///   ③ 只缺 `.riv`、PNG 都在 → **不得**回落（否则等于把"没有动效"误判成"没有素材"）
-///   ④ 资产清单还没读到（null）→ **不得**回落（首帧不能因为 IO 没回来就先换成咕嘎）
+/// 形态口径 = 累计打卡天数（0 / 7 / 21 → 1 / 2 / 3 档）。
 void main() {
   const gugaAssets = {
     'assets/guga3d/guga_fat.png',
@@ -36,15 +32,14 @@ void main() {
   };
   const phoebeAssets = {'assets/characters/phoebe_1.png'};
 
-  /// 起始 70 斤 → 最低 67.5 斤 ⇒ 历史最大减重 2.5 斤 ⇒ 第 2 档
-  const weightsForm2 = [70.0, 67.5];
-  /// 起始 80 斤 → 最低 74 斤 ⇒ 6 斤 ⇒ 咕嘎/糯糯第 3 档，菲比恒第 1 档
-  const weightsForm3 = [80.0, 74.0];
+  /// 累计打卡 7 天 ⇒ 第 2 档；21 天 ⇒ 第 3 档（菲比恒第 1 档）
+  const form2Days = 7;
+  const form3Days = 21;
 
   Future<CharacterRenderSpec> resolveWith({
     required String characterId,
     required Set<String> assets,
-    List<double> weights = weightsForm2,
+    int days = form2Days,
   }) async {
     final db = fakeDatabase();
     addTearDown(db.close);
@@ -52,12 +47,11 @@ void main() {
       databaseProvider.overrideWithValue(db),
       userSettingsProvider.overrideWith(
           (ref) async => UserSettingsEntity(id: 1, characterId: characterId)),
-      bodyWeightsJinProvider.overrideWith((ref) async => weights),
+      checkinDaysProvider.overrideWith((ref) => AsyncValue.data(days)),
       characterAssetManifestProvider.overrideWith((ref) async => assets),
     ]);
     addTearDown(c.dispose);
     await c.read(userSettingsProvider.future);
-    await c.read(bodyWeightsJinProvider.future);
     await c.read(characterAssetManifestProvider.future);
     return c.read(currentCharacterProvider);
   }
@@ -73,7 +67,7 @@ void main() {
       expect(spec.id, CharacterId.guga, reason: '当前档缺图必须回落');
       expect(spec.form, 2, reason: '回落不换档');
       expect(spec.imageAsset, 'assets/guga3d/guga_normal.png');
-      // 关键反例：不许"退一档画 nuonuo_1" —— 那会让用户的减重成果看起来倒退了
+      // 关键反例：不许"退一档画 nuonuo_1" —— 那会让用户坚持的成果看起来倒退了
       expect(spec.imageAsset, isNot('assets/characters/nuonuo_1.png'));
     });
   });
@@ -87,8 +81,6 @@ void main() {
             .where((a) => a != 'assets/guga3d/guga_normal_head.png')
             .toSet(),
       );
-      // 回落目标也是咕嘎（同角色），断言点在于：不崩、档位不变、且这套 spec
-      // 的图片确实是不完整的（层 3 兜底会画图标，而不是"半个咕嘎"）
       expect(spec.id, CharacterId.guga);
       expect(spec.form, 2);
       expect(spec.hasSplit, isTrue);
@@ -113,9 +105,8 @@ void main() {
           ...gugaAssets.where((a) => !a.contains('normal_body')),
           ...nuonuoAssets,
         },
-        weights: weightsForm3,
+        days: form3Days,
       );
-      // 糯糯的图都在 → 根本不该回落（这条同时验证"不误判"）
       expect(spec.id, CharacterId.nuonuo);
       expect(spec.form, 3);
       expect(spec.imageAsset, 'assets/characters/nuonuo_3.png');
@@ -142,7 +133,7 @@ void main() {
         databaseProvider.overrideWithValue(db),
         userSettingsProvider.overrideWith((ref) async =>
             const UserSettingsEntity(id: 1, characterId: 'nuonuo')),
-        bodyWeightsJinProvider.overrideWith((ref) async => weightsForm2),
+        checkinDaysProvider.overrideWith((ref) => const AsyncData(form2Days)),
         // 永不 complete：模拟 AssetManifest 读得慢
         characterAssetManifestProvider
             .overrideWith((ref) => Future<Set<String>>.delayed(
@@ -152,7 +143,6 @@ void main() {
       ]);
       addTearDown(c.dispose);
       await c.read(userSettingsProvider.future);
-      await c.read(bodyWeightsJinProvider.future);
 
       final spec = c.read(currentCharacterProvider);
       expect(spec.id, CharacterId.nuonuo,
@@ -161,32 +151,29 @@ void main() {
     });
   });
 
-  group('⑤ 菲比满减重也不跳档', () {
-    test('菲比在 6 斤下仍恒第 1 档；缺图 → 咕嘎第 1 档（不是第 3 档）', () async {
+  group('⑤ 菲比满打卡也不跳档', () {
+    test('菲比在 21 天下仍恒第 1 档；缺图 → 咕嘎第 1 档（不是第 3 档）', () async {
       final available = await resolveWith(
         characterId: 'phoebe',
         assets: {...gugaAssets, ...phoebeAssets},
-        weights: weightsForm3,
+        days: form3Days,
       );
       expect(available.id, CharacterId.phoebe);
       expect(available.form, 1, reason: '菲比单形象，恒第 1 档');
-      expect(available.lineTier, 3, reason: '台词档位照样跟着减重走（C11）');
+      expect(available.lineTier, 1, reason: '台词档位跟着形态走，菲比恒 1');
 
       final missing = await resolveWith(
         characterId: 'phoebe',
         assets: gugaAssets, // 菲比图缺失
-        weights: weightsForm3,
+        days: form3Days,
       );
       expect(missing.id, CharacterId.guga);
-      expect(missing.form, 1, reason: '回落不换档：不许因为减了 6 斤就冒出第 3 档咕嘎');
+      expect(missing.form, 1, reason: '回落不换档：不许因为打卡 21 天就冒出第 3 档咕嘎');
     });
   });
 
   group('⑥ 层 3：立绘真的解码不出来 → 图标占位 + 藏气泡，其余元素不动', () {
     testWidgets('喂一个不存在的路径 → sentiment_satisfied_alt，不抛异常', (tester) async {
-      // 注意：manifest 覆写只影响"要不要回落"，不影响 Image.asset 真的去读文件。
-      // 所以层 3 必须用**真的读不出来的路径**来构造 —— 否则测试会在
-      // "宿主 bundle 里恰好有这张图"时假绿。
       final ghost = _ghostSpec();
 
       await tester.pumpWidget(MaterialApp(
@@ -214,7 +201,7 @@ void main() {
 
 /// 一个立绘路径全都不存在的渲染描述（模拟"包里真的一张图都没有"）
 CharacterRenderSpec _ghostSpec() {
-  final base = CharacterCatalog.resolve('guga', 2.5);
+  final base = CharacterCatalog.resolve('guga', 7);
   return CharacterRenderSpec(
     id: base.id,
     name: base.name,
@@ -226,8 +213,8 @@ CharacterRenderSpec _ghostSpec() {
     bodyAsset: 'assets/guga3d/__missing___body.png',
     rivPath: base.rivPath,
     linePool: base.linePool,
-    historyMaxLossJin: base.historyMaxLossJin,
-    remainToNextJin: base.remainToNextJin,
+    checkinDays: base.checkinDays,
+    remainToNextDays: base.remainToNextDays,
     nextFormName: base.nextFormName,
     accent: base.accent,
     introLine: base.introLine,

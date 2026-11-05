@@ -31,7 +31,8 @@ class CharacterPage extends ConsumerWidget {
     // 后者在素材缺失时会回落成咕嘎，用它判断会把咕嘎标成"当前"，误导用户。
     final selectedId = CharacterId.parse(
         ref.watch(userSettingsProvider).valueOrNull?.characterId);
-    final loss = ref.watch(characterLossProvider).historyMaxLossJin;
+    // 档位由累计打卡天数决定（减重只用于文案）
+    final checkinDays = ref.watch(checkinDaysProvider).valueOrNull ?? 0;
     final catalog = catalogOverride ?? CharacterCatalog.all;
 
     return Scaffold(
@@ -55,8 +56,8 @@ class CharacterPage extends ConsumerWidget {
             _CharacterCard(
               def: def,
               selected: def.id == selectedId,
-              // 每张卡都用**自己的**历史最大减重算自己的档位
-              spec: CharacterCatalog.specOf(def, loss),
+              // 每张卡都用自己的阈值 + 同一个打卡天数算档位
+              spec: CharacterCatalog.specOf(def, checkinDays),
               onSelect: () => ref.read(characterSelectionProvider).select(def.id),
             ),
           const SizedBox(height: 8),
@@ -167,8 +168,9 @@ class _CharacterCardState extends State<_CharacterCard> {
                       def.maxForm <= 1
                           ? def.cardTagline
                           : kFormsProgressLine(
-                              totalForms: def.maxForm,
-                              currentForm: spec.form,
+                              checkinDays: spec.checkinDays,
+                              remainDays: spec.remainToNextDays,
+                              nextFormName: spec.nextFormName,
                             ),
                       style: const TextStyle(
                           fontSize: 11.5, color: AppColors.textTertiary),
@@ -198,7 +200,7 @@ class _CharacterCardState extends State<_CharacterCard> {
                       const SizedBox(height: 4),
                       Text(
                         kRemainToNextForm(
-                          spec.remainToNextJin ?? 0,
+                          spec.remainToNextDays ?? 0,
                           spec.nextFormName ?? '',
                         ),
                         style: const TextStyle(

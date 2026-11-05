@@ -40,7 +40,7 @@ void main() {
           CharacterFormSpec(
             form: f.form,
             displayName: f.displayName,
-            minLossJin: f.minLossJin,
+            minCheckinDays: f.minCheckinDays,
             imageAsset: 'assets/characters/__missing_${id.wire}.png',
           ),
       ],
@@ -92,7 +92,7 @@ void main() {
           CharacterFormSpec(
             form: 1,
             displayName: '肥咕嘎',
-            minLossJin: 0,
+            minCheckinDays: 0,
             headAsset: 'assets/guga3d/__missing_head.png',
             bodyAsset: 'assets/guga3d/__missing_body.png',
           ),
@@ -147,12 +147,12 @@ void main() {
 
   testWidgets('C-15 首页兜底：当前角色素材缺失时用咕嘎同形态的规格渲染', (tester) async {
     // 纯函数层：同 form 的咕嘎有素材（首页回落的依据）
-    final gugaSpec = CharacterCatalog.resolve('guga', 2.5); // form 2
+    final gugaSpec = CharacterCatalog.resolve('guga', 7); // form 2
     expect(gugaSpec.form, 2);
     expect(gugaSpec.hasAsset, isTrue);
     // 糯糯同档缺图时，首页用 gugaSpec 渲染；这里断言"咕嘎同形态一定有素材"
-    for (final loss in [0.0, 2.5, 6.0]) {
-      expect(CharacterCatalog.resolve('guga', loss).hasAsset, isTrue,
+    for (final days in [0, 7, 21]) {
+      expect(CharacterCatalog.resolve('guga', days).hasAsset, isTrue,
           reason: '咕嘎是最后一道保险，任何档位都必须有图');
     }
   });

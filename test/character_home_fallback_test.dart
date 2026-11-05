@@ -12,12 +12,9 @@ import 'fake_database.dart';
 
 /// C-15（层 2）当前角色素材缺失 → **首页回落咕嘎同形态**
 ///
-/// PRD §6.1 原文：「当前角色的 PNG 缺失或损坏 → 形象页该卡「素材缺失」不可选；
-/// 如果它是当前选中项 → 首页回落**咕嘎同形态**图」。
-///
 /// 两个必须守住的点：
 /// ① 回落的是**图**，不是图标占位（层 3 只在咕嘎也缺时才出现）；
-/// ② 回落**不换档**：糯糯第 2 档缺图 → 咕嘎第 2 档，而不是"按减重重新算"。
+/// ② 回落**不换档**：糯糯第 2 档缺图 → 咕嘎第 2 档，而不是"按打卡天数重新算"。
 void main() {
   /// 咕嘎 3 档的 6 张图都在，糯糯/菲比一张都不在（模拟"新角色抠图没跟进包"）
   const gugaOnly = <String>{
@@ -32,16 +29,16 @@ void main() {
     'assets/guga3d/guga_small_body.png',
   };
 
-  /// 起始 70 斤 → 最低 67.5 斤 ⇒ 历史最大减重 2.5 斤 ⇒ 第 2 档
-  const weights = [70.0, 67.5];
+  /// 累计打卡 7 天 ⇒ 第 2 档（形态唯一口径 = 打卡天数）
+  const form2Days = 7;
 
   group('回落规格本身（纯函数）', () {
     test('糯糯第 2 档缺图 → 咕嘎第 2 档（同档，不跳档）', () {
-      final nuonuo = CharacterCatalog.resolve('nuonuo', 2.5);
+      final nuonuo = CharacterCatalog.resolve('nuonuo', form2Days);
       expect(nuonuo.form, 2);
 
-      final fallback =
-          CharacterCatalog.specOfForm(CharacterId.guga, nuonuo.form, 2.5);
+      final fallback = CharacterCatalog.specOfForm(
+          CharacterId.guga, nuonuo.form, form2Days);
       expect(fallback.id, CharacterId.guga);
       expect(fallback.form, 2, reason: '回落不换档');
       expect(fallback.formName, '普通咕嘎');
@@ -49,17 +46,16 @@ void main() {
       expect(fallback.headAsset, 'assets/guga3d/guga_normal_head.png');
       expect(fallback.bodyAsset, 'assets/guga3d/guga_normal_body.png');
       expect(fallback.rivPath, 'assets/rive/guga_2.riv');
-      // 解锁提示也要对得上：第 2 档 → 距第 3 档（5 斤）还差 2.5 斤
-      expect(fallback.remainToNextJin, 2.5);
+      // 解锁提示也要对得上：第 2 档 → 距第 3 档（21 天）还差 14 天
+      expect(fallback.remainToNextDays, 14);
       expect(fallback.nextFormName, '小咕嘎');
     });
 
-    test('菲比（恒 1 档）缺图 → 咕嘎第 1 档（不因为减重 6 斤就跳到第 3 档）', () {
-      final phoebe = CharacterCatalog.resolve('phoebe', 6);
+    test('菲比（恒 1 档）缺图 → 咕嘎第 1 档（不因为打卡 21 天就跳到第 3 档）', () {
+      final phoebe = CharacterCatalog.resolve('phoebe', 21);
       expect(phoebe.form, 1);
 
-      final fallback =
-          CharacterCatalog.specOfForm(CharacterId.guga, phoebe.form, 6);
+      final fallback = CharacterCatalog.specOfForm(CharacterId.guga, phoebe.form, 21);
       expect(fallback.form, 1);
       expect(fallback.formName, '肥咕嘎');
       expect(fallback.isMaxForm, isFalse, reason: '咕嘎还有两档没解锁');
@@ -77,6 +73,7 @@ void main() {
     ProviderContainer container({
       required String characterId,
       required Set<String> assets,
+      int days = form2Days,
     }) {
       final db = fakeDatabase();
       addTearDown(db.close);
@@ -84,7 +81,7 @@ void main() {
         databaseProvider.overrideWithValue(db),
         userSettingsProvider.overrideWith(
             (ref) async => UserSettingsEntity(id: 1, characterId: characterId)),
-        bodyWeightsJinProvider.overrideWith((ref) async => weights),
+        checkinDaysProvider.overrideWith((ref) => AsyncValue.data(days)),
         characterAssetManifestProvider.overrideWith((ref) async => assets),
       ]);
       addTearDown(c.dispose);
@@ -95,7 +92,6 @@ void main() {
       final c = container(characterId: 'nuonuo', assets: gugaOnly);
       // 等两个 FutureProvider 都就绪
       await c.read(userSettingsProvider.future);
-      await c.read(bodyWeightsJinProvider.future);
       await c.read(characterAssetManifestProvider.future);
 
       final spec = c.read(currentCharacterProvider);
@@ -114,7 +110,6 @@ void main() {
         'assets/characters/phoebe_1.png',
       });
       await c.read(userSettingsProvider.future);
-      await c.read(bodyWeightsJinProvider.future);
       await c.read(characterAssetManifestProvider.future);
 
       final spec = c.read(currentCharacterProvider);
@@ -132,7 +127,6 @@ void main() {
             .toSet(),
       );
       await c.read(userSettingsProvider.future);
-      await c.read(bodyWeightsJinProvider.future);
       await c.read(characterAssetManifestProvider.future);
 
       final spec = c.read(currentCharacterProvider);
@@ -153,7 +147,7 @@ void main() {
           databaseProvider.overrideWithValue(db),
           userSettingsProvider.overrideWith((ref) async =>
               const UserSettingsEntity(id: 1, characterId: 'nuonuo')),
-          bodyWeightsJinProvider.overrideWith((ref) async => weights),
+          checkinDaysProvider.overrideWith((ref) => const AsyncData(form2Days)),
           characterAssetManifestProvider
               .overrideWith((ref) async => gugaOnly),
         ],

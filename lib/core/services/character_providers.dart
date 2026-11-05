@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/character_catalog.dart';
 import 'package:fittrack/core/services/character_loss.dart';
+import 'package:fittrack/core/services/checkin_days.dart';
 
 /// 全历史体重（**斤**），按 date 升序 —— 与 `BodyMetricRepository.getAll()` 同序。
 ///
@@ -14,7 +15,22 @@ final bodyWeightsJinProvider = FutureProvider<List<double>>((ref) async {
   return metrics.map((m) => m.weightKg * 2).toList();
 });
 
-/// 减重快照（形态口径 + 展示口径）
+/// 累计打卡天数（中间断了不清零）——形象形态的唯一依据
+///
+/// 数据源复用 `dashboardDataProvider` 已经查好的 `allMetrics` + `allWorkouts`
+/// （某天有体重或训练记录即算打卡，与"连续打卡"同一口径），不再多查一次库。
+/// 它经由 dashboard → todayKeyProvider 间接跟随「今天」，跨天回前台会自动重算。
+final checkinDaysProvider = Provider<AsyncValue<int>>((ref) {
+  return ref.watch(dashboardDataProvider).whenData((d) {
+    final dates = <DateTime>[
+      for (final m in d.allMetrics) m.date,
+      for (final w in d.allWorkouts) w.date,
+    ];
+    return countCheckinDays(dates);
+  });
+});
+
+/// 减重快照（展示口径：文案与数据里仍会说"累计减重 X 斤"）
 final characterLossProvider = Provider<LossSnapshot>((ref) {
   final weights =
       ref.watch(bodyWeightsJinProvider).valueOrNull ?? const <double>[];
@@ -40,18 +56,15 @@ final characterAssetManifestProvider = FutureProvider<Set<String>>((ref) async {
 /// 首屏不能等 Future 完成再画角色，否则会先空一块再"跳出"角色。
 final currentCharacterProvider = Provider<CharacterRenderSpec>((ref) {
   final settings = ref.watch(userSettingsProvider).valueOrNull;
-  final weights = ref.watch(bodyWeightsJinProvider).valueOrNull;
-  // 体重还没读到时按 0 算：形态 1 是安全值，不会显示"再减 NaN 斤"
-  final loss = weights == null
-      ? 0.0
-      : CharacterLoss.of(weights).historyMaxLossJin;
-  final spec = CharacterCatalog.resolve(settings?.characterId, loss);
+  // 形态由累计打卡天数决定（减重只用于文案）；没读到时按 0 天 = 形态 1
+  final days = ref.watch(checkinDaysProvider).valueOrNull ?? 0;
+  final spec = CharacterCatalog.resolve(settings?.characterId, days);
 
   // 层 2（C15 / PRD §6.1）：当前角色的立绘不在包里 → 换成**咕嘎同一档**。
   // 清单还没读到时先按声明的渲染（首帧不等 IO；真实缺图还有层 3 兜底）。
   final assets = ref.watch(characterAssetManifestProvider).valueOrNull;
   if (assets == null || _assetsExistIn(spec, assets)) return spec;
-  return CharacterCatalog.specOfForm(CharacterId.guga, spec.form, loss);
+  return CharacterCatalog.specOfForm(CharacterId.guga, spec.form, days);
 });
 
 /// 当前角色是否**已经确定**（设置读到过 —— 哪怕是 null = 从没设过）。

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/services/character_catalog.dart';
 import 'package:fittrack/core/services/character_providers.dart';
@@ -13,6 +12,7 @@ import 'package:fittrack/features/settings/data/user_settings_repository_impl.da
 import 'fake_database.dart';
 
 /// C-5 / C-6 / C-17（组件与形象页侧）
+/// 形态口径 = 累计打卡天数（0 / 7 / 21 → 1 / 2 / 3 档）
 void main() {
   late _Harness harness;
 
@@ -58,13 +58,13 @@ void main() {
     expect(find.text('菲比'), findsOneWidget);
   });
 
-  testWidgets('C-18 形象页：3 张卡 + 当前项勾选 + 「还差 X 斤」状态行', (tester) async {
+  testWidgets('C-18 形象页：3 张卡 + 当前项勾选 + 「再打卡 N 天」状态行', (tester) async {
     await tester.pumpWidget(harness.app(const CharacterPage()));
     await tester.pump();
     await tester.pump();
 
-    // 描述行**按状态算**：0 斤 → 咕嘎/糯糯都还是第 1 档，「还有 2 个样子等你解锁」
-    expect(find.text('还有 2 个样子等你解锁'), findsNWidgets(2),
+    // 描述行**按状态算**：0 天 → 咕嘎/糯糯都还是第 1 档，「再 7 天解锁」
+    expect(find.textContaining('再 7 天解锁'), findsNWidgets(2),
         reason: '咕嘎 + 糯糯各一句，数字跟着当前档位走');
     // 单形象角色用自己的 tagline，且**不出现"解锁"字样**
     expect(find.text('一直是这个样子，话不多但都在'), findsOneWidget);
@@ -73,42 +73,41 @@ void main() {
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.text('当前'), findsOneWidget);
 
-    // 状态行：还有下一档 → 「再减 X 斤，换下一个样子」
-    expect(find.textContaining('换下一个样子'), findsWidgets);
-    // 菲比只有一个样子 → 不该出现任何"解锁"文案（装机实测问题 2）
+    // 状态行：还有下一档 → 「再打卡 X 天解锁「…」」
+    expect(find.textContaining('再打卡'), findsWidgets);
+    // 菲比只有一个样子 → 不该出现任何"解锁"文案
     expect(find.textContaining('解锁'), findsWidgets,
-        reason: '咕嘎/糯糯的"等你解锁"可以出现');
-    expect(find.text('已经全部解锁'), findsNothing,
-        reason: '菲比单形象不该说"已全部解锁"');
+        reason: '咕嘎/糯糯的"解锁"可以出现');
+    expect(find.textContaining('已解锁全部样子'), findsNothing,
+        reason: '0 天还没解锁完');
   });
 
-  testWidgets('C-18 已满档：描述行变「三个样子都解锁了」，不再自相矛盾', (tester) async {
-    // 历史最大减重 6 斤 → 咕嘎/糯糯都满档
-    await harness.seedWeightLoss(6);
+  testWidgets('C-18 已满档：描述行变「已解锁全部样子」，不再自相矛盾', (tester) async {
+    harness.seedCheckinDays(21); // 满档
     await tester.pumpWidget(harness.app(const CharacterPage()));
     await tester.pump();
     await tester.pump();
 
-    // 咕嘎 + 糯糯：「三个样子都解锁了」
-    expect(find.text('三个样子都解锁了'), findsNWidgets(2));
-    // 同一张卡上不许再出现"等你解锁"（问题 2 的核心）
-    expect(find.textContaining('等你解锁'), findsNothing);
-    expect(find.textContaining('换下一个样子'), findsNothing);
+    // 咕嘎 + 糯糯：满档描述行
+    expect(find.text('已打卡 21 天 · 已解锁全部样子'), findsNWidgets(2));
+    // 同一张卡上不许再出现"再打卡 X 天解锁"（满档时不该有）
+    expect(find.textContaining('再打卡'), findsNothing);
+    expect(find.textContaining('再 1'), findsNothing);
     // 菲比：仍然只有 tagline，没有解锁字样
     expect(find.text('一直是这个样子，话不多但都在'), findsOneWidget);
-    expect(find.text('已经全部解锁'), findsNothing);
+    expect(find.text('已解锁全部样子'), findsNothing,
+        reason: '菲比单形象不该说"已解锁全部样子"');
   });
 
-  testWidgets('C-18 解锁进度文案随档位变化（第 2 档 → 还有 1 个）', (tester) async {
-    // 历史最大减重 2.5 斤 → 第 2 档
-    await harness.seedWeightLoss(2.5);
+  testWidgets('C-18 解锁进度文案随档位变化（第 2 档 → 再 14 天）', (tester) async {
+    harness.seedCheckinDays(7); // 第 2 档
     await tester.pumpWidget(harness.app(const CharacterPage()));
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('还有 1 个样子等你解锁'), findsNWidgets(2),
+    expect(find.textContaining('再 14 天解锁'), findsNWidgets(2),
         reason: '咕嘎/糯糯都到第 2 档');
-    expect(find.textContaining('换下一个样子'), findsWidgets);
+    expect(find.textContaining('再打卡'), findsWidgets);
   });
 
   testWidgets('形象页点当前已选角色：无操作（不重复写库）', (tester) async {
@@ -159,11 +158,13 @@ class _Harness {
       databaseProvider.overrideWithValue(db),
       userSettingsProvider.overrideWith(
           (ref) => UserSettingsRepositoryImpl(db).get()),
+      checkinDaysProvider.overrideWith((ref) => AsyncValue.data(_days)),
     ]);
   }
 
   final db = fakeDatabase();
   late final ProviderContainer container;
+  int _days = 0;
 
   UserSettingsRepositoryImpl get settings => UserSettingsRepositoryImpl(db);
 
@@ -172,13 +173,7 @@ class _Harness {
     db.close();
   }
 
-  Future<void> seedWeightLoss(double lossJin) async {
-    // 起始 70 斤 → 最低 (70 - loss) 斤
-    await db.into(db.bodyMetrics).insert(BodyMetricsCompanion.insert(
-        date: DateTime(2025, 1, 1), weightKg: 35));
-    await db.into(db.bodyMetrics).insert(BodyMetricsCompanion.insert(
-        date: DateTime(2025, 2, 1), weightKg: (70 - lossJin) / 2));
-  }
+  void seedCheckinDays(int days) => _days = days;
 
   Widget app(Widget child) {
     return UncontrolledProviderScope(

@@ -211,7 +211,7 @@ void main() {
       expect(controllers.first.lastForm, 1);
 
       // 录了体重 → form 2（.riv 换成 guga_2.riv，会重建 controller）
-      spec = CharacterCatalog.resolve('guga', 3);
+      spec = CharacterCatalog.resolve('guga', 7);
       await tester.pumpWidget(harness(procedural: false));
       await settle(tester);
 
@@ -232,7 +232,7 @@ void main() {
       await tester.pumpWidget(harness(procedural: true));
       await settle(tester);
 
-      spec = CharacterCatalog.resolve('guga', 3);
+      spec = CharacterCatalog.resolve('guga', 7);
       await tester.pumpWidget(harness(procedural: true));
       await settle(tester);
 

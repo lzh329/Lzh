@@ -22,7 +22,7 @@ abstract final class CharacterRegistry {
       CharacterFormSpec(
         form: 1,
         displayName: '肥咕嘎',
-        minLossJin: 0,
+        minCheckinDays: 0,
         imageAsset: 'assets/guga3d/guga_fat.png',
         headAsset: 'assets/guga3d/guga_fat_head.png',
         bodyAsset: 'assets/guga3d/guga_fat_body.png',
@@ -30,7 +30,7 @@ abstract final class CharacterRegistry {
       CharacterFormSpec(
         form: 2,
         displayName: '普通咕嘎',
-        minLossJin: 2,
+        minCheckinDays: 7,
         imageAsset: 'assets/guga3d/guga_normal.png',
         headAsset: 'assets/guga3d/guga_normal_head.png',
         bodyAsset: 'assets/guga3d/guga_normal_body.png',
@@ -38,7 +38,7 @@ abstract final class CharacterRegistry {
       CharacterFormSpec(
         form: 3,
         displayName: '小咕嘎',
-        minLossJin: 5,
+        minCheckinDays: 21,
         imageAsset: 'assets/guga3d/guga_small.png',
         headAsset: 'assets/guga3d/guga_small_head.png',
         bodyAsset: 'assets/guga3d/guga_small_body.png',
@@ -60,19 +60,19 @@ abstract final class CharacterRegistry {
       CharacterFormSpec(
         form: 1,
         displayName: '糯糯（玩偶版）',
-        minLossJin: 0,
+        minCheckinDays: 0,
         imageAsset: 'assets/characters/nuonuo_1.png',
       ),
       CharacterFormSpec(
         form: 2,
         displayName: '糯糯（蓝发版）',
-        minLossJin: 2,
+        minCheckinDays: 7,
         imageAsset: 'assets/characters/nuonuo_2.png',
       ),
       CharacterFormSpec(
         form: 3,
         displayName: '糯糯（灰发版）',
-        minLossJin: 5,
+        minCheckinDays: 21,
         imageAsset: 'assets/characters/nuonuo_3.png',
       ),
     ],
@@ -92,7 +92,7 @@ abstract final class CharacterRegistry {
       CharacterFormSpec(
         form: 1,
         displayName: '菲比',
-        minLossJin: 0,
+        minCheckinDays: 0,
         imageAsset: 'assets/characters/phoebe_1.png',
       ),
     ],

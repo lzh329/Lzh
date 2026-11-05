@@ -43,36 +43,30 @@ const String kTermForm = '样子';
 
 /// 解锁提示的两种句式（C18 / 6.3）。
 ///
-/// 措辞刻意与趋势页的「累计减重 X 斤」不同（决策 3 / 风险 3）：
-/// 趋势页说「已经减了多少」，这里说「还差多少换下一个样子」——
-/// 两个数字口径不同（当前累计 vs 历史最大），措辞相同会让人以为其中一个算错了。
-String kRemainToNextForm(double remainJin, String nextFormName) =>
-    '再减 ${remainJin.toStringAsFixed(1)} 斤，换下一个样子：$nextFormName';
+/// 形态由**累计打卡天数**决定（减重只用于文案与数据展示，不参与档位）：
+/// 打卡天数只增不减，所以档位只升不降，不会出现"练了却退回上一档"。
+String kRemainToNextForm(int remainDays, String nextFormName) =>
+    '再打卡 $remainDays 天解锁「$nextFormName」';
 
 /// 全部解锁（C18 的另一种状态）。**只用于"状态行"**（趋势卡），
 /// 形象页卡的描述行用 [kFormsProgressLine]，避免同一张卡上两句话打架。
-const String kAllFormsUnlocked = '已经全部解锁';
+const String kAllFormsUnlocked = '已解锁全部样子';
 
 /// 形象页卡**描述行**（C18 修订）：按解锁状态二选一，不写死。
 ///
 /// 为什么不能写死："三个样子等你解锁"配"已经全部解锁"会让同一张卡自相矛盾
 /// （装机实测问题 2）。所以描述行由状态算出来，状态行只负责"当前/还差多少"。
-String kFormsProgressLine({required int totalForms, required int currentForm}) {
-  final remain = (totalForms - currentForm).clamp(0, 99);
-  if (remain <= 0) return '${_formCountLabel(totalForms)}都解锁了';
-  return '还有 $remain 个样子等你解锁';
+String kFormsProgressLine({
+  required int checkinDays,
+  required int? remainDays,
+  required String? nextFormName,
+}) {
+  if (remainDays == null) return '已打卡 $checkinDays 天 · 已解锁全部样子';
+  return '已打卡 $checkinDays 天 · 再 $remainDays 天解锁「${nextFormName ?? ''}」';
 }
 
 // 单形象角色（菲比）**没有**"解锁"类状态行：她只有一个样子，
 // 说"解锁/解锁进度"都是凭空造概念 —— 页面直接不画那一行。
-
-/// 1/2/3 → 一个/两个/三个（超过 3 直接写数字，避免维护十以上量词）
-String _formCountLabel(int count) => switch (count) {
-      1 => '这一个样子',
-      2 => '两个样子',
-      3 => '三个样子',
-      _ => '$count 个样子',
-    };
 
 // ───────────────────── 咕嘎（沿用现有档名，不改） ─────────────────────
 
