@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:fittrack/core/providers/today_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/router/app_router.dart' show appRouteObserver;
@@ -138,7 +140,8 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> with RouteAware 
   Widget build(BuildContext context) {
     final data = widget.data;
     final latest = data.latestMetric;
-    final today = DateTime.now();
+    // 打卡"今天已练没练"必须按 todayKeyProvider 判：隔夜回前台它会变
+    final today = ref.watch(todayKeyProvider);
 
     // ── 角色 / 形态（唯一渲染口径，C12） ──
     final spec = ref.watch(currentCharacterProvider);

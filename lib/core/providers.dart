@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:fittrack/core/providers/today_provider.dart';
 // hide DailyOverride：drift 生成的行类与 daily_override_repository 的实体同名，
 // 本文件两处都要用（AppDatabase / DailyOverride），不隐藏会报 ambiguous_import。
 import 'package:fittrack/core/database/database.dart' hide DailyOverride;
@@ -292,7 +294,9 @@ final dashboardDataProvider = FutureProvider<DashboardData>((ref) async {
   final dietRepo = ref.watch(dietRepoProvider);
   final waterRepo = ref.watch(waterRepoProvider);
 
-  final now = DateTime.now();
+  // 日维度口径统一走 todayKeyProvider：隔夜回前台时它会变，本 provider
+  // 因此自动重算（之前各自 now() → 恢复后仍显示昨天的打卡状态）
+  final now = ref.watch(todayKeyProvider);
   final calStart = DateTime(now.year, now.month - 3, 1);
   final calEnd = DateTime(now.year, now.month + 4, 0);
   final monday = DateTime(now.year, now.month, now.day - (now.weekday - 1));

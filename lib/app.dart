@@ -9,6 +9,7 @@ import 'features/splash/presentation/splash_gate.dart';
 import 'features/migration/presentation/pages/database_sealed_page.dart';
 import 'features/settings/presentation/pages/lock_screen.dart';
 import 'core/providers.dart';
+import 'core/providers/today_provider.dart';
 import 'features/settings/domain/entities/user_settings_entity.dart';
 import 'core/database/db_replaced_marker.dart';
 import 'core/services/database_resolver.dart';
@@ -57,6 +58,8 @@ class _FitTrackAppState extends ConsumerState<FitTrackApp>
     if (state == AppLifecycleState.resumed) {
       _resolveIfReplaced();
       _rescheduleIfDayChanged();
+      // 隔夜回前台：把「今天」推进到今天，日维度数据随之重算
+      applyToday(ref.read(todayKeyProvider.notifier));
       // 主动消息：回前台时补齐（不 await，最长会等一次模型调用）
       runCoachProactiveStartup(ref);
     }
