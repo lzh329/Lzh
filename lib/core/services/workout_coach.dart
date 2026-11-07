@@ -256,6 +256,7 @@ class WorkoutCoach {
       await override(text);
       return;
     }
+    final sw = Stopwatch()..start();
     try {
       // 系统 TTS 默认"开口即返回"，这里临时切成"播完才返回"
       await _tts.awaitSpeakCompletion(true);
@@ -267,6 +268,14 @@ class WorkoutCoach {
         await _tts.awaitSpeakCompletion(false);
       } catch (_) {}
     }
+    // 兜底：部分机型忽略 awaitSpeakCompletion（speak 立刻返回），
+    // 若就此启动倒计时，第 1 秒的报数会用 stop() 把还没念完的播报掐断
+    // —— 用户听到的就是"不报，直接倒数"。按字数估一个最短播报时长。
+    final minWait = Duration(
+      milliseconds: (text.runes.length * 170).clamp(600, 8000),
+    );
+    final remain = minWait - sw.elapsed;
+    if (remain > Duration.zero) await Future<void>.delayed(remain);
   }
 
   /// 滚动预热倒计时数字：只为"马上要读到的几个"合成，避免一次发几十个请求

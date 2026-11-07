@@ -57,6 +57,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       trainingDurationSec: _defaultTrainingSec(),
       restShortSec: _defaultRestShortSec(),
       restLongSec: _defaultRestLongSec(),
+      countdownVoiceMode: _defaultCountdownMode(),
       totalRounds:
           scaled.map((s) => s.targetSets).fold(1, (a, b) => a > b ? a : b),
     );
@@ -102,6 +103,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       startTime: DateTime.now(),
       restDurationSec: _defaultRestSec(),
       trainingDurationSec: _defaultTrainingSec(),
+      countdownVoiceMode: _defaultCountdownMode(),
       restShortSec: _defaultRestShortSec(),
       restLongSec: _defaultRestLongSec(),
       totalRounds:
@@ -160,8 +162,17 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   void _loadTimerDefaults() {
-    // 设置已加载完（常见路径）：init 里已经同步取过值，无需再补
-    if (_ref.read(userSettingsProvider).valueOrNull != null) return;
+    // 设置已加载完（常见路径）：时长在 init 里已同步取过，
+    // 但**播报模式**必须在这里补 —— 之前直接 return，导致用户选过的模式
+    // 每次进训练都被重置成默认值（"退出去重新打开又恢复原状"）。
+    final loaded = _ref.read(userSettingsProvider).valueOrNull;
+    if (loaded != null) {
+      state = state.copyWith(
+        countdownVoiceMode:
+            loaded.countdownVoiceMode == 'last3' ? 'last3' : 'every',
+      );
+      return;
+    }
 
     // 冷启动直接开练时 provider 可能还没 resolve → 异步补一次
     _ref.read(userSettingsRepoProvider).get().then((s) {
@@ -170,7 +181,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         restShortSec: (s.restShortSec != null && s.restShortSec! > 0)
             ? s.restShortSec!
             : state.restShortSec,
-        countdownVoiceMode: (s.countdownVoiceMode == 'every') ? 'every' : 'last3',
+        countdownVoiceMode: s.countdownVoiceMode == 'last3' ? 'last3' : 'every',
         restLongSec: (s.restLongSec != null && s.restLongSec! > 0)
             ? s.restLongSec!
             : state.restLongSec,
@@ -182,6 +193,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }).catchError((Object e) {
       debugPrint('加载计时器默认值失败: $e');
     });
+  }
+
+  /// 设置里已保存的播报模式（没存过 → 默认逐秒）
+  String _defaultCountdownMode() {
+    final s = _ref.read(userSettingsProvider).valueOrNull;
+    return s?.countdownVoiceMode == 'last3' ? 'last3' : 'every';
   }
 
   int _defaultTrainingSec() {

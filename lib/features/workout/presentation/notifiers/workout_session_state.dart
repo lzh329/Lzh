@@ -52,7 +52,7 @@ class WorkoutSessionState {
 
   final bool isAutoMode;
 
-  /// 倒计时朗读模式：'every' = 全亮（每秒都读）/ 'last3' = 321 版
+  /// 倒计时播报模式：'every' = 逐秒播报（默认）/ 'last3' = 末三秒播报
   final String countdownVoiceMode;
   final bool isComplete;
   final int paceIntervalSec;
@@ -88,7 +88,7 @@ class WorkoutSessionState {
     this.isTimerPaused = false,
     this.isRestPaused = false,
     this.isAutoMode = false,
-    this.countdownVoiceMode = 'last3',
+    this.countdownVoiceMode = 'every',
     this.isComplete = false,
     this.paceIntervalSec = 2,
     this.currentRound = 1,
