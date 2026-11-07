@@ -16,7 +16,7 @@ import 'package:fittrack/core/database/database.dart';
 ///   ④ 表数量不变（只加列不建表）
 void main() {
   test('kSchemaVersion 已推进到当前版本', () {
-    expect(kSchemaVersion, 27);
+    expect(kSchemaVersion, 28);
   });
 
   // QA 的 D3：`await MigrationFailureMarker.clear(...)` 曾被并到注释行尾，

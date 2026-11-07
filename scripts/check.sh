@@ -49,7 +49,10 @@ fi
 
 echo ""
 echo "==> [2/3] 单元测试"
-if ! "$FLUTTER" test; then
+# 并发上限 4：restore/backup 那组测试做真实文件 rename + fsync，
+# 全核并发（本机 16+ 核）时会因 Windows 文件锁争用撞上 30s 测试超时，
+# 与功能无关。限流后单次全量约 2 分钟，稳定性明显更好。
+if ! "$FLUTTER" test --concurrency=4; then
   echo ""
   echo "❌ 测试未通过 —— 修复后再提交"
   exit 1

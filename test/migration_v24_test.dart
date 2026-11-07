@@ -18,7 +18,7 @@ import 'package:fittrack/core/database/database.dart';
 /// 用原生 sqlite3 造老库（drift 一打开就 onCreate，造不出旧库）。
 void main() {
   test('kSchemaVersion 已推进到 26', () {
-    expect(kSchemaVersion, 27);
+    expect(kSchemaVersion, 28);
   });
 
   test('空库安装：两张新表 + 三个新列 + 一条新索引都在，唯一约束由 CREATE TABLE 落地', () async {

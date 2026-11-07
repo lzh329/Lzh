@@ -110,6 +110,9 @@ class Photos extends Table {
   DateTimeColumn get date => dateTime()();
   TextColumn get filePath => text()();
   TextColumn get note => text().nullable()();
+
+  /// 拍摄角度分类：front / side / back；null = 未分类（允许跳过）
+  TextColumn get category => text().nullable()();
 }
 
 class UserSettings extends Table {
@@ -452,7 +455,7 @@ class CoachMemories extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 27;
+const int kSchemaVersion = 28;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -835,6 +838,14 @@ class AppDatabase extends _$AppDatabase {
               if (await _tableExists(this, 'user_settings')) {
                 step = 'addColumn:tts_config';
                 await addColumnIfNotExists(m, userSettings, userSettings.ttsConfig);
+              }
+            }
+
+            // v28：身体照片增加拍摄角度分类（可空，允许跳过分类）
+            if (from < 28) {
+              if (await _tableExists(this, 'photos')) {
+                step = 'addColumn:photos.category';
+                await addColumnIfNotExists(m, photos, photos.category);
               }
             }
 
