@@ -70,6 +70,9 @@ void main() {
     await tester.tap(find.byType(PhotoTile).at(1));
     await tester.pumpAndSettle();
     expect(find.text('已选 2 张'), findsOneWidget);
+    // 选中态必须可见：两个勾选徽标（此前 checked 没参与 selected 判定，圈是空的）
+    expect(find.byIcon(Icons.check), findsNWidgets(2),
+        reason: '选中的两张右上角要显示勾选');
 
     await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();

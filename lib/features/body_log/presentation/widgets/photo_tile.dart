@@ -36,7 +36,8 @@ class PhotoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = order != null;
+    // 多选态用 checked（没有序号），对比态用 order；两者都算"已选中"
+    final selected = order != null || checked;
 
     return GestureDetector(
       onTap: onTap,
