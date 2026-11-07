@@ -50,7 +50,7 @@ void main() {
     final src = File(
             'lib/features/workout/presentation/widgets/active_workout_tool_row.dart')
         .readAsStringSync();
-    expect(src.contains("'停止计时'"), isTrue);
+    expect(src.contains("'暂停计时'"), isTrue);
     expect(src.contains("'继续计时'"), isTrue);
     expect(src.contains('isTimerPaused'), isTrue);
   });
@@ -110,8 +110,13 @@ void main() {
     final page = File(
             'lib/features/workout/presentation/pages/workout_active_page.dart')
         .readAsStringSync();
-    expect(page.contains("'全亮版'"), isTrue);
-    expect(page.contains("'321 版'"), isTrue);
+    final coach = File('lib/core/services/workout_coach.dart').readAsStringSync();
+    expect(coach.contains('Future<void> speakCount('), isTrue,
+        reason: '报数需要低延迟通道');
+    expect(notifier.contains('_coach.speakCount('), isTrue,
+        reason: '倒计时 tick 必须用系统 TTS 报数，云端合成会慢半拍');
+    expect(page.contains("'逐秒播报'"), isTrue);
+    expect(page.contains("'末三秒播报'"), isTrue);
   });
 }
 

@@ -213,6 +213,17 @@ class WorkoutCoach {
     await _systemSpeak(text, stopFirst: true);
   }
 
+  /// 报数专用：**只走系统 TTS**，不走云端。
+  ///
+  /// 为什么：倒计时每秒一次，云端合成要 300~800ms 网络往返，还要先 stop 上一句，
+  /// 结果"屏幕已经 42、耳朵听到 44"，而且数字经常被下一句截断。
+  /// 系统 TTS 是本地合成（几十毫秒），才能跟屏幕对齐；句子仍用云端音色。
+  Future<void> speakCount(String text) async {
+    if (!enabled) return;
+    if (_cloud != null) await _cloud!.stop();
+    await _systemSpeak(text, stopFirst: true);
+  }
+
   /// 尝试云端播报。成功返回 true；**任何异常都返回 false**（并 debugPrint），
   /// 由调用方回落系统 TTS —— 云端只负责更好听，绝不负责"能不能播"。
   Future<bool> _speakCloud(String text) async {

@@ -469,7 +469,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
                     onChanged: notifier.setCountdownVoiceMode,
                   ),
                   const SizedBox(height: 16),
-                  _buildToolRow(s, notifier),
+                  _buildToolRow(s, notifier, compact: false),
                 ],
               ),
             ),
@@ -482,9 +482,11 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
   /// 工具行（次级控制，保留原有节拍 / 语音 / 时长设置 / 休息开关等入口）
   Widget _buildToolRow(
     WorkoutSessionState state,
-    WorkoutSessionNotifier notifier,
-  ) {
+    WorkoutSessionNotifier notifier, {
+    bool compact = true,
+  }) {
     return ActiveWorkoutToolRow(
+      compact: compact,
       showPrevSet: state.currentSetIndex > 0,
       isAutoMode: state.isAutoMode,
       isResting: state.isResting,
@@ -777,7 +779,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
 }
 
 /// 训练设置弹层里的大号时间卡（显示 30px 数值 + 点击编辑）
-/// 倒计时朗读模式：全亮（每秒都读）/ 321（只读最后 3 秒）
+/// 倒计时播报模式：逐秒播报 / 末三秒播报（术语，勿用口语）
 class _CountdownVoiceCard extends StatelessWidget {
   final String mode;
   final ValueChanged<String> onChanged;
@@ -830,9 +832,9 @@ class _CountdownVoiceCard extends StatelessWidget {
             style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         Row(children: [
-          chip('every', '全亮版', '每一秒都读'),
+          chip('every', '逐秒播报', '每秒播报剩余秒数'),
           const SizedBox(width: 8),
-          chip('last3', '321 版', '只读最后 3 秒'),
+          chip('last3', '末三秒播报', '仅最后 3 秒发声'),
         ]),
       ],
     );

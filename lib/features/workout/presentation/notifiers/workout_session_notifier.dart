@@ -479,7 +479,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(restSeconds: next);
     final everySecond = state.countdownVoiceMode == 'every';
     if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
-      _coach.speakImmediate('$next');
+      // 报数走系统 TTS：云端合成有 300~800ms 延迟，会和屏幕数字错位
+      _coach.speakCount('$next');
     }
     if (next % 5 == 0) _syncOngoing();
   }
@@ -590,7 +591,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(trainingSeconds: next);
     final everySecond = state.countdownVoiceMode == 'every';
     if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
-      _coach.speakImmediate('$next');
+      // 报数走系统 TTS：云端合成有 300~800ms 延迟，会和屏幕数字错位
+      _coach.speakCount('$next');
     }
     if (next % 5 == 0) _syncOngoing();
   }

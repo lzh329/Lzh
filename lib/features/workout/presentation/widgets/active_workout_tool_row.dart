@@ -56,6 +56,10 @@ class ActiveWorkoutToolRow extends StatelessWidget {
   final VoidCallback onCyclePace;
   final VoidCallback onToggleVoice;
 
+  /// true = 主界面紧凑模式（只留高频两个：上一组 / 计时训练）
+  /// false = 训练设置弹层里的完整模式（休息、时长、节拍、语音都在这里）
+  final bool compact;
+
   const ActiveWorkoutToolRow({
     super.key,
     required this.showPrevSet,
@@ -79,6 +83,7 @@ class ActiveWorkoutToolRow extends StatelessWidget {
     required this.onEditRestTime,
     required this.onCyclePace,
     required this.onToggleVoice,
+    this.compact = true,
   });
 
   @override
@@ -94,6 +99,7 @@ class ActiveWorkoutToolRow extends StatelessWidget {
 
   List<Widget> _buildChips() {
     final chips = <Widget>[];
+    if (compact) return _buildCompactChips();
 
     if (showPrevSet && !isAutoMode) {
       chips.add(_chip('上一组', Icons.undo, onPrevSet));
@@ -138,6 +144,24 @@ class ActiveWorkoutToolRow extends StatelessWidget {
   }
 
   /// 单个工具胶囊
+  /// 主界面只保留两个高频动作：上一组（有才显示）+ 计时训练/继续计时
+  List<Widget> _buildCompactChips() {
+    final chips = <Widget>[];
+    if (showPrevSet && !isAutoMode) {
+      chips.add(_chip('上一组', Icons.undo, onPrevSet));
+    }
+    if (isAutoMode) {
+      chips.add(_chip('暂停计时', Icons.pause_circle_outline, onPauseTimer,
+          highlighted: true));
+    } else if (isTimerPaused) {
+      chips.add(_chip('继续计时', Icons.play_circle_filled, onResumeTimer,
+          highlighted: true));
+    } else {
+      chips.add(_chip('计时训练', Icons.play_circle_outline, onStartTraining));
+    }
+    return chips;
+  }
+
   Widget _chip(
     String label,
     IconData icon,
