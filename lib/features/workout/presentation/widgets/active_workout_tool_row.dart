@@ -41,6 +41,15 @@ class ActiveWorkoutToolRow extends StatelessWidget {
 
   /// 当前是否处于「已暂停」状态（决定按钮文案与图标）
   final bool isTimerPaused;
+
+  /// 休息倒计时是否暂停
+  final bool isRestPaused;
+
+  final VoidCallback onPauseRest;
+  final VoidCallback onResumeRest;
+
+  /// 跳过休息（结束休息，可能自动开始下一段倒计时）——与"暂停"不同
+  final VoidCallback onSkipRest;
   final VoidCallback onToggleRest;
   final VoidCallback onEditTrainingTime;
   final VoidCallback onEditRestTime;
@@ -61,6 +70,10 @@ class ActiveWorkoutToolRow extends StatelessWidget {
     required this.onPauseTimer,
     required this.onResumeTimer,
     required this.isTimerPaused,
+    required this.isRestPaused,
+    required this.onPauseRest,
+    required this.onResumeRest,
+    required this.onSkipRest,
     required this.onToggleRest,
     required this.onEditTrainingTime,
     required this.onEditRestTime,
@@ -97,14 +110,17 @@ class ActiveWorkoutToolRow extends StatelessWidget {
       chips.add(_chip('计时训练', Icons.play_circle_outline, onStartTraining));
     }
 
-    chips.add(
-      _chip(
-        isResting ? '停止休息' : '开始休息 ${restDurationSec}s',
-        isResting ? Icons.timer_off : Icons.timer_outlined,
-        onToggleRest,
-        highlighted: isResting,
-      ),
-    );
+    if (isResting && isRestPaused) {
+      chips.add(
+          _chip('继续休息', Icons.play_circle_filled, onResumeRest, highlighted: true));
+    } else if (isResting) {
+      chips.add(_chip('暂停休息', Icons.pause_circle_outline, onPauseRest,
+          highlighted: true));
+      chips.add(_chip('跳过休息', Icons.skip_next, onSkipRest));
+    } else {
+      chips.add(_chip('开始休息 ${restDurationSec}s', Icons.timer_outlined,
+          onToggleRest));
+    }
     chips.add(_chip('训练 ${trainingDurationSec}s', Icons.fitness_center,
         onEditTrainingTime));
     chips.add(_chip('休息 ${restDurationSec}s', Icons.timelapse, onEditRestTime));

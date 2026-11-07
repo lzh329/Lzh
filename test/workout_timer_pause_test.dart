@@ -54,6 +54,25 @@ void main() {
     expect(src.contains("'继续计时'"), isTrue);
     expect(src.contains('isTimerPaused'), isTrue);
   });
+
+  test('休息倒计时同样可暂停/继续，且「跳过」是独立动作', () {
+    final notifier = File(
+            'lib/features/workout/presentation/notifiers/workout_session_notifier.dart')
+        .readAsStringSync();
+    expect(notifier.contains('void pauseRest()'), isTrue);
+    expect(notifier.contains('void resumeRest()'), isTrue);
+
+    final pauseBody = _methodBody(notifier, 'void pauseRest()');
+    expect(pauseBody.contains('_autoStartTimedIfNeeded'), isFalse,
+        reason: '暂停休息绝不能顺手开始下一段倒计时（那正是"从头开始"的来源）');
+
+    final row = File(
+            'lib/features/workout/presentation/widgets/active_workout_tool_row.dart')
+        .readAsStringSync();
+    expect(row.contains("'暂停休息'"), isTrue);
+    expect(row.contains("'继续休息'"), isTrue);
+    expect(row.contains("'跳过休息'"), isTrue);
+  });
 }
 
 /// 取一个方法的方法体（从签名后第一个 `{` 到配平的 `}`）

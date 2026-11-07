@@ -500,13 +500,11 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
         HapticFeedback.selectionClick();
         notifier.resumeTraining();
       },
-      onToggleRest: () {
-        if (state.isResting) {
-          notifier.stopRest();
-        } else {
-          notifier.startRest();
-        }
-      },
+      isRestPaused: state.isRestPaused,
+      onPauseRest: () => notifier.pauseRest(),
+      onResumeRest: () => notifier.resumeRest(),
+      onSkipRest: () => notifier.stopRest(),
+      onToggleRest: () => notifier.startRest(),
       onEditTrainingTime: () => _editTrainingTime(notifier, state),
       onEditRestTime: () => _editRestTime(notifier, state),
       onCyclePace: () {
@@ -610,7 +608,9 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
     ExerciseSlot slot,
     bool isLastSet,
   ) {
-    if (state.isResting) return '休息中';
+    if (state.isResting) {
+      return state.isRestPaused ? '休息已暂停 · 点「继续休息」接着倒数' : '休息中';
+    }
     if (state.isTraining) return '训练中';
     if (state.isTimerPaused) return '已暂停 · 点「继续计时」接着倒数';
     return '第 ${state.currentRound} 轮 / 共 ${state.totalRounds} 轮';

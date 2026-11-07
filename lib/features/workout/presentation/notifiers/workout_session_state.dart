@@ -47,6 +47,9 @@ class WorkoutSessionState {
   /// （与"计时结束"区分：结束会走完成本组，暂停只是定住）
   final bool isTimerPaused;
 
+  /// 休息倒计时被暂停（与 [isTimerPaused] 分开：两者时段不同）
+  final bool isRestPaused;
+
   final bool isAutoMode;
   final bool isComplete;
   final int paceIntervalSec;
@@ -80,6 +83,7 @@ class WorkoutSessionState {
     this.trainingDurationSec = 60,
     this.isTraining = false,
     this.isTimerPaused = false,
+    this.isRestPaused = false,
     this.isAutoMode = false,
     this.isComplete = false,
     this.paceIntervalSec = 2,
@@ -107,6 +111,7 @@ class WorkoutSessionState {
     int? trainingDurationSec,
     bool? isTraining,
     bool? isTimerPaused,
+    bool? isRestPaused,
     bool? isAutoMode,
     bool? isComplete,
     int? paceIntervalSec,
@@ -136,6 +141,7 @@ class WorkoutSessionState {
       trainingDurationSec: trainingDurationSec ?? this.trainingDurationSec,
       isTraining: isTraining ?? this.isTraining,
       isTimerPaused: isTimerPaused ?? this.isTimerPaused,
+      isRestPaused: isRestPaused ?? this.isRestPaused,
       isAutoMode: isAutoMode ?? this.isAutoMode,
       isComplete: isComplete ?? this.isComplete,
       paceIntervalSec: paceIntervalSec ?? this.paceIntervalSec,

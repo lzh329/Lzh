@@ -404,6 +404,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       restSeconds: durationSec,
       restDurationSec: durationSec,
       isResting: true,
+      isRestPaused: false,
     );
     if (_coachEnabled) {
       _coach.speakImmediate(
@@ -424,13 +425,40 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _startRest(state.restShortSec);
   }
 
+  /// 暂停休息：冻结剩余秒数，**不**触发下一段计时
+  ///
+  /// 与 [stopRest]（跳过）区分：跳过会结束休息并可能自动开始下一段倒计时，
+  /// 那正是用户看到的"点一下倒计时就从头开始"的来源。
+  void pauseRest() {
+    if (!state.isResting || state.isRestPaused) return;
+    _restCtrl.cancel();
+    _coach.stop();
+    state = state.copyWith(isRestPaused: true);
+    _syncOngoing();
+  }
+
+  /// 继续休息：从冻结的剩余秒数接着倒
+  void resumeRest() {
+    if (!state.isRestPaused) return;
+    final remain = state.restSeconds;
+    state = state.copyWith(isRestPaused: false);
+    if (remain <= 0) {
+      _onRestComplete();
+      return;
+    }
+    _restCtrl.start(remain, onTick: _onRestTick, onComplete: _onRestComplete);
+    _syncOngoing();
+  }
+
   void stopRest() {
     _restCtrl.cancel();
     // 清掉上一段计时残留的自动标记，否则自动开始会被 isAutoMode 挡住
     state = state.copyWith(
       isResting: false,
+      isRestPaused: false,
       restSeconds: 0,
       isTraining: false,
+      isTimerPaused: false,
       trainingSeconds: 0,
       isAutoMode: false,
     );
@@ -455,7 +483,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   void _onRestComplete() {
-    state = state.copyWith(isResting: false, restSeconds: 0);
+    state = state.copyWith(
+        isResting: false, isRestPaused: false, restSeconds: 0);
     final slot = state.currentSlot;
     if (slot == null) return;
 
@@ -707,6 +736,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       isTraining: false,
       isTimerPaused: false,
       isResting: false,
+      isRestPaused: false,
       trainingSeconds: 0,
       restSeconds: 0,
     );
