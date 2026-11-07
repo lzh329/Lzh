@@ -400,20 +400,32 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   void _startRest(int durationSec, {bool isRoundBreak = false}) {
+    _startRestAsync(durationSec, isRoundBreak: isRoundBreak);
+  }
+
+  /// 休息同样**先播报、播完再倒数**（否则"休息15秒"还没念完就少了两秒）
+  Future<void> _startRestAsync(int durationSec,
+      {bool isRoundBreak = false}) async {
     if (durationSec <= 0) return;
+    _restCtrl.cancel();
     state = state.copyWith(
       restSeconds: durationSec,
       restDurationSec: durationSec,
       isResting: true,
       isRestPaused: false,
     );
+    _syncOngoing();
+
     if (_coachEnabled) {
-      _coach.speakImmediate(
+      await _coach.speakAndWait(
         isRoundBreak
             ? '第${state.currentRound}轮，休息$durationSec秒'
             : '休息$durationSec秒',
       );
     }
+
+    // 播报期间被暂停 / 跳过 / 退出：不再启动
+    if (!mounted || !state.isResting || state.isRestPaused) return;
     _restCtrl.start(
       durationSec,
       onTick: _onRestTick,
@@ -506,6 +518,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // ── 训练计时器 ──
 
   void _startTraining() {
+    _startTrainingAsync();
+  }
+
+  /// 真正的启动流程：**先播报，播完再开始倒数**
+  ///
+  /// 用户实测：名字报完 2~3 秒已经过去了，倒计时早就开始走。
+  /// 所以这里把"开口"和"启动计时"拆成两步，中间等播报完成。
+  Future<void> _startTrainingAsync() async {
     final slot = state.currentSlot;
     if (slot == null) return;
     // 计时类动作用动作自身的目标时长（平板支撑 30s / 拉伸 60s）
@@ -522,21 +542,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         slot.category == 'stretch' ||
         slot.targetDurationSec != null;
 
+    // 预热开头几个数字：后面的由 tick 滚动补齐（见 prewarmNumbers 注释）
+    _coach.prewarmNumbers(duration, lookahead: 6);
+
     if (_coachEnabled) {
       if (isTimed) {
         // 计时动作不播 3/2/1（会和倒计时播报重叠），只播动作名 + 开始
-        _coach.speakImmediate('${slot.exerciseName}，开始');
+        await _coach.speakAndWait('${slot.exerciseName}，开始');
       } else {
-        _coach.announceSetStart(slot.exerciseName, state.currentRound);
+        // 非计时：完整的"第 N 组，准备……开始"播完再计时
+        await _coach.announceSetStart(slot.exerciseName, state.currentRound);
       }
     }
+
+    // 播报期间用户可能暂停 / 退出 / 切了动作：不再启动
+    if (!mounted || !state.isTraining || state.isTimerPaused) return;
+    if (state.currentSlot?.exerciseId != slot.exerciseId) return;
 
     if (!isTimed) {
       _coach.startPace(state.paceIntervalSec * 1000, () {});
     }
 
-    // 预热开头几个数字：后面的由 tick 滚动补齐（见 prewarmNumbers 注释）
-    _coach.prewarmNumbers(duration, lookahead: 6);
     _trainingCtrl.start(
       duration,
       onTick: _onTrainingTick,

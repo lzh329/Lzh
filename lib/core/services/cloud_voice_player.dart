@@ -23,6 +23,9 @@ class CloudVoicePlayer {
   /// 停止播放
   final Future<void> Function() _stop;
 
+  /// 播放并**等到播完**（用于"先报动作名，再开始倒计时"）
+  final Future<void> Function(Uint8List bytes) _playAndWait;
+
   final int capacity;
 
   /// key → 音频字节（LinkedHashMap 天然保序，用来做 LRU）
@@ -41,10 +44,12 @@ class CloudVoicePlayer {
     int pitch = 0,
     this.capacity = 64,
     Future<void> Function(Uint8List bytes)? play,
+    Future<void> Function(Uint8List bytes)? playAndWait,
     Future<void> Function()? stop,
   })  : _synthesize = synthesize,
         _cachePrefix = '$provider|$voiceId|${speed.toStringAsFixed(2)}|$pitch|',
         _play = play ?? _playWithAudioplayers,
+        _playAndWait = playAndWait ?? _playAndWaitWithAudioplayers,
         _stop = stop ?? _stopWithAudioplayers;
 
   /// 缓存命中数（测试用：证明第二次没打接口）
@@ -55,17 +60,26 @@ class CloudVoicePlayer {
 
   /// 合成并播放。失败**向上抛**，由 [WorkoutCoach] 决定是否回落系统 TTS。
   Future<void> speak(String text) async {
+    await _play(await _bytesFor(text));
+  }
+
+  /// 播完才返回：播报期间不要开始倒计时（否则名字没念完，秒数已经在走）
+  Future<void> speakAndWait(String text) async {
+    await _playAndWait(await _bytesFor(text));
+  }
+
+  Future<Uint8List> _bytesFor(String text) async {
     final key = '$_cachePrefix$text';
-    var bytes = _cache[key];
-    if (bytes == null) {
-      bytes = await _synthesize(text);
-      _put(key, bytes);
-    } else {
+    final hit = _cache[key];
+    if (hit != null) {
       // 命中即刷新到队尾（LRU）
       _cache.remove(key);
-      _cache[key] = bytes;
+      _cache[key] = hit;
+      return hit;
     }
-    await _play(bytes);
+    final bytes = await _synthesize(text);
+    _put(key, bytes);
+    return bytes;
   }
 
   /// 预热：把常用短语先合成并缓存（**不播放**）。
@@ -113,6 +127,16 @@ class CloudVoicePlayer {
   // ── 默认实现（真实播放） ──
 
   static final AudioPlayer _player = AudioPlayer();
+
+  /// 播放并等待自然结束（超时兜底：被 stop 打断时不会一直挂着）
+  static Future<void> _playAndWaitWithAudioplayers(Uint8List bytes) async {
+    await _player.stop();
+    final done = _player.onPlayerComplete.first;
+    await _player.play(BytesSource(bytes));
+    try {
+      await done.timeout(const Duration(seconds: 12));
+    } catch (_) {}
+  }
 
   static Future<void> _playWithAudioplayers(Uint8List bytes) async {
     await _player.stop();

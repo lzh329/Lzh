@@ -235,6 +235,40 @@ class WorkoutCoach {
     await _systemSpeak(text, stopFirst: true);
   }
 
+  /// 播完才返回 —— 用于「先报动作名/休息，再开始倒计时」
+  ///
+  /// 为什么必须等：`speak()` 在"开始播放"时就返回，倒计时若同时启动，
+  /// 名字念完 2~3 秒已经过去了（用户实测："名字刚报完，倒计时已经走了两秒"）。
+  Future<void> speakAndWait(String text) async {
+    if (!enabled) return;
+    final cloud = _cloud;
+    if (cloud != null) {
+      try {
+        await cloud.speakAndWait(text);
+        return;
+      } catch (e) {
+        debugPrint('云端播报（等待版）失败，回落系统 TTS：$e');
+      }
+    }
+    await _ensureInit();
+    final override = systemSpeakOverride;
+    if (override != null) {
+      await override(text);
+      return;
+    }
+    try {
+      // 系统 TTS 默认"开口即返回"，这里临时切成"播完才返回"
+      await _tts.awaitSpeakCompletion(true);
+      await _tts.stop();
+      await _tts.speak(text);
+    } catch (_) {
+    } finally {
+      try {
+        await _tts.awaitSpeakCompletion(false);
+      } catch (_) {}
+    }
+  }
+
   /// 滚动预热倒计时数字：只为"马上要读到的几个"合成，避免一次发几十个请求
   ///
   /// 每秒调用一次，每次补 3 个（当前、-1、-2），网络合成约 0.3~0.8s/条，
