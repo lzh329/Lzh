@@ -10,7 +10,8 @@ import 'package:fittrack/features/ai/presentation/pages/ai_coach_settings_page.d
 import 'package:fittrack/features/ai/presentation/widgets/ai_coach_settings_widgets.dart';
 import 'package:fittrack/features/settings/presentation/pages/settings_page.dart';
 
-/// 教练设定页按三组重排（模型 / 行为 / 声音），并把语音入口从系统设置迁过来
+/// 教练设定页按「模型 / 行为」两组重排；语音教练回归「我的 → 偏好设置」
+/// （双入口会让用户以为是两套设置，且实测中用户在原路径找不到）
 void main() {
   late AppDatabase db;
 
@@ -39,7 +40,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  testWidgets('三个组标题存在，且顺序是 模型 → 行为 → 声音', (tester) async {
+  testWidgets('两个组标题存在，且顺序是 模型 → 行为', (tester) async {
     useTallViewport(tester);
     await tester.pumpWidget(
         host(buildContainer(), const AiCoachSettingsPage()));
@@ -48,16 +49,14 @@ void main() {
     // 用组标题组件定位：「模型」这种词在配置卡里也可能出现
     final model = find.widgetWithText(AiCoachGroupTitle, '模型');
     final behavior = find.widgetWithText(AiCoachGroupTitle, '行为');
-    final voice = find.widgetWithText(AiCoachGroupTitle, '声音');
     expect(model, findsOneWidget);
     expect(behavior, findsOneWidget);
-    expect(voice, findsOneWidget);
+    expect(find.widgetWithText(AiCoachGroupTitle, '声音'), findsNothing,
+        reason: '语音已回归系统设置，教练设定不再有声音组');
 
     final yModel = tester.getTopLeft(model).dy;
     final yBehavior = tester.getTopLeft(behavior).dy;
-    final yVoice = tester.getTopLeft(voice).dy;
     expect(yModel, lessThan(yBehavior), reason: '模型组要在行为组上面');
-    expect(yBehavior, lessThan(yVoice), reason: '行为组要在声音组上面');
   });
 
   testWidgets('顶部有「嘎教练能做什么」入口', (tester) async {
@@ -70,24 +69,22 @@ void main() {
     expect(find.text('看看它有哪些能力'), findsOneWidget);
   });
 
-  testWidgets('声音组里有语音教练入口', (tester) async {
+  testWidgets('教练设定里不再有语音入口（避免双入口）', (tester) async {
     useTallViewport(tester);
     await tester.pumpWidget(
         host(buildContainer(), const AiCoachSettingsPage()));
     await tester.pumpAndSettle();
 
-    // 滚到底部才看得到声音组
-    await tester.scrollUntilVisible(find.text('语音教练'), 300,
-        scrollable: find.byType(Scrollable).first);
-    expect(find.text('语音教练'), findsOneWidget);
+    expect(find.text('语音教练'), findsNothing);
   });
 
-  testWidgets('系统设置页不再有「语音教练」（避免两个入口）', (tester) async {
+  testWidgets('「我的 → 偏好设置」里有语音教练入口（用户原路径）', (tester) async {
+    useTallViewport(tester);
     await tester.pumpWidget(host(buildContainer(), const SettingsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('语音教练'), findsNothing);
-    // 页面本身渲染出来了（防止误删整页导致"没有语音教练"这种假绿）
+    expect(find.text('语音教练'), findsOneWidget,
+        reason: '用户按「我的」找语音设置，必须在这个原路径能找到');
     expect(find.byType(SettingsPage), findsOneWidget);
   });
 }

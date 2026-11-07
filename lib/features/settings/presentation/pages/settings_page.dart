@@ -143,8 +143,15 @@ class SettingsPage extends ConsumerWidget {
               // 「今天不舒服」手动开关 —— 不依赖任何 AI 配置，没配 Key 也能用。
               // 放在提醒下面：它写的第一件事就是"今天提醒暂停"。
               const SickDayToggleTile(),
-              // 「语音教练」已迁到教练设定的「声音」组：语音是"教练怎么说话"
-              // 的一部分，不属于系统偏好。两个入口会让用户以为是两套设置。
+              // 语音教练属于"我的偏好"：用户按「我的 → 语音教练」找，
+              // 之前挪进教练设定导致找不到（实测反馈），这里放回原位。
+              SettingsTile(
+                icon: Icons.record_voice_over_outlined,
+                color: _orange,
+                title: '语音教练',
+                subtitle: '语速与音色可调',
+                onTap: () => context.push('/settings/voice'),
+              ),
               SettingsTile(
                 icon: Icons.lock_outline,
                 color: _grey,

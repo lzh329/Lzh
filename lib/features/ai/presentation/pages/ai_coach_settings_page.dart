@@ -32,7 +32,6 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
 
   /// 「联网搜索」开关（默认开，老库没这一列时也按开处理）
   bool _webSearch = true;
-  bool _voiceEnabled = true;
   bool _loaded = false;
 
   final _inputCtrl = TextEditingController();
@@ -62,7 +61,6 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
           (s?.aiTemperature ?? AiService.defaultTemperature).clamp(0.3, 1.0);
       _constraints = AiCoachOptions.decodeConstraints(s?.aiConstraints);
       _webSearch = s?.aiWebSearchEnabled ?? true;
-      _voiceEnabled = (s?.speechRate ?? 0.45) > 0;
       _loaded = true;
     });
   }
@@ -281,15 +279,8 @@ class _AiCoachSettingsPageState extends ConsumerState<AiCoachSettingsPage> {
                 ),
                 const SizedBox(height: 18),
                 const CoachEngagementSection(),
-                const SizedBox(height: 24),
-                const AiCoachGroupTitle('声音', subtitle: '朗读音色'),
-                const SizedBox(height: 12),
-                AiCoachNavTile(
-                  icon: Icons.record_voice_over_outlined,
-                  title: '语音教练',
-                  subtitle: _voiceEnabled ? '已启用 · 语速与音色可调' : '关闭',
-                  onTap: () => context.push('/settings/voice'),
-                ),
+                // 「声音」组已移除：语音教练回归「我的 → 偏好设置」。
+                // 双入口会让用户以为是两套设置，且实测中用户在原路径找不到。
                 const SizedBox(height: 24),
                 const AiCoachSettingsFooter(),
               ],
