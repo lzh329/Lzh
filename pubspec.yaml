@@ -1,7 +1,7 @@
 name: fittrack
 description: 简瘦 - 个人减肥锻炼记录 App
 publish_to: 'none'
-version: 2.1.8+2018
+version: 2.1.9+2019
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
