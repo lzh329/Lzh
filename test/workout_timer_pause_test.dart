@@ -73,6 +73,23 @@ void main() {
     expect(row.contains("'继续休息'"), isTrue);
     expect(row.contains("'跳过休息'"), isTrue);
   });
+
+  test('底部主按钮同样走暂停/继续，不是 stopAutoMode（清零退出）', () {
+    final src =
+        File('lib/features/workout/presentation/pages/workout_active_page.dart')
+            .readAsStringSync();
+
+    expect(src.contains("'暂停计时'"), isTrue, reason: '按钮文案要与行为一致');
+    expect(src.contains("'继续计时'"), isTrue);
+
+    final body = _methodBody(src, 'void _onPrimaryTap(');
+    expect(body.contains('notifier.pauseTraining()'), isTrue,
+        reason: '自动模式下的主按钮必须是暂停');
+    expect(body.contains('notifier.resumeTraining()'), isTrue,
+        reason: '暂停后主按钮必须是继续');
+    expect(body.contains('notifier.stopAutoMode()'), isFalse,
+        reason: '主按钮调 stopAutoMode 会把秒数清零 → 界面回落目标时长（老 bug）');
+  });
 }
 
 /// 取一个方法的方法体（从签名后第一个 `{` 到配平的 `}`）

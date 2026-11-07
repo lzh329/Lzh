@@ -290,7 +290,8 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
         primaryIcon: _primaryIcon(sessionState, isLastSet),
         primaryColor: _primaryColor(sessionState),
         onPrimary: () => _onPrimaryTap(sessionState, notifier, isLastSet),
-        canSkipExercise: !sessionState.isAutoMode,
+        canSkipExercise:
+            !sessionState.isAutoMode && !sessionState.isTimerPaused,
         onSkipExercise: () => _skipExercise(notifier),
         onFinishWorkout: () => _confirmAbandon(context),
       ),
@@ -518,15 +519,22 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
   // ──────────────────── 状态 -> 主按钮映射 ────────────────────
 
   String _primaryLabel(WorkoutSessionState state, bool isLastSet) {
-    if (state.isResting) return '跳过休息';
-    if (state.isAutoMode) return '停止计时';
+    if (state.isResting) {
+      return state.isRestPaused ? '继续休息' : '跳过休息';
+    }
+    if (state.isTimerPaused) return '继续计时';
+    // 措辞与真实行为对齐：这里是"暂停"，不是"停止"（停止=清零退出，是老 bug）
+    if (state.isAutoMode) return '暂停计时';
     final isFinal = state.currentRound >= state.totalRounds && state.isLastSlot;
     return isFinal ? '完成训练' : '完成';
   }
 
   IconData _primaryIcon(WorkoutSessionState state, bool isLastSet) {
-    if (state.isResting) return Icons.timer_off;
-    if (state.isAutoMode) return Icons.stop;
+    if (state.isResting) {
+      return state.isRestPaused ? Icons.play_circle_filled : Icons.timer_off;
+    }
+    if (state.isTimerPaused) return Icons.play_circle_filled;
+    if (state.isAutoMode) return Icons.pause;
     return Icons.check;
   }
 
@@ -541,11 +549,17 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
     bool isLastSet,
   ) {
     if (state.isResting) {
-      notifier.stopRest();
+      // 休息中：暂停中则继续，否则跳过（跳过是独立语义，不是暂停）
+      state.isRestPaused ? notifier.resumeRest() : notifier.stopRest();
+      return;
+    }
+    if (state.isTimerPaused) {
+      notifier.resumeTraining();
       return;
     }
     if (state.isAutoMode) {
-      notifier.stopAutoMode();
+      // 主按钮以前调 stopAutoMode()（清零退出）→ 视觉上"从头开始"，改为暂停冻结
+      notifier.pauseTraining();
       return;
     }
     _completeCurrentSet(notifier);
