@@ -247,6 +247,7 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
                         targetReps: slot.targetReps,
                         targetDurationSec: slot.targetDurationSec,
                         targetWeightKg: slot.targetWeightKg,
+                        toolRow: _buildToolRow(sessionState, notifier),
                         repsController: _repsCtrl,
                         weightController: _weightCtrl,
                         durationController: _durationCtrl,
@@ -394,7 +395,12 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
                     '训练设置',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 10),
+                  _CountdownVoiceCard(
+                    mode: s.countdownVoiceMode,
+                    onChanged: notifier.setCountdownVoiceMode,
+                  ),
+                  const SizedBox(height: 10),
                   const Text(
                     '计时 · 休息 · 节拍 · 语音',
                     style: TextStyle(
@@ -462,11 +468,6 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
                       s.trainingDurationSec,
                       (v) => notifier.setTrainingDurationSec(v),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  _CountdownVoiceCard(
-                    mode: s.countdownVoiceMode,
-                    onChanged: notifier.setCountdownVoiceMode,
                   ),
                   const SizedBox(height: 16),
                   _buildToolRow(s, notifier, compact: false),
