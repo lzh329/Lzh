@@ -413,7 +413,7 @@ class _ScaffoldWithNavState extends State<ScaffoldWithNav> {
           NavigationDestination(
               icon: Icon(Icons.grid_view_outlined),
               selectedIcon: Icon(Icons.grid_view),
-              label: '主控'),
+              label: '主页'),
           NavigationDestination(
               icon: Icon(Icons.fitness_center_outlined),
               selectedIcon: Icon(Icons.fitness_center),

@@ -50,6 +50,9 @@ class CloudVoicePlayer {
   /// 缓存命中数（测试用：证明第二次没打接口）
   int get cachedCount => _cache.length;
 
+  /// 这段文本是否已经合成过 —— 倒计时报数用它决定"用云端还是就地系统 TTS"
+  bool hasCached(String text) => _cache.containsKey('$_cachePrefix$text');
+
   /// 合成并播放。失败**向上抛**，由 [WorkoutCoach] 决定是否回落系统 TTS。
   Future<void> speak(String text) async {
     final key = '$_cachePrefix$text';

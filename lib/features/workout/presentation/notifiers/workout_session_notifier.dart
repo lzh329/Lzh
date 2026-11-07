@@ -479,8 +479,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(restSeconds: next);
     final everySecond = state.countdownVoiceMode == 'every';
     if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
-      // 报数走系统 TTS：云端合成有 300~800ms 延迟，会和屏幕数字错位
+      // 报数：缓存命中走云端音色，否则就地系统 TTS（不等网络）
       _coach.speakCount('$next');
+      _coach.prewarmNumbers(next);
     }
     if (next % 5 == 0) _syncOngoing();
   }
@@ -534,6 +535,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       _coach.startPace(state.paceIntervalSec * 1000, () {});
     }
 
+    // 预热开头几个数字：后面的由 tick 滚动补齐（见 prewarmNumbers 注释）
+    _coach.prewarmNumbers(duration, lookahead: 6);
     _trainingCtrl.start(
       duration,
       onTick: _onTrainingTick,
@@ -591,8 +594,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(trainingSeconds: next);
     final everySecond = state.countdownVoiceMode == 'every';
     if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
-      // 报数走系统 TTS：云端合成有 300~800ms 延迟，会和屏幕数字错位
+      // 报数：缓存命中走云端音色，否则就地系统 TTS（不等网络）
       _coach.speakCount('$next');
+      _coach.prewarmNumbers(next);
     }
     if (next % 5 == 0) _syncOngoing();
   }

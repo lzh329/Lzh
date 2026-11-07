@@ -251,7 +251,20 @@ void main() {
       expect(player.cachedCount, 0);
     });
 
-    test('prewarm：先合成缓存不播放，之后 speak 命中缓存零请求', () async {
+    test('hasCached：预热前后可判定，供倒计时决定"云端还是系统 TTS"', () async {
+    final player = CloudVoicePlayer(
+      synthesize: (t) async => Uint8List.fromList([1, 2, 3]),
+      provider: 'edge',
+      voiceId: 'zh-CN-XiaoxiaoNeural',
+      play: (_) async {},
+      stop: () async {},
+    );
+    expect(player.hasCached('5'), isFalse);
+    await player.prewarm(const ['5']);
+    expect(player.hasCached('5'), isTrue);
+  });
+
+  test('prewarm：先合成缓存不播放，之后 speak 命中缓存零请求', () async {
       var synth = 0;
       var played = 0;
       final player = CloudVoicePlayer(

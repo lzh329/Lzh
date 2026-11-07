@@ -189,114 +189,142 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
             ? sessionState.slots[sessionState.currentSlotIndex + 1]
             : null;
 
-    return Scaffold(
-      backgroundColor: ActiveWorkoutStyle.background,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            ActiveWorkoutHeader(
-              currentIndex: sessionState.currentSlotIndex,
-              total: sessionState.slots.length,
-              progress: _overallProgress(sessionState, slot),
-              roundText:
-                  '第 ${sessionState.currentRound} 轮 / 共 ${sessionState.totalRounds} 轮 · 动作 ${sessionState.currentSlotIndex + 1}/${sessionState.slots.length}',
-              onClose: () => _confirmAbandon(context),
-              onSettings: () => _showSettingsSheet(notifier),
-            ),
-            const SizedBox(height: ActiveWorkoutStyle.gapSection),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    // 中部主区：动作大卡片（占屏约 50%，键盘弹出时可滚动）
-                    SizedBox(
-                      height: _cardHeight(context),
-                      child: ActiveWorkoutActionCard(
-                        exerciseName: slot.exerciseName,
-                        targetText: _targetText(slot),
-                        statusText: _statusText(sessionState, slot, isLastSet),
-                        isResting: sessionState.isResting,
-                        isTraining: sessionState.isTraining,
-                        isLastSet: isLastSet,
-                        isTimed: isTimed,
-                        targetReps: slot.targetReps,
-                        displaySeconds:
-                            _displaySeconds(sessionState, slot, isTimed),
-                        restTotalSec: sessionState.restDurationSec,
-                        onSkipRest: () => notifier.stopRest(),
-                      ),
-                    ),
-                    if (nextSlot != null) ...[
-                      const SizedBox(height: 8),
-                      _buildNextHint(nextSlot.exerciseName),
-                    ],
-                    // 计时类动作（平板支撑 / 拉伸 / 有氧）不做手动输入：
-                    // 倒计时自动开始，组次与时长在右上角 ⚙ 训练设置里调整
-                    if (!isTimed) ...[
-                      const SizedBox(height: ActiveWorkoutStyle.gapBlock),
-                      ActiveWorkoutEntryPanel(
-                        category: slot.category,
-                        isTimed: isTimed,
-                        isResting: sessionState.isResting,
-                        isLastSet: isLastSet,
-                        lastReps: sessionState.lastReps,
-                        lastWeight: sessionState.lastWeight,
-                        lastDuration: sessionState.lastDuration,
-                        targetReps: slot.targetReps,
-                        targetDurationSec: slot.targetDurationSec,
-                        targetWeightKg: slot.targetWeightKg,
-                        toolRow: _buildToolRow(sessionState, notifier),
-                        repsController: _repsCtrl,
-                        weightController: _weightCtrl,
-                        durationController: _durationCtrl,
-                      ),
-                      const SizedBox(height: ActiveWorkoutStyle.gapBlock),
-                    ] else
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          top: ActiveWorkoutStyle.gapBlock,
+    return PopScope(
+      // 训练中误触返回会丢掉当前进度：第一次只提示，2 秒内再按一次才退出
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleSystemBack();
+      },
+      child: Scaffold(
+        backgroundColor: ActiveWorkoutStyle.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              ActiveWorkoutHeader(
+                currentIndex: sessionState.currentSlotIndex,
+                total: sessionState.slots.length,
+                progress: _overallProgress(sessionState, slot),
+                roundText:
+                    '第 ${sessionState.currentRound} 轮 / 共 ${sessionState.totalRounds} 轮 · 动作 ${sessionState.currentSlotIndex + 1}/${sessionState.slots.length}',
+                onClose: () => _confirmAbandon(context),
+                onSettings: () => _showSettingsSheet(notifier),
+              ),
+              const SizedBox(height: ActiveWorkoutStyle.gapSection),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      // 中部主区：动作大卡片（占屏约 50%，键盘弹出时可滚动）
+                      SizedBox(
+                        height: _cardHeight(context),
+                        child: ActiveWorkoutActionCard(
+                          exerciseName: slot.exerciseName,
+                          targetText: _targetText(slot),
+                          statusText:
+                              _statusText(sessionState, slot, isLastSet),
+                          isResting: sessionState.isResting,
+                          isTraining: sessionState.isTraining,
+                          isLastSet: isLastSet,
+                          isTimed: isTimed,
+                          targetReps: slot.targetReps,
+                          displaySeconds:
+                              _displaySeconds(sessionState, slot, isTimed),
+                          restTotalSec: sessionState.restDurationSec,
+                          onSkipRest: () => notifier.stopRest(),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.timer_outlined,
-                              size: 12,
-                              color: ActiveWorkoutStyle.textTertiary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '倒计时自动开始 · 时长可在右上角 ⚙ 调整',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: ActiveWorkoutStyle.textTertiary
-                                    .withAlpha(200),
+                      ),
+                      if (nextSlot != null) ...[
+                        const SizedBox(height: 8),
+                        _buildNextHint(nextSlot.exerciseName),
+                      ],
+                      // 计时类动作（平板支撑 / 拉伸 / 有氧）不做手动输入：
+                      // 倒计时自动开始，组次与时长在右上角 ⚙ 训练设置里调整
+                      if (!isTimed) ...[
+                        const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                        ActiveWorkoutEntryPanel(
+                          category: slot.category,
+                          isTimed: isTimed,
+                          isResting: sessionState.isResting,
+                          isLastSet: isLastSet,
+                          lastReps: sessionState.lastReps,
+                          lastWeight: sessionState.lastWeight,
+                          lastDuration: sessionState.lastDuration,
+                          targetReps: slot.targetReps,
+                          targetDurationSec: slot.targetDurationSec,
+                          targetWeightKg: slot.targetWeightKg,
+                          toolRow: _buildToolRow(sessionState, notifier),
+                          repsController: _repsCtrl,
+                          weightController: _weightCtrl,
+                          durationController: _durationCtrl,
+                        ),
+                        const SizedBox(height: ActiveWorkoutStyle.gapBlock),
+                      ] else
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            top: ActiveWorkoutStyle.gapBlock,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.timer_outlined,
+                                size: 12,
+                                color: ActiveWorkoutStyle.textTertiary,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                '倒计时自动开始 · 时长可在右上角 ⚙ 调整',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: ActiveWorkoutStyle.textTertiary
+                                      .withAlpha(200),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        // 底部固定操作区
+        bottomNavigationBar: ActiveWorkoutFooter(
+          primaryLabel: _primaryLabel(sessionState, isLastSet),
+          primaryIcon: _primaryIcon(sessionState, isLastSet),
+          primaryColor: _primaryColor(sessionState),
+          onPrimary: () => _onPrimaryTap(sessionState, notifier, isLastSet),
+          // 暂停中也要能跳下一个动作（用户要求）；仅倒计时进行中隐藏，避免误触
+          canSkipExercise: !sessionState.isAutoMode,
+          onSkipExercise: () => _skipExercise(notifier),
+          onFinishWorkout: () => _confirmAbandon(context),
         ),
       ),
-      // 底部固定操作区
-      bottomNavigationBar: ActiveWorkoutFooter(
-        primaryLabel: _primaryLabel(sessionState, isLastSet),
-        primaryIcon: _primaryIcon(sessionState, isLastSet),
-        primaryColor: _primaryColor(sessionState),
-        onPrimary: () => _onPrimaryTap(sessionState, notifier, isLastSet),
-        // 暂停中也要能跳下一个动作（用户要求）；仅倒计时进行中隐藏，避免误触
-        canSkipExercise: !sessionState.isAutoMode,
-        onSkipExercise: () => _skipExercise(notifier),
-        onFinishWorkout: () => _confirmAbandon(context),
-      ),
     );
+  }
+
+  /// 系统返回键：第一次提示，2 秒内再按一次才真正退出训练
+  DateTime? _lastBackAt;
+
+  void _handleSystemBack() {
+    final now = DateTime.now();
+    final last = _lastBackAt;
+    if (last != null && now.difference(last) <= const Duration(seconds: 2)) {
+      _lastBackAt = null;
+      Navigator.of(context).pop();
+      return;
+    }
+    _lastBackAt = now;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('再按一次返回键退出训练'),
+        duration: Duration(seconds: 2),
+      ));
   }
 
   /// 卡片下方的「下一个动作」提示

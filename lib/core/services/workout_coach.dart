@@ -220,8 +220,40 @@ class WorkoutCoach {
   /// 系统 TTS 是本地合成（几十毫秒），才能跟屏幕对齐；句子仍用云端音色。
   Future<void> speakCount(String text) async {
     if (!enabled) return;
-    if (_cloud != null) await _cloud!.stop();
+    // 云端口播只有"已经预合成好"才用：命中缓存 ≈ 本地播放，跟屏幕同步；
+    // 没命中就地用系统 TTS，绝不为了音色去等网络（那就是"慢半拍"的根因）。
+    final cloud = _cloud;
+    if (cloud != null && cloud.hasCached(text)) {
+      try {
+        await cloud.speak(text);
+        return;
+      } catch (e) {
+        debugPrint('云端口播失败，回落系统 TTS：$e');
+      }
+    }
+    if (cloud != null) await cloud.stop();
     await _systemSpeak(text, stopFirst: true);
+  }
+
+  /// 滚动预热倒计时数字：只为"马上要读到的几个"合成，避免一次发几十个请求
+  ///
+  /// 每秒调用一次，每次补 3 个（当前、-1、-2），网络合成约 0.3~0.8s/条，
+  /// 一秒钟的间隔足够追上 —— 于是从第 3~4 秒起，数字全部命中缓存、瞬时播放。
+  final Set<String> _warmRequested = {};
+
+  void prewarmNumbers(int from, {int lookahead = 3}) {
+    if (Platform.environment['FLUTTER_TEST'] == 'true') return;
+    final cloud = _cloud;
+    if (cloud == null) return;
+    final texts = <String>[
+      for (var i = from; i >= 1 && i > from - lookahead; i--) '$i',
+    ];
+    final fresh =
+        texts.where((t) => !_warmRequested.contains(t)).toList(growable: false);
+    if (fresh.isEmpty) return;
+    _warmRequested.addAll(fresh);
+    // 不 await：预热在后台跑，绝不能挡住 tick 的状态更新
+    cloud.prewarm(fresh);
   }
 
   /// 尝试云端播报。成功返回 true；**任何异常都返回 false**（并 debugPrint），
