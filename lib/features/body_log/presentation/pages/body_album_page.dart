@@ -11,7 +11,7 @@ import 'package:fittrack/features/body_log/presentation/widgets/album_action_she
 import 'package:fittrack/features/body_log/presentation/widgets/album_app_bar.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/album_bars.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/album_body.dart';
-import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_page.dart';
+import 'package:fittrack/features/body_log/presentation/pages/body_compare_page.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_preview_dialog.dart';
 
 /// 身体相册 —— 查看 / 拍照 / 批量管理 / 分类 / 前后对比
@@ -28,7 +28,6 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
   final Set<int> _selectedIds = {};
 
   List<Photo> _photos = const [];
-  Map<String, double> _weights = const {};
   bool _loading = true;
   bool _busy = false;
   bool _comparing = false;
@@ -44,13 +43,11 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
   Future<void> _load() async {
     try {
       final photos = await ref.read(photoRepoProvider).getAll();
-      final metrics = await ref.read(bodyMetricRepoProvider).getAll();
       final sorted = List<Photo>.from(photos)
         ..sort((a, b) => b.date.compareTo(a.date));
       if (!mounted) return;
       setState(() {
         _photos = sorted;
-        _weights = {for (final m in metrics) photoDayKey(m.date): m.weightKg};
       });
     } catch (_) {
       if (mounted) _snack('照片加载失败，请稍后重试');
@@ -196,7 +193,7 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     _exitCompare();
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) =>
-          PhotoComparePage(before: before, after: after, weights: _weights),
+          BodyComparePage(initialBefore: before, initialAfter: after),
     ));
   }
 

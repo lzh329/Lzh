@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 
 /// 让嘎教练点评对比照时预填的问题
@@ -11,6 +12,35 @@ import 'package:path/path.dart' as p;
 /// 为什么预填而不是自动发送：图像请求要花钱，而且用户可能想换个问法。
 /// 替他做这个决定，等于替他花钱。
 const String compareReviewPrompt = '帮我对比这两张体态照片，说说变化和接下来该注意什么';
+
+/// 带上日期与体重的事实版提问（照片日期 / 体重都能拿到时用它）
+///
+/// 设计约束：
+/// - 只把**记录里真实存在**的数字给模型；缺的那一侧写"未记录"，并明确要求不要推测；
+/// - 明确禁止编造围度 / 体脂 / 体重变化，避免"看起来瘦了 5 斤"这类幻觉。
+String buildCompareReviewPrompt({
+  required DateTime beforeDate,
+  required DateTime afterDate,
+  double? beforeJin,
+  double? afterJin,
+}) {
+  final days = afterDate.difference(beforeDate).inDays.abs();
+  final fmt = DateFormat('yyyy年M月d日');
+  final weightLine = (beforeJin != null && afterJin != null)
+      ? '体重：${beforeJin.toStringAsFixed(1)} 斤 → ${afterJin.toStringAsFixed(1)} 斤'
+          '（${(beforeJin - afterJin).toStringAsFixed(1)} 斤变化）'
+      : beforeJin != null
+          ? '体重：前一张 ${beforeJin.toStringAsFixed(1)} 斤，后一张未记录'
+          : afterJin != null
+              ? '体重：前一张未记录，后一张 ${afterJin.toStringAsFixed(1)} 斤'
+              : '体重：两张都没有记录';
+  return '帮我对比这两张体态照片。\n'
+      '日期：${fmt.format(beforeDate)} → ${fmt.format(afterDate)}，相隔 $days 天\n'
+      '$weightLine\n'
+      '只看照片里能看见的体态变化（肩背、腰腹、腿部线条、整体紧致度）和上面给的数据，'
+      '不要推测或编造体重、围度、体脂等没有记录的数字。'
+      '给出 2~3 条具体、能执行的建议。';
+}
 
 /// 把并排对比区域截成一张 PNG 临时文件
 ///

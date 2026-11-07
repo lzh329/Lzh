@@ -15,12 +15,16 @@ class ComparePhotoPanel extends StatelessWidget {
   final double? jin;
   final VoidCallback onTap;
 
+  /// 「换一张」：传 null 不显示按钮
+  final VoidCallback? onChange;
+
   const ComparePhotoPanel({
     super.key,
     required this.photo,
     required this.label,
     required this.jin,
     required this.onTap,
+    this.onChange,
   });
 
   @override
@@ -72,6 +76,35 @@ class ComparePhotoPanel extends StatelessWidget {
                   ),
                 ),
               ),
+              // 右上角「换一张」
+              if (onChange != null)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Material(
+                    color: Colors.black.withAlpha(130),
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: onChange,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.swap_horiz,
+                                size: 13, color: Colors.white),
+                            SizedBox(width: 3),
+                            Text('换一张',
+                                style: TextStyle(
+                                    fontSize: 10.5, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // 底部渐变 + 日期 / 体重
               Positioned(
                 left: 0,
