@@ -7,13 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:fittrack/core/providers.dart';
 import 'package:fittrack/core/database/database.dart';
 import 'package:fittrack/features/body_log/presentation/body_log_refresh.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/album_action_sheets.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/album_app_bar.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/album_bars.dart';
+import 'package:fittrack/features/body_log/presentation/widgets/album_body.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_compare_page.dart';
 import 'package:fittrack/features/body_log/presentation/widgets/photo_preview_dialog.dart';
-import 'package:fittrack/features/body_log/presentation/widgets/photo_tile.dart';
 
-const _green = AppColors.primary;
-
-/// 身体相册 —— 集中查看 / 拍照补充 / 删除 / 前后对比身体照片
+/// 身体相册 —— 查看 / 拍照 / 批量管理 / 分类 / 前后对比
 class BodyAlbumPage extends ConsumerStatefulWidget {
   const BodyAlbumPage({super.key});
 
@@ -24,12 +25,14 @@ class BodyAlbumPage extends ConsumerStatefulWidget {
 class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
   final ImagePicker _picker = ImagePicker();
   final List<Photo> _picked = [];
+  final Set<int> _selectedIds = {};
 
   List<Photo> _photos = const [];
   Map<String, double> _weights = const {};
   bool _loading = true;
   bool _busy = false;
   bool _comparing = false;
+  bool _selecting = false;
 
   @override
   void initState() {
@@ -42,13 +45,11 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     try {
       final photos = await ref.read(photoRepoProvider).getAll();
       final metrics = await ref.read(bodyMetricRepoProvider).getAll();
-      // 仓储已按日期倒序返回，此处再排序一次保证顺序确定
       final sorted = List<Photo>.from(photos)
         ..sort((a, b) => b.date.compareTo(a.date));
       if (!mounted) return;
       setState(() {
         _photos = sorted;
-        // 日期 → 体重(kg，库里存储单位)，供对比页标注（展示时 ×2 还原为斤）
         _weights = {for (final m in metrics) photoDayKey(m.date): m.weightKg};
       });
     } catch (_) {
@@ -57,51 +58,73 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  // ── 拍照 / 选图 ──
-  Future<void> _takePhoto() =>
-      _pickAndSave(ImageSource.camera, '无法打开相机，可从相册选择已有照片');
-
-  Future<void> _pickFromGallery() =>
-      _pickAndSave(ImageSource.gallery, '照片选择失败，请稍后重试');
-
-  /// 取图并入库；相机不可用时（模拟器 / 无权限）只提示，不崩溃
-  Future<void> _pickAndSave(ImageSource source, String failureHint) async {
+  // ── 导入 ──
+  Future<void> _takePhoto() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
       final file = await _picker.pickImage(
-          source: source, maxWidth: 2000, imageQuality: 92);
+          source: ImageSource.camera, maxWidth: 2000, imageQuality: 92);
       if (file == null) return;
       await ref
           .read(photoRepoProvider)
           .addPhoto(date: DateTime.now(), imageFile: File(file.path));
       await _load();
-      // 首页「今日图片」打卡块与趋势页照片数都缓存了聚合数据，必须一起刷
       refreshBodyDependents(ref);
-      if (mounted) _snack('已添加到相册');
+      if (!mounted) return;
+      // 拍完不退出：给一个「再拍一张」的入口，连续拍
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: const Text('已添加到相册'),
+          action: SnackBarAction(label: '再拍一张', onPressed: _takePhoto),
+        ));
     } catch (_) {
-      if (mounted) {
-        _snack(failureHint, offerGallery: source == ImageSource.camera);
-      }
+      if (mounted) _snack('无法打开相机，可从相册导入', offerGallery: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  void _snack(String message, {bool offerGallery = false}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        action: offerGallery
-            ? SnackBarAction(label: '从相册选择', onPressed: _pickFromGallery)
-            : null,
-      ));
+  Future<void> _importFromGallery() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final files = await _picker.pickMultiImage(
+          maxWidth: 2000, imageQuality: 92);
+      if (files.isEmpty) return;
+      final added = await ref.read(photoRepoProvider).addPhotos(
+            files: files.map((f) => File(f.path)).toList(),
+            date: DateTime.now(),
+          );
+      if (!mounted) return;
+      if (added.isNotEmpty) {
+        final category = await showAlbumCategorySheet(context,
+            count: added.length);
+        if (category != null && category != PhotoCategories.skip) {
+          for (final p in added) {
+            await ref.read(photoRepoProvider).updateCategory(p.id, category);
+          }
+        }
+      }
+      await _load();
+      refreshBodyDependents(ref);
+      if (mounted) _snack('已添加 ${added.length} 张');
+    } catch (_) {
+      if (mounted) _snack('照片导入失败，请稍后重试');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
-  // ── 对比选择态 ──
+  void _snack(String message, {bool offerGallery = false}) =>
+      showAlbumSnack(context, message,
+          onGallery: offerGallery ? _importFromGallery : null);
+
+  // ── 选择态 ──
   void _enterCompare() => setState(() {
         _comparing = true;
+        _selecting = false;
         _picked.clear();
       });
 
@@ -110,22 +133,61 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
         _picked.clear();
       });
 
+  void _enterSelecting() => setState(() {
+        _selecting = true;
+        _comparing = false;
+        _selectedIds.clear();
+      });
+
+  void _exitSelecting() => setState(() {
+        _selecting = false;
+        _selectedIds.clear();
+      });
+
+  void _toggleSelect(Photo photo) => setState(() {
+        if (!_selectedIds.add(photo.id)) _selectedIds.remove(photo.id);
+      });
+
   void _onTapPhoto(Photo photo) {
-    if (!_comparing) {
-      _openPreview(photo);
+    if (_comparing) {
+      setState(() {
+        final hit = _picked.indexWhere((p) => p.id == photo.id);
+        if (hit >= 0) {
+          _picked.removeAt(hit);
+        } else if (_picked.length < 2) {
+          _picked.add(photo);
+        }
+      });
       return;
     }
-    setState(() {
-      final hit = _picked.indexWhere((p) => p.id == photo.id);
-      if (hit >= 0) {
-        _picked.removeAt(hit);
-      } else if (_picked.length < 2) {
-        _picked.add(photo);
-      }
-    });
+    if (_selecting) {
+      _toggleSelect(photo);
+      return;
+    }
+    _openPreview(photo);
   }
 
-  /// 选满两张后打开对比页；左早右晚，避免用户选反
+  Future<void> _onLongPressPhoto(Photo photo) async {
+    if (_comparing || _selecting) return;
+    final action = await showAlbumPhotoMenu(context, photo.category);
+    if (!mounted || action == null) return;
+    if (action == 'delete') {
+      if (!await confirmDeletePhoto(context)) return;
+      await _deletePhoto(photo);
+      return;
+    }
+    try {
+      await ref.read(photoRepoProvider).updateCategory(
+            photo.id,
+            action == PhotoCategories.skip ? null : action,
+          );
+      await _load();
+      refreshBodyDependents(ref);
+    } catch (_) {
+      if (mounted) _snack('修改分类失败，请稍后重试');
+    }
+  }
+
   void _openCompare() {
     final first = _picked.first;
     final second = _picked.last;
@@ -138,36 +200,38 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     ));
   }
 
-  Widget _buildCompareBar(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text('已选 ${_picked.length}/2',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: AppColors.textTertiary)),
-          ),
-          FilledButton.icon(
-            onPressed: _picked.length == 2 ? _openCompare : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: _green,
-              foregroundColor: AppColors.onPrimary,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.compare, size: 18),
-            label: const Text('开始对比',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _deleteSelected() async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) return;
+    if (!await confirmDeletePhotos(context, ids.length) || !mounted) return;
+    try {
+      await ref.read(photoRepoProvider).deleteMany(ids);
+    } catch (_) {
+      if (mounted) _snack('删除失败，请稍后重试');
+      return;
+    }
+    _exitSelecting();
+    await _load();
+    refreshBodyDependents(ref);
+    if (mounted) _snack('已删除 ${ids.length} 张');
+  }
+
+  // ── 预览 / 单张删除 ──
+  Future<void> _openPreview(Photo photo) async {
+    final deleted = await showPhotoPreview(context, photo);
+    if (deleted == true) await _deletePhoto(photo);
+  }
+
+  Future<void> _deletePhoto(Photo photo) async {
+    try {
+      await ref.read(photoRepoProvider).delete(photo.id);
+    } catch (_) {
+      if (mounted) _snack('删除失败，请稍后重试');
+      return;
+    }
+    await _load();
+    if (mounted) _snack('已删除');
+    refreshBodyDependents(ref);
   }
 
   @override
@@ -175,25 +239,18 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_comparing ? '选择对比照片' : '身体相册'),
-        centerTitle: false,
-        actions: [
-          if (_comparing)
-            TextButton(onPressed: _exitCompare, child: const Text('取消'))
-          else ...[
-            IconButton(
-              tooltip: '对比照片',
-              icon: const Icon(Icons.compare),
-              onPressed: _photos.length >= 2 ? _enterCompare : null,
-            ),
-            IconButton(
-              tooltip: '拍照记录',
-              icon: const Icon(Icons.add_a_photo_outlined),
-              onPressed: _busy ? null : _takePhoto,
-            ),
-          ],
-        ],
+      appBar: AlbumAppBar(
+        comparing: _comparing,
+        selecting: _selecting,
+        busy: _busy,
+        canSelect: _photos.isNotEmpty,
+        canCompare: _photos.length >= 2,
+        onCancel: _comparing ? _exitCompare : _exitSelecting,
+        onSelect: _enterSelecting,
+        onCompare: _enterCompare,
+        onCamera: _takePhoto,
+        onGallery: _importFromGallery,
+        onGuide: () => showAlbumShootGuide(context),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -208,97 +265,36 @@ class _BodyAlbumPageState extends ConsumerState<BodyAlbumPage> {
                 ),
                 Expanded(
                     child: _photos.isEmpty
-                        ? _buildEmptyState(theme)
+                        ? _buildEmptyState()
                         : _buildGrid()),
-                if (_comparing) _buildCompareBar(theme),
+                if (_comparing)
+                  AlbumCompareBar(
+                    picked: _picked.length,
+                    onCompare: _openCompare,
+                    onCancel: _exitCompare,
+                  ),
+                if (_selecting)
+                  AlbumSelectionBar(
+                    count: _selectedIds.length,
+                    onDelete: _deleteSelected,
+                    onCancel: _exitSelecting,
+                  ),
               ],
             ),
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 84,
-              height: 84,
-              decoration: BoxDecoration(
-                color: _green.withAlpha(26),
-                borderRadius: BorderRadius.circular(26),
-              ),
-              child: const Icon(Icons.photo_library, size: 36, color: _green),
-            ),
-            const SizedBox(height: 18),
-            Text('还没有身体照片', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              '记录变化，看得见自己的进步',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: AppColors.textTertiary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildEmptyState() =>
+      AlbumEmptyState(onGuide: () => showAlbumShootGuide(context));
 
-  Widget _buildGrid() {
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        physics: const AlwaysScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: _photos.length,
-        itemBuilder: (context, index) {
-          final photo = _photos[index];
-          // 已选序号 1/2，未选为 null
-          final order = _picked.indexWhere((p) => p.id == photo.id) + 1;
-          return PhotoTile(
-            photo: photo,
-            selecting: _comparing,
-            order: order == 0 ? null : order,
-            onTap: () => _onTapPhoto(photo),
-            onLongPress: _comparing ? null : () => _quickDelete(photo),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── 预览 / 删除 ──
-  /// 预览返回 true 表示用户确认删除
-  Future<void> _openPreview(Photo photo) async {
-    final deleted = await showPhotoPreview(context, photo);
-    if (deleted == true) await _deletePhoto(photo);
-  }
-
-  /// 非对比态长按：快速删除（带二次确认）
-  Future<void> _quickDelete(Photo photo) async {
-    if (!await confirmDeletePhoto(context)) return;
-    if (!mounted) return;
-    await _deletePhoto(photo);
-  }
-
-  /// 删库删文件后刷新列表
-  Future<void> _deletePhoto(Photo photo) async {
-    try {
-      await ref.read(photoRepoProvider).delete(photo.id);
-    } catch (_) {
-      if (mounted) _snack('删除失败，请稍后重试');
-      return;
-    }
-    await _load();
-    if (mounted) _snack('已删除');
-    refreshBodyDependents(ref);
-  }
+  Widget _buildGrid() => AlbumPhotoGrid(
+        photos: _photos,
+        comparing: _comparing,
+        selecting: _selecting,
+        selectedIds: _selectedIds,
+        picked: _picked,
+        onRefresh: _load,
+        onTap: _onTapPhoto,
+        onLongPress: _onLongPressPhoto,
+      );
 }

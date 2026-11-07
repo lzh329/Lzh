@@ -17,6 +17,12 @@ class PhotoTile extends StatelessWidget {
   final bool selecting;
   final int? order;
 
+  /// 多选模式下的「已勾选」标记（与对比的 1/2 序号区分）
+  final bool checked;
+
+  /// 分类标签（正面/侧面/背面）；null 不显示
+  final String? categoryLabel;
+
   const PhotoTile({
     super.key,
     required this.photo,
@@ -24,6 +30,8 @@ class PhotoTile extends StatelessWidget {
     this.onLongPress,
     this.selecting = false,
     this.order,
+    this.checked = false,
+    this.categoryLabel,
   });
 
   @override
@@ -59,6 +67,24 @@ class PhotoTile extends StatelessWidget {
                     style: const TextStyle(color: Colors.white, fontSize: 9.5)),
               ),
             ),
+            if (categoryLabel != null && !selecting)
+              Positioned(
+                left: 4,
+                top: 4,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withAlpha(140),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(categoryLabel!,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
             if (selecting)
               Positioned(
                 top: 4,
@@ -72,11 +98,14 @@ class PhotoTile extends StatelessWidget {
                           color: _green,
                           shape: BoxShape.circle,
                         ),
-                        child: Text('$order',
-                            style: const TextStyle(
-                                color: AppColors.onPrimary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700)),
+                        child: checked
+                            ? const Icon(Icons.check,
+                                size: 12, color: AppColors.onPrimary)
+                            : Text('$order',
+                                style: const TextStyle(
+                                    color: AppColors.onPrimary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700)),
                       )
                     : const Icon(Icons.radio_button_unchecked,
                         size: 18, color: Colors.white70),

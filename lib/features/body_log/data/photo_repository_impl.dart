@@ -70,10 +70,12 @@ class PhotoRepositoryImpl implements PhotoRepository {
   Future<void> delete(int id) async {
     final photo = await (_db.select(_db.photos)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
+    // 先删行：Windows 上图片可能正被界面占用而删不掉文件，
+    // 如果先删文件抛错，行会留下 → 用户看到"点了没反应"
+    await (_db.delete(_db.photos)..where((t) => t.id.equals(id))).go();
     if (photo != null) {
       await _deleteFile(photo.filePath);
     }
-    await (_db.delete(_db.photos)..where((t) => t.id.equals(id))).go();
   }
 
   @override
@@ -81,10 +83,11 @@ class PhotoRepositoryImpl implements PhotoRepository {
     if (ids.isEmpty) return;
     final rows = await (_db.select(_db.photos)..where((t) => t.id.isIn(ids)))
         .get();
+    // 先删行再删文件：文件删不掉（被占用 / 权限）不影响数据层结果
+    await (_db.delete(_db.photos)..where((t) => t.id.isIn(ids))).go();
     for (final r in rows) {
       await _deleteFile(r.filePath);
     }
-    await (_db.delete(_db.photos)..where((t) => t.id.isIn(ids))).go();
   }
 
   // ── 内部 ──
