@@ -158,6 +158,10 @@ class UserSettings extends Table {
   TextColumn get aiPersonaCustom => text().nullable()();
   // AI 教练「联网搜索」开关（默认开）：关闭后不注册 web_search / fetch_url，
   // 提示词里也不出现联网规则 —— 直接掐掉搜索费用（¥5 / 1000 次成功请求）
+  /// 倒计时朗读模式：'every'（全亮，每秒都读）/ 'last3'（321 版，只读最后 3 秒）
+  /// null = 未设置，按 last3（历史行为）
+  TextColumn get countdownVoiceMode => text().nullable()();
+
   BoolColumn get aiWebSearchEnabled =>
       boolean().withDefault(const Constant(true))();
   // 饮食目标
@@ -455,7 +459,7 @@ class CoachMemories extends Table {
 /// 单独提成常量是为了让启动期健探测（`database_health.dart` 读文件头
 /// `user_version` 判断 marker 是否僵尸）与真实版本**不可能不同步** ——
 /// 硬编码两份版本号迟早会漂，而漂了的后果是把健康库误判成失败库。
-const int kSchemaVersion = 28;
+const int kSchemaVersion = 29;
 
 /// v21 新增的 9 条索引（迁移侧定义）。
 ///
@@ -838,6 +842,15 @@ class AppDatabase extends _$AppDatabase {
               if (await _tableExists(this, 'user_settings')) {
                 step = 'addColumn:tts_config';
                 await addColumnIfNotExists(m, userSettings, userSettings.ttsConfig);
+              }
+            }
+
+            // v29：倒计时朗读模式（every / last3）
+            if (from < 29) {
+              if (await _tableExists(this, 'user_settings')) {
+                step = 'addColumn:countdown_voice_mode';
+                await addColumnIfNotExists(
+                    m, userSettings, userSettings.countdownVoiceMode);
               }
             }
 

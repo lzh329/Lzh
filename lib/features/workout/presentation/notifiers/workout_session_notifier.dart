@@ -170,6 +170,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         restShortSec: (s.restShortSec != null && s.restShortSec! > 0)
             ? s.restShortSec!
             : state.restShortSec,
+        countdownVoiceMode: (s.countdownVoiceMode == 'every') ? 'every' : 'last3',
         restLongSec: (s.restLongSec != null && s.restLongSec! > 0)
             ? s.restLongSec!
             : state.restLongSec,
@@ -476,7 +477,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   void _onRestTick() {
     final next = state.restSeconds - 1;
     state = state.copyWith(restSeconds: next);
-    if (_coachEnabled && next >= 1 && next <= 3) {
+    final everySecond = state.countdownVoiceMode == 'every';
+    if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
       _coach.speakImmediate('$next');
     }
     if (next % 5 == 0) _syncOngoing();
@@ -586,7 +588,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   void _onTrainingTick() {
     final next = state.trainingSeconds - 1;
     state = state.copyWith(trainingSeconds: next);
-    if (_coachEnabled && next >= 1 && next <= 3) {
+    final everySecond = state.countdownVoiceMode == 'every';
+    if (_coachEnabled && next >= 1 && (everySecond || next <= 3)) {
       _coach.speakImmediate('$next');
     }
     if (next % 5 == 0) _syncOngoing();
@@ -832,6 +835,21 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   void setPaceIntervalSec(int sec) {
     state = state.copyWith(paceIntervalSec: sec);
+  }
+
+  /// 倒计时朗读模式：'every'（全亮，每秒都读）/ 'last3'（321 版）
+  void setCountdownVoiceMode(String mode) {
+    final m = mode == 'every' ? 'every' : 'last3';
+    state = state.copyWith(countdownVoiceMode: m);
+    _saveCountdownVoiceMode(m);
+  }
+
+  Future<void> _saveCountdownVoiceMode(String mode) async {
+    try {
+      await _ref.read(userSettingsRepoProvider).save(countdownVoiceMode: mode);
+    } catch (e) {
+      debugPrint('保存倒计时朗读模式失败: $e');
+    }
   }
 
   void setVoiceEnabled(bool enabled) {

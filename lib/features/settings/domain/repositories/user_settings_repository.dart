@@ -33,6 +33,7 @@ abstract class UserSettingsRepository {
     double? aiTemperature,
     String? aiPersonaCustom,
     bool? aiWebSearchEnabled,
+    String? countdownVoiceMode,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

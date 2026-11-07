@@ -90,6 +90,29 @@ void main() {
     expect(body.contains('notifier.stopAutoMode()'), isFalse,
         reason: '主按钮调 stopAutoMode 会把秒数清零 → 界面回落目标时长（老 bug）');
   });
+
+  test('暂停时「下一个动作」仍可点（仅倒计时进行中禁用）', () {
+    final src =
+        File('lib/features/workout/presentation/pages/workout_active_page.dart')
+            .readAsStringSync();
+    expect(src.contains('canSkipExercise: !sessionState.isAutoMode,'), isTrue,
+        reason: '不能再用 isTimerPaused 把暂停态的跳过动作一起禁掉');
+  });
+
+  test('倒计时朗读支持两种模式：全亮 / 321', () {
+    final notifier = File(
+            'lib/features/workout/presentation/notifiers/workout_session_notifier.dart')
+        .readAsStringSync();
+    expect(notifier.contains("countdownVoiceMode == 'every'"), isTrue,
+        reason: '每 tick 都要按模式决定是否朗读');
+    expect(notifier.contains('void setCountdownVoiceMode('), isTrue);
+
+    final page = File(
+            'lib/features/workout/presentation/pages/workout_active_page.dart')
+        .readAsStringSync();
+    expect(page.contains("'全亮版'"), isTrue);
+    expect(page.contains("'321 版'"), isTrue);
+  });
 }
 
 /// 取一个方法的方法体（从签名后第一个 `{` 到配平的 `}`）

@@ -290,8 +290,8 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
         primaryIcon: _primaryIcon(sessionState, isLastSet),
         primaryColor: _primaryColor(sessionState),
         onPrimary: () => _onPrimaryTap(sessionState, notifier, isLastSet),
-        canSkipExercise:
-            !sessionState.isAutoMode && !sessionState.isTimerPaused,
+        // 暂停中也要能跳下一个动作（用户要求）；仅倒计时进行中隐藏，避免误触
+        canSkipExercise: !sessionState.isAutoMode,
         onSkipExercise: () => _skipExercise(notifier),
         onFinishWorkout: () => _confirmAbandon(context),
       ),
@@ -462,6 +462,11 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
                       s.trainingDurationSec,
                       (v) => notifier.setTrainingDurationSec(v),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  _CountdownVoiceCard(
+                    mode: s.countdownVoiceMode,
+                    onChanged: notifier.setCountdownVoiceMode,
                   ),
                   const SizedBox(height: 16),
                   _buildToolRow(s, notifier),
@@ -772,6 +777,68 @@ class _WorkoutActivePageState extends ConsumerState<WorkoutActivePage>
 }
 
 /// 训练设置弹层里的大号时间卡（显示 30px 数值 + 点击编辑）
+/// 倒计时朗读模式：全亮（每秒都读）/ 321（只读最后 3 秒）
+class _CountdownVoiceCard extends StatelessWidget {
+  final String mode;
+  final ValueChanged<String> onChanged;
+
+  const _CountdownVoiceCard({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(String value, String label, String hint) {
+      final selected = mode == value;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => onChanged(value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.primary.withAlpha(28)
+                  : AppColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? AppColors.primary
+                            : AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(hint,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('倒计时朗读',
+            style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        Row(children: [
+          chip('every', '全亮版', '每一秒都读'),
+          const SizedBox(width: 8),
+          chip('last3', '321 版', '只读最后 3 秒'),
+        ]),
+      ],
+    );
+  }
+}
+
 class _TimeCard extends StatelessWidget {
   final String label;
   final String value;

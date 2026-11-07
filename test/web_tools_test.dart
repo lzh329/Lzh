@@ -647,6 +647,7 @@ class _StubSettingsRepo implements UserSettingsRepository {
     double? aiTemperature,
     String? aiPersonaCustom,
     bool? aiWebSearchEnabled,
+    String? countdownVoiceMode,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,

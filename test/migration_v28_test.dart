@@ -15,7 +15,7 @@ import 'package:fittrack/core/database/database.dart';
 ///   ③ 重复打开（幂等）：不崩、版本不回退。
 void main() {
   test('kSchemaVersion 已推进到 28（v28 = 照片角度分类）', () {
-    expect(kSchemaVersion, 28);
+    expect(kSchemaVersion, 29);
   });
 
   test('v27 → v28：category 列加上、老照片不丢、不新建表', () async {
@@ -47,7 +47,7 @@ void main() {
     try {
       await db.customSelect('SELECT 1').get();
 
-      expect(await _userVersion(db), 28);
+      expect(await _userVersion(db), 29);
       expect(await _columns(db, 'photos'), contains('category'),
           reason: 'v28 的核心：这一列必须存在');
 
@@ -71,7 +71,7 @@ void main() {
     final again = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
     try {
       await again.customSelect('SELECT 1').get();
-      expect(await _userVersion(again), 28);
+      expect(await _userVersion(again), 29);
       expect(await _columns(again, 'photos'), contains('category'));
     } finally {
       await again.close();

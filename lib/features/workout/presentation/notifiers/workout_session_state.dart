@@ -51,6 +51,9 @@ class WorkoutSessionState {
   final bool isRestPaused;
 
   final bool isAutoMode;
+
+  /// 倒计时朗读模式：'every' = 全亮（每秒都读）/ 'last3' = 321 版
+  final String countdownVoiceMode;
   final bool isComplete;
   final int paceIntervalSec;
 
@@ -85,6 +88,7 @@ class WorkoutSessionState {
     this.isTimerPaused = false,
     this.isRestPaused = false,
     this.isAutoMode = false,
+    this.countdownVoiceMode = 'last3',
     this.isComplete = false,
     this.paceIntervalSec = 2,
     this.currentRound = 1,
@@ -113,6 +117,7 @@ class WorkoutSessionState {
     bool? isTimerPaused,
     bool? isRestPaused,
     bool? isAutoMode,
+    String? countdownVoiceMode,
     bool? isComplete,
     int? paceIntervalSec,
     int? currentRound,
@@ -143,6 +148,7 @@ class WorkoutSessionState {
       isTimerPaused: isTimerPaused ?? this.isTimerPaused,
       isRestPaused: isRestPaused ?? this.isRestPaused,
       isAutoMode: isAutoMode ?? this.isAutoMode,
+      countdownVoiceMode: countdownVoiceMode ?? this.countdownVoiceMode,
       isComplete: isComplete ?? this.isComplete,
       paceIntervalSec: paceIntervalSec ?? this.paceIntervalSec,
       currentRound: currentRound ?? this.currentRound,

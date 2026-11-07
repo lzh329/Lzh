@@ -15,7 +15,7 @@ import 'package:fittrack/core/database/database.dart';
 ///   ③ 重复打开（幂等）：不崩、版本不回退。
 void main() {
   test('kSchemaVersion 已推进到 27（v27 = 云端音色 tts_config）', () {
-    expect(kSchemaVersion, 28);
+    expect(kSchemaVersion, 29);
   });
 
   test('v26 → v27：tts_config 列加上、老设置一条不丢、不新建表', () async {
@@ -47,7 +47,7 @@ void main() {
     try {
       await db.customSelect('SELECT 1').get();
 
-      expect(await _userVersion(db), 28, reason: '迁移会一路推进到最新版本');
+      expect(await _userVersion(db), 29, reason: '迁移会一路推进到最新版本');
       expect(await _columns(db, 'user_settings'), contains('tts_config'),
           reason: 'v27 的核心：这一列必须存在');
 
@@ -74,7 +74,7 @@ void main() {
     final again = AppDatabase.withExecutor(NativeDatabase(File(dbFile)));
     try {
       await again.customSelect('SELECT 1').get();
-      expect(await _userVersion(again), 28);
+      expect(await _userVersion(again), 29);
       expect(await _columns(again, 'user_settings'), contains('tts_config'));
     } finally {
       await again.close();

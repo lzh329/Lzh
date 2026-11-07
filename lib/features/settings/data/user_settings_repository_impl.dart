@@ -46,6 +46,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
     double? aiTemperature,
     String? aiPersonaCustom,
     bool? aiWebSearchEnabled,
+    String? countdownVoiceMode,
     int? dailyCalorieTarget,
     double? proteinTargetG,
     double? carbsTargetG,
@@ -111,6 +112,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             : const Value.absent(),
         aiWebSearchEnabled: aiWebSearchEnabled != null
             ? Value(aiWebSearchEnabled)
+            : const Value.absent(),
+        countdownVoiceMode: countdownVoiceMode != null
+            ? Value(countdownVoiceMode)
             : const Value.absent(),
         dailyCalorieTarget: dailyCalorieTarget != null
             ? Value(dailyCalorieTarget)
@@ -192,6 +196,9 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
             aiWebSearchEnabled: aiWebSearchEnabled != null
                 ? Value(aiWebSearchEnabled)
                 : const Value(true),
+            countdownVoiceMode: countdownVoiceMode != null
+                ? Value(countdownVoiceMode)
+                : const Value.absent(),
             dailyCalorieTarget: dailyCalorieTarget != null
                 ? Value(dailyCalorieTarget)
                 : const Value.absent(),
@@ -342,6 +349,7 @@ class UserSettingsRepositoryImpl implements UserSettingsRepository {
         nickname: row.nickname,
         avatarPath: row.avatarPath,
         aiWebSearchEnabled: row.aiWebSearchEnabled,
+        countdownVoiceMode: row.countdownVoiceMode,
         dailyCalorieTarget: row.dailyCalorieTarget,
         proteinTargetG: row.proteinTargetG,
         carbsTargetG: row.carbsTargetG,

@@ -65,6 +65,9 @@ class UserSettingsEntity {
   /// 直接掐掉搜索费用（¥5 / 1000 次成功请求）。
   final bool aiWebSearchEnabled;
 
+  /// 倒计时朗读模式：'every' | 'last3'（null 视为 last3）
+  final String? countdownVoiceMode;
+
   // 饮食目标
   final int? dailyCalorieTarget;
   final double? proteinTargetG;
@@ -126,6 +129,7 @@ class UserSettingsEntity {
     this.nickname,
     this.avatarPath,
     this.aiWebSearchEnabled = true,
+    this.countdownVoiceMode,
     this.dailyCalorieTarget,
     this.proteinTargetG,
     this.carbsTargetG,
