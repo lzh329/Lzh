@@ -43,38 +43,6 @@ class _WorkoutRecordsPageState extends ConsumerState<WorkoutRecordsPage> {
   late DateTime _selected;
   late DateTime _weekStart; // 周一
 
-  /// 用户是否手动点过周条。点过之后数据刷新不再自动跳日期 ——
-  /// 否则用户刚选完某天，一次刷新就把焦点抢走，比"默认定位"更烦
-  bool _userPicked = false;
-
-  /// 数据首次到达时，把选中日挪到"本周最近一个（≤今天）有记录的日子"
-  ///
-  /// 背景：用户让教练补了 11-02 的记录，进页面看到的还是今天（空），
-  /// 以为又没记上。只在「今天本周无记录 + 其它天有」时才挪。
-  DateTime? _autoPickDay(Set<DateTime> workoutDates, DateTime today) {
-    final todayInWeek = !_weekStart.isAfter(today) &&
-        today.isBefore(_weekStart.add(const Duration(days: 7)));
-    if (todayInWeek && workoutDates.contains(_dayOf(today))) return null;
-    final candidates = workoutDates
-        .where((d) => !d.isAfter(today) && !d.isBefore(_weekStart))
-        .toList()
-      ..sort((a, b) => b.compareTo(a));
-    return candidates.isEmpty ? null : candidates.first;
-  }
-
-  DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  /// 在 post-frame 里定位（禁止在 build 里 setState）
-  void _maybeAutoPick(Set<DateTime> workoutDates, DateTime today) {
-    if (_userPicked) return;
-    final target = _autoPickDay(workoutDates, today);
-    if (target == null || _sameDay(target, _selected)) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _userPicked) return;
-      setState(() => _selected = target);
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -88,8 +56,6 @@ class _WorkoutRecordsPageState extends ConsumerState<WorkoutRecordsPage> {
     setState(() {
       _weekStart = _weekStart.add(Duration(days: 7 * delta));
       _selected = _weekStart;
-      // 用户主动翻周 = 他自己在挑日期，自动定位到此为止
-      _userPicked = true;
     });
   }
 
@@ -191,7 +157,6 @@ class _WorkoutRecordsPageState extends ConsumerState<WorkoutRecordsPage> {
           final workoutDates = workouts
               .map((w) => DateTime(w.date.year, w.date.month, w.date.day))
               .toSet();
-          _maybeAutoPick(workoutDates, today);
 
           final summary = WeekSummaryCalc.of(
             workouts
@@ -208,10 +173,7 @@ class _WorkoutRecordsPageState extends ConsumerState<WorkoutRecordsPage> {
                 selected: _selected,
                 markedDates: workoutDates,
                 weighDates: weighDates,
-                onSelect: (d) => setState(() {
-                  _selected = d;
-                  _userPicked = true; // 之后不再自动跳日期
-                }),
+                onSelect: (d) => setState(() => _selected = d),
                 onPrev: () => _shiftWeek(-1),
                 onNext: () => _shiftWeek(1),
               ),

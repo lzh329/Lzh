@@ -32,7 +32,15 @@ class ActiveWorkoutToolRow extends StatelessWidget {
 
   final VoidCallback onPrevSet;
   final VoidCallback onStartTraining;
-  final VoidCallback onStopTimer;
+
+  /// 「停止计时」= 暂停并冻结当前秒数
+  final VoidCallback onPauseTimer;
+
+  /// 「继续计时」= 从冻结处接着倒数
+  final VoidCallback onResumeTimer;
+
+  /// 当前是否处于「已暂停」状态（决定按钮文案与图标）
+  final bool isTimerPaused;
   final VoidCallback onToggleRest;
   final VoidCallback onEditTrainingTime;
   final VoidCallback onEditRestTime;
@@ -50,7 +58,9 @@ class ActiveWorkoutToolRow extends StatelessWidget {
     required this.paceIntervalSec,
     required this.onPrevSet,
     required this.onStartTraining,
-    required this.onStopTimer,
+    required this.onPauseTimer,
+    required this.onResumeTimer,
+    required this.isTimerPaused,
     required this.onToggleRest,
     required this.onEditTrainingTime,
     required this.onEditRestTime,
@@ -77,7 +87,11 @@ class ActiveWorkoutToolRow extends StatelessWidget {
     }
 
     if (isAutoMode) {
-      chips.add(_chip('停止计时', Icons.stop_circle_outlined, onStopTimer,
+      chips.add(_chip('停止计时', Icons.pause_circle_outline, onPauseTimer,
+          highlighted: true));
+    } else if (isTimerPaused) {
+      // 暂停中：数字冻结，点这里从冻结点接着倒数（不是从头开始）
+      chips.add(_chip('继续计时', Icons.play_circle_filled, onResumeTimer,
           highlighted: true));
     } else if (!isResting) {
       chips.add(_chip('计时训练', Icons.play_circle_outline, onStartTraining));

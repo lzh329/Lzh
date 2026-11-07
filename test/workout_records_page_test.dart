@@ -178,8 +178,7 @@ void main() {
     expect(find.text('12'), findsOneWidget);
   });
 
-  testWidgets('今天无记录、本周一有记录 → 首屏自动定位到周一', (tester) async {
-    // 造一条"本周一"的记录（今天是周几都可能，weekOf 给出本周周一）
+  testWidgets('今天无记录、本周一有记录 → 首屏仍停在今天（不自动跳日期）', (tester) async {
     final now = DateTime.now();
     final monday = WeekSummaryCalc.weekOf(now);
     // 若今天就是周一，这条用例没有区分度，跳过（避免假绿）
@@ -187,12 +186,12 @@ void main() {
 
     await harness.seedWorkout(date: monday, exerciseIds: [squatId]);
     await pumpRecords(tester);
-    // post-frame 自动定位需要额外一帧
     await tester.pumpAndSettle();
 
-    // 断言可观测行为：页面上出现了那条记录（说明选中的是周一而不是今天）
-    expect(find.byType(WorkoutRecordCard), findsWidgets,
-        reason: '今天没记录时，应自动定位到本周有记录的那天');
-    expect(find.text('这天没有训练'), findsNothing);
+    // 用户要求：这页默认就是「今天」，今天没记录就显示空态，
+    // 不能被"最近有记录的一天"抢走焦点（否则会看到昨天的内容）
+    expect(find.byType(WorkoutRecordCard), findsNothing,
+        reason: '今天没记录 → 显示今天，不该跳到周一那条');
+    expect(find.text('这天没有训练'), findsOneWidget);
   });
 }

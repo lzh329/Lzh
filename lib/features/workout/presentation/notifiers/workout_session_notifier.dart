@@ -481,6 +481,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(
       trainingSeconds: duration,
       isTraining: true,
+      isTimerPaused: false,
       isAutoMode: true,
     );
 
@@ -511,6 +512,44 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   void startTraining() {
     _startTraining();
+  }
+
+  /// 暂停倒计时：秒数**冻结在当前值**，等用户点「继续计时」
+  ///
+  /// 与「停止」不同：这里不清零、不退出本组，恢复时从冻结点接着倒数。
+  /// 原先「停止计时」直接 cancel + 清零，界面回落到动作目标时长（看起来像
+  /// 从头开始），用户也没法接着倒 —— 这是本次修复的根因。
+  void pauseTraining() {
+    if (!state.isTraining) return;
+    _trainingCtrl.cancel();
+    _coach.stop();
+    state = state.copyWith(
+      isTraining: false,
+      isTimerPaused: true,
+      isAutoMode: false,
+    );
+    _syncOngoing();
+  }
+
+  /// 继续倒计时：从冻结的剩余秒数接着走
+  void resumeTraining() {
+    if (!state.isTimerPaused) return;
+    final remain = state.trainingSeconds;
+    if (remain <= 0) {
+      _startTraining();
+      return;
+    }
+    state = state.copyWith(
+      isTraining: true,
+      isTimerPaused: false,
+      isAutoMode: true,
+    );
+    _trainingCtrl.start(
+      remain,
+      onTick: _onTrainingTick,
+      onComplete: _onTrainingComplete,
+    );
+    _syncOngoing();
   }
 
   /// 训练每秒回调：只在最后 3 秒念「3 / 2 / 1」，其余秒静默
@@ -666,6 +705,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     state = state.copyWith(
       isAutoMode: false,
       isTraining: false,
+      isTimerPaused: false,
       isResting: false,
       trainingSeconds: 0,
       restSeconds: 0,
@@ -683,6 +723,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     // 计时已结束：清掉训练态（否则界面会停在最后一次的秒数/自动标记上）
     state = state.copyWith(
       isTraining: false,
+      isTimerPaused: false,
       trainingSeconds: 0,
       isAutoMode: false,
     );
